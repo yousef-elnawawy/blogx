@@ -1,0 +1,389 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>BlogX | Minimalist Social Blogging</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<!-- Tailwind Configuration -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-low": "#fff1e5",
+                    "on-secondary-fixed-variant": "#3c475a",
+                    "secondary-fixed-dim": "#bcc7de",
+                    "primary-container": "#f59e0b",
+                    "tertiary-container": "#1abdff",
+                    "on-primary-fixed-variant": "#653e00",
+                    "surface-bright": "#fff8f4",
+                    "on-secondary-container": "#586377",
+                    "inverse-surface": "#382f25",
+                    "on-tertiary-container": "#004966",
+                    "on-background": "#221a12",
+                    "error": "#ba1a1a",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "surface-tint": "#855300",
+                    "secondary-container": "#d5e0f8",
+                    "on-secondary": "#ffffff",
+                    "outline": "#867461",
+                    "outline-variant": "#d8c3ad",
+                    "on-primary": "#ffffff",
+                    "tertiary": "#00658b",
+                    "surface-container-high": "#f5e6d7",
+                    "tertiary-fixed-dim": "#7fd0ff",
+                    "surface-container-highest": "#f0e0d1",
+                    "primary-fixed": "#ffddb8",
+                    "error-container": "#ffdad6",
+                    "on-primary-fixed": "#2a1700",
+                    "surface-container": "#fbebdd",
+                    "on-secondary-fixed": "#111c2d",
+                    "on-tertiary-fixed-variant": "#004c6a",
+                    "background": "#fff8f4",
+                    "on-primary-container": "#613b00",
+                    "surface": "#fff8f4",
+                    "inverse-primary": "#ffb95f",
+                    "tertiary-fixed": "#c5e7ff",
+                    "on-tertiary-fixed": "#001e2d",
+                    "secondary": "#545f73",
+                    "primary": "#855300",
+                    "primary-fixed-dim": "#ffb95f",
+                    "on-surface": "#221a12",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface-variant": "#534434",
+                    "on-error-container": "#93000a",
+                    "surface-dim": "#e7d7c9",
+                    "inverse-on-surface": "#feeedf",
+                    "secondary-fixed": "#d8e3fb",
+                    "surface-variant": "#f0e0d1"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-sm": "8px",
+                    "stack-md": "16px",
+                    "gutter": "24px",
+                    "container-max": "1120px",
+                    "unit": "4px",
+                    "margin-mobile": "16px",
+                    "stack-lg": "32px",
+                    "margin-desktop": "40px"
+            },
+            "fontFamily": {
+                    "display": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-md": ["Inter"]
+            },
+            "fontSize": {
+                    "display": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "800"}],
+                    "body-lg": ["18px", {"lineHeight": "1.7", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "1", "fontWeight": "500"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "1", "letterSpacing": "0.01em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #fafafa;
+            color: #221a12;
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .post-card {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .post-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0px 10px 30px rgba(30, 41, 59, 0.08);
+        }
+        .mention {
+            color: #855300;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .mention:hover {
+            text-decoration: underline;
+        }
+        /* Hide scrollbar */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-surface-bright selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Top Navigation Bar -->
+<header class="bg-surface dark:bg-surface border-b border-outline-variant dark:border-outline shadow-sm dark:shadow-none docked full-width top-0 sticky z-50">
+<div class="flex justify-between items-center w-full px-margin-mobile md:px-margin-desktop py-4 max-w-container-max mx-auto">
+<div class="text-headline-md font-display font-black text-primary dark:text-primary-fixed-dim">BlogX</div>
+<nav class="hidden md:flex items-center space-x-stack-lg">
+<a class="font-label-md text-label-md text-primary dark:text-primary-fixed-dim border-b-2 border-primary dark:border-primary-fixed-dim pb-1 hover:text-primary transition-colors duration-200" href="#">Feed</a>
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Explore</a>
+<a class="font-label-md text-label-md text-on-surface-variant dark:text-on-surface-variant hover:text-primary transition-colors duration-200" href="#">Write</a>
+</nav>
+<div class="flex items-center space-x-stack-md">
+<button class="hidden md:block font-label-md text-label-md px-stack-md py-stack-sm text-on-surface hover:text-primary transition-colors">Sign In</button>
+<button class="bg-primary-container text-on-primary-container px-6 py-2 rounded-full font-label-md text-label-md hover:scale-105 transition-transform">Create</button>
+<div class="w-10 h-10 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A sophisticated professional portrait of a person with a warm smile, set against a clean, softly lit minimalist background with warm amber tones and high-key lighting, maintaining a modern and elegant aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDn-91wr-KtB8gGT_Odp3rmlh1UdWok_UEYuQUfFxMKXilA6vzpKHieFIaHQ2UD2-DYbIKTMoJaY36iZ6BJzFWXRAvnhVLCu3n2OQ1D40K1m_LiDxXkrBlfU0R8p42ZlJGEL8DwEUgQI9LM8c3ieA820C_caxMMVwl9Su-uEJ2_vdrWXgi2lpygBxLfmMmVycz9PTHOPRjSSen0GG_qpV8yI6sgfB4Z84PvOGdB3slEfwVUtpVjUXfl">
+</div>
+</div>
+</div>
+</header>
+<main class="max-w-container-max mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg flex flex-col md:flex-row gap-gutter">
+<!-- Main Feed Content -->
+<div class="flex-1 space-y-gutter">
+<!-- Create Post Area -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg shadow-[0_4px_20px_rgba(30,41,59,0.05)]">
+<div class="flex gap-stack-md">
+<div class="w-12 h-12 rounded-full overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Close-up profile photo of a creative professional, high-resolution, soft focus background, emphasizing a clean and high-end aesthetic with subtle warm lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC9CxBP9TG099zPGU6UivYQIKTunRqJf_zveTHjVygnvytMMMzHTWV3xObsi3a-LwzMfvFHoiWDR3PtjnnI76O7otPvDrMP7YPH36IhnRRmq-08CBcKHo1ZB8Z9HNvg1Fd1pogG5eU4yeil2Spuy0tJRpE_NYGxFqzwVRqA8MdoPePHo6FwU5idzS3h4QGqpm_pGu8t1ye8rbP-bqkzA68XwWSUxfGw46I1C02ig8qj8cU1mcDWxwMN">
+</div>
+<div class="flex-1">
+<textarea class="w-full bg-surface-container-low border-none focus:ring-2 focus:ring-primary-container rounded-lg p-stack-md font-body-md text-body-md min-h-[120px] resize-none placeholder:text-on-surface-variant/50" id="post-input" placeholder="What's on your mind? Mention someone with @"></textarea>
+<div class="flex justify-between items-center mt-stack-md">
+<div class="flex gap-stack-md">
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[20px]">image</span>
+<span class="font-label-sm text-label-sm">Image</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[20px]">alternate_email</span>
+<span class="font-label-sm text-label-sm">Mention</span>
+</button>
+</div>
+<button class="bg-primary text-on-primary px-stack-lg py-2 rounded-full font-label-md text-label-md hover:shadow-lg transition-all active:scale-95">Post</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Vertical Feed -->
+<div class="space-y-gutter pb-24 md:pb-0">
+<!-- Post 1: Text-only Minimalist Design -->
+<article class="post-card bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(30,41,59,0.05)]">
+<div class="p-stack-lg">
+<div class="flex items-center gap-stack-md mb-stack-md">
+<div class="w-10 h-10 rounded-full overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A circular headshot of a minimalist designer with short hair, wearing a neutral-toned linen shirt. The background is a clean white wall with soft shadows, embodying a professional and calm artistic personality." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB76hpzGxtXgHmevsg0RIa2I7fJ-bMz1I9B1Zbxg78MPyvwPPGxALhzNOPmnSocL7mY_EczGlcZHF811szfbWJWuvCecSQMWauHmPwt3QajHs4Yv_SfMQS1xCyauNS3EUWs8_kX_y69ZZLGie4Lul3iQH_lieYHWWVLbV32y-rokdFjhdS7GjNSlxp_g5z2j7typ-Grtp6nJ8LEZCa11ADLxQ31I-_fTHpQWSWjVCreCld4V59SeqVZ">
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface">Elena Vance</h3>
+<p class="text-label-sm text-on-surface-variant">Design Lead • 2h ago</p>
+</div>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface mb-stack-lg leading-relaxed">
+                            Minimalism isn't just about what you remove, it's about what you choose to keep. Every pixel should serve a purpose. When we strip away the noise, we allow the true essence of the content to breathe. Intellectual calm is the ultimate luxury in a world of constant notification.
+                        </p>
+<div class="flex items-center gap-stack-lg border-t border-outline-variant/30 pt-stack-md">
+<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors active:scale-110 group">
+<span class="material-symbols-outlined text-[20px] group-active:text-primary" style="font-variation-settings: 'FILL' 0;">favorite</span>
+<span class="font-label-sm text-label-sm">248</span>
+</button>
+<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+<span class="font-label-sm text-label-sm">42</span>
+</button>
+<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors ml-auto">
+<span class="material-symbols-outlined text-[20px]">bookmark</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Post 2: Landscape Image -->
+<article class="post-card bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(30,41,59,0.05)]">
+<div class="aspect-[16/9] w-full">
+<img class="w-full h-full object-cover" data-alt="A breathtaking, wide-angle landscape photograph of rolling golden hills at sunrise. Soft, ethereal mist clings to the valleys while the first rays of amber light illuminate the ridges. The sky is a gradient of soft peach and pale blue, creating a serene, high-quality, and peaceful cinematic atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDz2iM8rWdTGxuAjR5aZfkbf4oZcoK6CFqMmtB7asqGCDrJJn12Pp6GJPukWLyQTrgq7LGkka7tr6zlZfiBSdMLt9Az_hcTjMfxTXVjxA1cVW1rBRGwYvAWuhM8Ma9C1Owx_h45bvGRSZoTnTElQKFJtHWF8bao-CGg0pYXpDYpRskfnTgGbupPYib6vu_8Ho5Rb-ZB1SemcdPVDicqbFsQOhSaNibYKG0dtMaSORN5CjCcCkCUFCTB">
+</div>
+<div class="p-stack-lg">
+<div class="flex items-center gap-stack-md mb-stack-md">
+<div class="w-10 h-10 rounded-full overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional landscape photographer's profile photo, featuring a person outdoors with a camera, natural lighting, wearing a stylish outdoor jacket, set against a blurred scenic background with earthy tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYeNWUbYb4nGDM12EX59jVdnhDUMYHaFmo-LhY4SD0npBcz6B_ikHArhD1_ulmg8Jkt0_cIkxJDFoXJ61XggmipflNKRr_QRZpPcTABlBHfIwS3jAFu2tG7rSaKYel17Rhw5vIEcnLJcmg7_0JEbwnISeWXPgYiWlLmsqWw8llbRkLXzlnR_AnYHKoZQE6ZhOeIzStPVwBcM-n0iFyAN5qQ1Uy4-6Hq16LOzkjK7czC_94wvOCGeti">
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface">Marcus Thorne</h3>
+<p class="text-label-sm text-on-surface-variant">Photographer • 5h ago</p>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface mb-stack-lg">
+                            Waking up at 4 AM was worth it for this light. The serenity of the valley at dawn is unmatched.
+                        </p>
+<div class="flex items-center gap-stack-lg border-t border-outline-variant/30 pt-stack-md">
+<button class="flex items-center gap-1.5 text-primary transition-colors active:scale-110">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">favorite</span>
+<span class="font-label-sm text-label-sm">1.2k</span>
+</button>
+<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+<span class="font-label-sm text-label-sm">156</span>
+</button>
+<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors ml-auto">
+<span class="material-symbols-outlined text-[20px]">share</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Post 3: Mention Post -->
+<article class="post-card bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-[0_4px_20px_rgba(30,41,59,0.05)]">
+<div class="p-stack-lg">
+<div class="flex items-center gap-stack-md mb-stack-md">
+<div class="w-10 h-10 rounded-full overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A friendly and professional profile picture of a young woman with a vibrant energy, bright lighting, in a clean modern office setting with subtle wooden accents and greenery, high-quality digital photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB90hkwL1cgAYZWP6pS9qKZfyPBdy-KROlxASXBEnEvlNufXPJM5h3R9LN4neqKgCZh9kEv6wAydmZDAPOVOFxYoGIOkZbvJKFCzDJU1hkFiHvhqrdQ3PO3l39jltb9PAieRYQOychgp6-lvZCOqoDbblhISXF3pZ4ds5gMCUdNgYL-Ncwav1EQlaPm25KRYBAcG7G4gIEtOhLsX1GpipMUaPdXmO_CNd9lgENhO5GsFARqYV6qUBBZ">
+</div>
+<div>
+<h3 class="font-label-md text-label-md text-on-surface">Sarah Jenkins</h3>
+<p class="text-label-sm text-on-surface-variant">Community Mgr • 8h ago</p>
+</div>
+</div>
+<p class="font-body-md text-body-md text-on-surface mb-stack-lg">
+                            Just finished the latest article on typography by <span class="mention">@ahmed</span>. The way you explained the relationship between x-height and readability was incredibly insightful! Highly recommend everyone check out his latest series.
+                        </p>
+<div class="flex items-center gap-stack-lg border-t border-outline-variant/30 pt-stack-md">
+<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors active:scale-110">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 0;">favorite</span>
+<span class="font-label-sm text-label-sm">89</span>
+</button>
+<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-[20px]">chat_bubble</span>
+<span class="font-label-sm text-label-sm">12</span>
+</button>
+</div>
+</div>
+</article>
+</div>
+</div>
+<!-- Sidebar -->
+<aside class="hidden md:block w-80 space-y-gutter">
+<!-- Trending Topics -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg shadow-[0_4px_20px_rgba(30,41,59,0.05)]">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-md">Trending</h2>
+<ul class="space-y-stack-md">
+<li>
+<a class="block group" href="#">
+<p class="text-label-sm text-on-surface-variant">Design Trends</p>
+<p class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">#MinimalistMagic</p>
+<p class="text-label-sm text-on-surface-variant/70">1.2k posts</p>
+</a>
+</li>
+<li>
+<a class="block group" href="#">
+<p class="text-label-sm text-on-surface-variant">Lifestyle</p>
+<p class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">#MindfulLiving</p>
+<p class="text-label-sm text-on-surface-variant/70">842 posts</p>
+</a>
+</li>
+<li>
+<a class="block group" href="#">
+<p class="text-label-sm text-on-surface-variant">Technology</p>
+<p class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">#CreativeAI</p>
+<p class="text-label-sm text-on-surface-variant/70">2.1k posts</p>
+</a>
+</li>
+</ul>
+<button class="w-full mt-stack-lg text-primary font-label-md text-label-md hover:underline text-left">Show more</button>
+</section>
+<!-- Suggested Creators -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-stack-lg shadow-[0_4px_20px_rgba(30,41,59,0.05)]">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-stack-md">Suggested</h2>
+<div class="space-y-stack-md">
+<a class="flex items-center gap-stack-md group" href="#">
+<div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Close-up creative portrait of an architect, wearing stylish black glasses, clean skin, warm studio lighting with shadows, high-fashion minimalist aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCh3ZsAFVahaz24B9AfBn6oxAmBkPw8VyzwAfbz9xUAkWS3tuPlnbsxpQGHxTZZvfVPE7fK-WaQwMEjIfiI09hTk1D1Tb-PFOSpLP2vb40dDlaNUPzLR0omP6le7WU-qTHDhZnGEp8o37dkOBUKphVpNR9gNotYch5hYDMWDOy8iMBiweqBEWQgFXdLo50k_qpBh157CVgAHVJ6Vc7alEAqeggCz7XC7TZ2ci2x9d_U99xZDPRnDFyT">
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-md text-label-md text-on-surface group-hover:text-primary truncate">Ahmed Hassan</p>
+<p class="text-label-sm text-on-surface-variant truncate">Architectural Writer</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">chevron_right</span>
+</a>
+<a class="flex items-center gap-stack-md group" href="#">
+<div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Portrait of a travel blogger, natural outdoor lighting, golden hour sunlight, smiling warmly, background of distant mountains, modern and authentic vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_JUrOTllfbrgYhg-hhD7C4C_PnuC6obzN23PvFGhZzTrS9DnVmgqVRZ5X3p8iqx6o81GRmIBXmWpYMSSt_kLwvdPLVA7usoJSljbKS8TlYTrQIR_fExcu1oT-DmSYzAgnZDoD5ABqCBSQXWrQI00HW1WjmJYLNUgvICz4t0MRTxACDBHZ6dZl9F-aunxVF2RM4rKyKr3xki7TxpqJFh_f10fA3j_NXnxGOBFBvKvSrHFCKDjmRYdQ">
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-md text-label-md text-on-surface group-hover:text-primary truncate">Lila Rose</p>
+<p class="text-label-sm text-on-surface-variant truncate">Travel &amp; Culture</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">chevron_right</span>
+</a>
+<a class="flex items-center gap-stack-md group" href="#">
+<div class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A portrait of a tech entrepreneur with a clean-cut look, wearing a black turtleneck, soft lighting from the side, minimalist and professional tone." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA4H-j1i-WKsCC7VW1alKgxQX72gj6rglxEZIwBHQyyuRkMbis-y6B7OfTn7hjw0gzCO65iWhocp0edmvUAKzk6DgSjbjaETNnUq2-qQ9-WE7b8SS156gKsOIonbR6-E3TPwVfBf_jzWj75HqL44X-qD2_pYwhKcZDzG5pmBXqOwf9bhDrSsQM82cg0L0Yk_pOXAv1rqY_W59R2iYqs0qYzXFJu-y9DB_xqdjf0xEtjp3tX17P7cs87">
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-md text-label-md text-on-surface group-hover:text-primary truncate">David Chen</p>
+<p class="text-label-sm text-on-surface-variant truncate">Product Strategist</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant text-[20px]">chevron_right</span>
+</a>
+</div>
+</section>
+<footer class="px-stack-md text-label-sm text-on-surface-variant/60">
+<p>© 2024 BlogX. All rights reserved.</p>
+<div class="flex gap-stack-md mt-2">
+<a class="hover:text-primary" href="#">Privacy</a>
+<a class="hover:text-primary" href="#">Terms</a>
+<a class="hover:text-primary" href="#">Help</a>
+</div>
+</footer>
+</aside>
+</main>
+<!-- Bottom Navigation Bar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 md:hidden bg-surface dark:bg-surface border-t border-outline-variant dark:border-outline bg-surface/80 backdrop-blur-md shadow-[0_-4px_20px_rgba(30,41,59,0.05)] flex justify-around items-center px-4 py-2 pb-safe">
+<a class="flex flex-col items-center justify-center bg-primary-container dark:bg-primary text-on-primary-container dark:text-on-primary rounded-full px-4 py-1 scale-90 duration-200 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">search</span>
+<span class="font-label-sm text-label-sm">Search</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">edit_square</span>
+<span class="font-label-sm text-label-sm">Write</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container-high transition-colors" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</nav>
+<script>
+        // Micro-interactions for engagement buttons
+        document.querySelectorAll('article button').forEach(button => {
+            button.addEventListener('click', function() {
+                const icon = this.querySelector('.material-symbols-outlined');
+                if (icon && (icon.textContent === 'favorite' || icon.textContent === 'heart')) {
+                    const isFilled = icon.style.fontVariationSettings.includes("'FILL' 1");
+                    icon.style.fontVariationSettings = isFilled ? "'FILL' 0" : "'FILL' 1";
+                    this.classList.toggle('text-primary');
+                    this.classList.toggle('text-on-surface-variant');
+                }
+            });
+        });
+
+        // Simple mention highlight in textarea logic (visual only)
+        const postInput = document.getElementById('post-input');
+        postInput.addEventListener('input', function(e) {
+            // Future implementation: logic for showing mention dropdowns
+        });
+    </script>
+</body></html>

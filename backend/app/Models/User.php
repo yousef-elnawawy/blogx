@@ -1,0 +1,227 @@
+<?php
+
+namespace App\Models;
+
+use App\Services\TotpService;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\HasApiTokens;
+
+class User extends Authenticatable implements MustVerifyEmail
+{
+    use HasFactory, Notifiable, HasApiTokens;
+
+    protected $fillable = [
+        'name',
+        'username',
+        'email',
+        'password',
+        'google_id',
+        'bio',
+        'avatar',
+        'cover',
+        'website',
+        'location',
+        'verified',
+        'is_admin',
+        'email_verified_at',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_confirmed_at',
+    ];
+
+    protected $hidden = [
+        'password',
+        'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+    ];
+
+    protected $casts = [
+        'verified' => 'boolean',
+        'is_admin' => 'boolean',
+        'email_verified_at' => 'datetime',
+        'two_factor_confirmed_at' => 'datetime',
+    ];
+
+    protected $appends = [
+        'has_2fa',
+        'is_email_verified',
+    ];
+
+    public function getHas2faAttribute(): bool
+    {
+        return $this->hasTwoFactorEnabled();
+    }
+
+    public function getIsEmailVerifiedAttribute(): bool
+    {
+        return !is_null($this->email_verified_at);
+    }
+
+    public function hasTwoFactorEnabled(): bool
+    {
+        return !is_null($this->two_factor_secret) && !is_null($this->two_factor_confirmed_at);
+    }
+
+    public function generateTwoFactorSecret(): string
+    {
+        $secret = TotpService::generateSecret();
+        $this->forceFill([
+            'two_factor_secret' => encrypt($secret),
+            'two_factor_confirmed_at' => null,
+        ])->save();
+
+        return $secret;
+    }
+
+    public function getDecryptedTwoFactorSecret(): ?string
+    {
+        if (!$this->two_factor_secret) {
+            return null;
+        }
+        try {
+            return decrypt($this->two_factor_secret);
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
+    public function verifyTwoFactorCode(string $code): bool
+    {
+        $secret = $this->getDecryptedTwoFactorSecret();
+        if (!$secret) {
+            return false;
+        }
+        return TotpService::verifyCode($secret, $code);
+    }
+
+    public function generateRecoveryCodes(): array
+    {
+        $codes = [];
+        for ($i = 0; $i < 8; $i++) {
+            $codes[] = Str::random(10) . '-' . Str::random(10);
+        }
+
+        $this->forceFill([
+            'two_factor_recovery_codes' => encrypt(json_encode($codes)),
+        ])->save();
+
+        return $codes;
+    }
+
+    public function getRecoveryCodes(): array
+    {
+        if (!$this->two_factor_recovery_codes) {
+            return [];
+        }
+        try {
+            return json_decode(decrypt($this->two_factor_recovery_codes), true) ?? [];
+        } catch (\Exception $e) {
+            return [];
+        }
+    }
+
+    public function verifyAndConsumeRecoveryCode(string $code): bool
+    {
+        $codes = $this->getRecoveryCodes();
+        $code = trim($code);
+
+        foreach ($codes as $key => $savedCode) {
+            if (hash_equals($savedCode, $code)) {
+                unset($codes[$key]);
+                $this->forceFill([
+                    'two_factor_recovery_codes' => encrypt(json_encode(array_values($codes))),
+                ])->save();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Relationships
+    public function devices()
+    {
+        return $this->hasMany(UserDevice::class);
+    }
+
+    public function authTickets()
+    {
+        return $this->hasMany(AuthTicket::class);
+    }
+
+    public function posts()
+    {
+        return $this->hasMany(Post::class);
+    }
+
+    public function comments()
+    {
+        return $this->hasMany(Comment::class);
+    }
+
+    public function likes()
+    {
+        return $this->hasMany(Like::class);
+    }
+
+    public function mentions()
+    {
+        return $this->hasMany(Mention::class);
+    }
+
+    public function bookmarks()
+    {
+        return $this->hasMany(Bookmark::class);
+    }
+
+    public function bookmarkedPosts()
+    {
+        return $this->belongsToMany(Post::class, 'bookmarks');
+    }
+
+    public function following()
+    {
+        return $this->belongsToMany(User::class, 'follows', 'follower_id', 'following_id')->withTimestamps();
+    }
+
+    public function followers()
+    {
+        return $this->belongsToMany(User::class, 'follows', 'following_id', 'follower_id')->withTimestamps();
+    }
+
+    public function isFollowing(User $user): bool
+    {
+        return $this->following()->where('following_id', $user->id)->exists();
+    }
+
+    public function follow(User $user)
+    {
+        if ($this->id === $user->id) return;
+        return $this->following()->syncWithoutDetaching([$user->id]);
+    }
+
+    public function unfollow(User $user)
+    {
+        return $this->following()->detach($user->id);
+    }
+
+    public function verificationRequests()
+    {
+        return $this->hasMany(VerificationRequest::class);
+    }
+
+    public function latestVerificationRequest()
+    {
+        return $this->hasOne(VerificationRequest::class)->latestOfMany();
+    }
+
+    public function appNotifications()
+    {
+        return $this->hasMany(Notification::class, 'user_id');
+    }
+}
