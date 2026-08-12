@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationContext";
 import * as authService from "@/services/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,11 @@ import {
   Monitor,
   Sparkles,
   BadgeCheck,
+  Heart,
+  MessageSquare,
+  UserPlus,
+  AtSign,
+  Repeat2,
 } from "lucide-react";
 import { cn, getAvatarUrl } from "@/lib/utils";
 import { useTheme } from "next-themes";
@@ -80,6 +86,7 @@ function SettingsContent() {
     logoutOthers,
     refreshUser,
   } = useAuth();
+  const { preferences, loadingPreferences, updatePreference, fetchPreferences } = useNotifications();
   const { theme, setTheme, resolvedTheme } = useTheme();
 
   const router = useRouter();
@@ -159,8 +166,10 @@ function SettingsContent() {
   useEffect(() => {
     if (activeTab === "security") {
       refreshDevices();
+    } else if (activeTab === "notifications") {
+      fetchPreferences();
     }
-  }, [activeTab, refreshDevices]);
+  }, [activeTab, refreshDevices, fetchPreferences]);
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -988,29 +997,139 @@ function SettingsContent() {
 
           {/* Notifications Tab */}
           {activeTab === "notifications" && (
-            <div className="space-y-6 max-w-xl">
-              <div className="border-b border-border/60 pb-4">
-                <h2 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
-                  Notification Preferences
-                </h2>
-
-                <div className="divide-y divide-border/60">
-                  {[
-                    "Likes and interactions on your posts",
-                    "New comments and author replies",
-                    "New followers and mentions",
-                    "Security alerts and new device logins",
-                  ].map((item, idx) => (
-                    <div key={idx} className="py-3.5 flex items-center justify-between">
-                      <span className="text-xs font-medium text-foreground">{item}</span>
-                      <input
-                        type="checkbox"
-                        defaultChecked
-                        className="size-4 accent-primary rounded cursor-pointer"
-                      />
-                    </div>
-                  ))}
+            <div className="space-y-6 max-w-2xl animate-in fade-in duration-300">
+              {/* Header with direct link */}
+              <div className="flex items-center justify-between pb-4 border-b border-border/60">
+                <div>
+                  <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Bell className="size-5 text-amber-500" />
+                    Notification Preferences
+                  </h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Choose which notifications you receive in real-time across BlogX.
+                  </p>
                 </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/notifications")}
+                  className="rounded-full text-xs font-semibold h-8 gap-1.5 cursor-pointer border-border"
+                >
+                  <Bell className="size-3.5 text-amber-500" />
+                  <span>Open Feed</span>
+                </Button>
+              </div>
+
+              {/* Preferences List */}
+              <div className="space-y-3">
+                {[
+                  {
+                    key: "likes" as const,
+                    title: "Likes & Reactions",
+                    desc: "Get notified when someone likes your posts or comments",
+                    icon: Heart,
+                    iconColor: "text-red-500",
+                    bgColor: "bg-red-500/10",
+                  },
+                  {
+                    key: "comments" as const,
+                    title: "Comments & Replies",
+                    desc: "Get notified when someone comments on your post or replies to your comment",
+                    icon: MessageSquare,
+                    iconColor: "text-teal-500",
+                    bgColor: "bg-teal-500/10",
+                  },
+                  {
+                    key: "follows" as const,
+                    title: "New Followers",
+                    desc: "Get notified when someone starts following your profile",
+                    icon: UserPlus,
+                    iconColor: "text-amber-500",
+                    bgColor: "bg-amber-500/10",
+                  },
+                  {
+                    key: "mentions" as const,
+                    title: "Mentions",
+                    desc: "Get notified when someone tags @you in a post or comment",
+                    icon: AtSign,
+                    iconColor: "text-blue-500",
+                    bgColor: "bg-blue-500/10",
+                  },
+                  {
+                    key: "shares" as const,
+                    title: "Shares & Reposts",
+                    desc: "Get notified when someone shares your post with others",
+                    icon: Repeat2,
+                    iconColor: "text-cyan-500",
+                    bgColor: "bg-cyan-500/10",
+                  },
+                  {
+                    key: "milestones" as const,
+                    title: "Milestones & Achievements",
+                    desc: "Receive celebrations and certificates when you hit view, post, or follower records",
+                    icon: Sparkles,
+                    iconColor: "text-amber-500",
+                    bgColor: "bg-amber-500/10",
+                  },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const isChecked = preferences[item.key] ?? true;
+
+                  return (
+                    <div
+                      key={item.key}
+                      className="flex items-center justify-between p-4 rounded-2xl border border-border/80 bg-card hover:border-border transition-all gap-4"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div
+                          className={cn(
+                            "size-10 rounded-xl flex items-center justify-center shrink-0",
+                            item.bgColor
+                          )}
+                        >
+                          <Icon className={cn("size-5", item.iconColor)} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-foreground truncate">
+                            {item.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground leading-snug mt-0.5">
+                            {item.desc}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Animated Toggle Switch */}
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={isChecked}
+                        onClick={() => updatePreference(item.key, !isChecked)}
+                        disabled={loadingPreferences}
+                        className={cn(
+                          "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                          isChecked ? "bg-amber-500" : "bg-muted-foreground/30"
+                        )}
+                      >
+                        <span
+                          className={cn(
+                            "pointer-events-none inline-block size-5 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out",
+                            isChecked ? "translate-x-5" : "translate-x-0"
+                          )}
+                        />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Status info */}
+              <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3 text-xs text-muted-foreground">
+                <Sparkles className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                <p>
+                  Preferences are synchronized with our real-time WebSocket engine. Changes apply immediately across all your active devices without refreshing.
+                </p>
               </div>
             </div>
           )}

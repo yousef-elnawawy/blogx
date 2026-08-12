@@ -19,7 +19,8 @@ class PostController extends Controller
     {
         $user = $request->user() ?? auth('sanctum')->user();
 
-        $posts = Post::with(['user', 'images', 'mentions.user'])
+        $posts = Post::published()
+            ->with(['user', 'images', 'mentions.user'])
             ->withCount(['likes', 'comments'])
             ->latest()
             ->paginate(15);
@@ -260,6 +261,7 @@ class PostController extends Controller
         $followingIds = $user->following()->pluck('users.id');
 
         $posts = Post::whereIn('user_id', $followingIds)
+            ->published()
             ->with(['user', 'images', 'mentions.user'])
             ->withCount(['likes', 'comments'])
             ->latest()
@@ -304,12 +306,18 @@ class PostController extends Controller
             'images'            => ['nullable', 'array', 'max:10'],
             'images.*'          => ['image', 'max:5120'], // 5 MB per image
             'comments_enabled'  => ['nullable', 'boolean'],
+            'scheduled_at'      => ['nullable', 'date'],
         ]);
+
+        $scheduledAt = !empty($validated['scheduled_at']) ? \Carbon\Carbon::parse($validated['scheduled_at']) : null;
+        $isScheduled = $scheduledAt && $scheduledAt->isFuture();
 
         $post = Post::create([
             'user_id'          => $request->user()->id,
             'content'          => $validated['content'] ?? '',
             'comments_enabled' => $validated['comments_enabled'] ?? true,
+            'status'           => $isScheduled ? 'scheduled' : 'published',
+            'scheduled_at'     => $scheduledAt,
         ]);
 
         // Upload and store images
@@ -327,16 +335,156 @@ class PostController extends Controller
         $this->syncHashtags($post, $validated['content'] ?? '');
         $this->syncMentions($post, $validated['content'] ?? '');
 
-        // Check Milestone on publishing posts
-        NotificationService::checkPostCountMilestone($request->user());
+        // Check Milestone on publishing posts immediately (if not scheduled for future)
+        if (!$isScheduled) {
+            NotificationService::checkPostCountMilestone($request->user());
+        }
 
         $post->load(['user', 'images']);
         $post->loadCount(['likes', 'comments']);
 
         return response()->json([
-            'message' => 'Post created successfully',
+            'message' => $isScheduled ? 'Post scheduled successfully' : 'Post created successfully',
             'post'    => $this->formatPost($post, $request->user()),
         ], 201);
+    }
+
+    /**
+     * Toggle pinned status of post (authenticated author only).
+     */
+    public function togglePin(Request $request, $id)
+    {
+        $user = $request->user();
+        $post = Post::where('user_id', $user->id)->find($id);
+
+        if (!$post) {
+            return response()->json(['message' => 'Post not found or unauthorized'], 404);
+        }
+
+        $newPinnedState = !$post->is_pinned;
+
+        if ($newPinnedState) {
+            // Unpin all other posts of this user first
+            Post::where('user_id', $user->id)->where('is_pinned', true)->update(['is_pinned' => false]);
+        }
+
+        $post->forceFill(['is_pinned' => $newPinnedState])->save();
+
+        return response()->json([
+            'message'   => $newPinnedState ? 'Post pinned to your profile' : 'Post unpinned from profile',
+            'is_pinned' => $newPinnedState,
+            'post'      => $this->formatPost($post->fresh(), $user),
+        ]);
+    }
+
+    /**
+     * Get user's upcoming scheduled posts (authenticated author only).
+     */
+    public function scheduled(Request $request)
+    {
+        $user = $request->user();
+
+        $posts = Post::where('user_id', $user->id)
+            ->scheduled()
+            ->with(['user', 'images', 'mentions.user'])
+            ->withCount(['likes', 'comments'])
+            ->orderBy('scheduled_at', 'asc')
+            ->paginate(15);
+
+        $posts->getCollection()->transform(function ($post) use ($user) {
+            return $this->formatPost($post, $user);
+        });
+
+        return response()->json($posts);
+    }
+
+    /**
+     * Extract OpenGraph and metadata preview for any given URL.
+     */
+    public function previewLink(Request $request)
+    {
+        $url = $request->query('url');
+        if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+            return response()->json(['error' => 'Invalid URL'], 422);
+        }
+
+        $cacheKey = 'link_preview_' . md5($url);
+        $preview = cache()->remember($cacheKey, 86400, function () use ($url) {
+            try {
+                $response = \Illuminate\Support\Facades\Http::timeout(5)
+                    ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; BlogXBot/1.0; +http://blogx.com)'])
+                    ->get($url);
+
+                if (!$response->successful()) {
+                    return null;
+                }
+
+                $html = $response->body();
+                $doc = new \DOMDocument();
+                @$doc->loadHTML(mb_convert_encoding($html, 'HTML-ENTITIES', 'UTF-8'));
+                $xpath = new \DOMXPath($doc);
+
+                $getTitle = function () use ($xpath, $doc) {
+                    $nodes = $xpath->query('//meta[@property="og:title"]/@content');
+                    if ($nodes->length > 0) return $nodes->item(0)->nodeValue;
+                    $nodes = $xpath->query('//meta[@name="twitter:title"]/@content');
+                    if ($nodes->length > 0) return $nodes->item(0)->nodeValue;
+                    $titles = $doc->getElementsByTagName('title');
+                    if ($titles->length > 0) return $titles->item(0)->nodeValue;
+                    return null;
+                };
+
+                $getDescription = function () use ($xpath) {
+                    $nodes = $xpath->query('//meta[@property="og:description"]/@content');
+                    if ($nodes->length > 0) return $nodes->item(0)->nodeValue;
+                    $nodes = $xpath->query('//meta[@name="twitter:description"]/@content');
+                    if ($nodes->length > 0) return $nodes->item(0)->nodeValue;
+                    $nodes = $xpath->query('//meta[@name="description"]/@content');
+                    if ($nodes->length > 0) return $nodes->item(0)->nodeValue;
+                    return null;
+                };
+
+                $getImage = function () use ($xpath, $url) {
+                    $nodes = $xpath->query('//meta[@property="og:image"]/@content');
+                    if ($nodes->length > 0) return $nodes->item(0)->nodeValue;
+                    $nodes = $xpath->query('//meta[@name="twitter:image"]/@content');
+                    if ($nodes->length > 0) return $nodes->item(0)->nodeValue;
+                    return null;
+                };
+
+                $getSiteName = function () use ($xpath, $url) {
+                    $nodes = $xpath->query('//meta[@property="og:site_name"]/@content');
+                    if ($nodes->length > 0) return $nodes->item(0)->nodeValue;
+                    return parse_url($url, PHP_URL_HOST);
+                };
+
+                $title = $getTitle();
+                $description = $getDescription();
+                $image = $getImage();
+                $siteName = $getSiteName();
+
+                if (!$title && !$description && !$image) {
+                    return null;
+                }
+
+                return [
+                    'url'         => $url,
+                    'title'       => $title ? trim($title) : null,
+                    'description' => $description ? trim($description) : null,
+                    'image'       => $image ? trim($image) : null,
+                    'site_name'   => $siteName ? trim($siteName) : parse_url($url, PHP_URL_HOST),
+                    'domain'      => parse_url($url, PHP_URL_HOST),
+                ];
+            } catch (\Throwable $e) {
+                return null;
+            }
+        });
+
+        if (!$preview) {
+            return response()->json(['message' => 'Could not fetch metadata for URL'], 404);
+        }
+
+        return response()->json($preview);
     }
 
     /**
@@ -585,6 +733,9 @@ class PostController extends Controller
             'comments_count'  => $post->comments_count ?? $post->comments()->count(),
             'views_count'     => (int) ($post->views_count ?? 0),
             'is_edited'       => (bool) $post->is_edited,
+            'is_pinned'       => (bool) $post->is_pinned,
+            'status'          => $post->status ?? 'published',
+            'scheduled_at'    => $post->scheduled_at ? $post->scheduled_at->toIso8601String() : null,
             'is_liked'        => $user ? $post->isLikedBy($user) : false,
             'is_bookmarked'   => $user ? $post->isBookmarkedBy($user) : false,
             'mentions'        => $mentions,

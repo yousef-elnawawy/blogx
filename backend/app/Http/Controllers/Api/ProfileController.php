@@ -20,8 +20,10 @@ class ProfileController extends Controller
         $user = User::where('username', $cleanUsername)->firstOrFail();
 
         $posts = Post::where('user_id', $user->id)
-            ->with(['user', 'images'])
+            ->published()
+            ->with(['user', 'images', 'mentions.user'])
             ->withCount(['likes', 'comments'])
+            ->orderBy('is_pinned', 'desc')
             ->latest()
             ->paginate(15);
 

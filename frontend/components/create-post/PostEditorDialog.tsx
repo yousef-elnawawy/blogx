@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Loader2, PenSquare } from "lucide-react";
+import { Loader2, PenSquare, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import Toolbar from "./Toolbar";
@@ -104,10 +104,15 @@ export default function PostEditorDialog({
   const { user } = useAuth();
   const editorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [editorElement, setEditorElement] = useState<HTMLDivElement | null>(null);
   const [contentLength, setContentLength] = useState(0);
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isInitializedRef = useRef(false);
+  const lastPostIdRef = useRef<string | number | null>(null);
 
   // ── Hashtag suggestions state ──────────────────────────────────
   const [hashtagSuggestions, setHashtagSuggestions] = useState<HashtagSuggestion[]>([]);
@@ -126,38 +131,100 @@ export default function PostEditorDialog({
 
   const suggestDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialize editor content
+  const setEditorRef = useCallback((node: HTMLDivElement | null) => {
+    editorRef.current = node;
+    setEditorElement(node);
+  }, []);
+
+  // Initialize editor content & restore draft if creating new post
   useEffect(() => {
-    if (open && editorRef.current) {
-      const raw = postToEdit ? postToEdit.content || "" : initialContent;
-      editorRef.current.innerHTML = textToHtmlWithChips(raw);
-      setContentLength(raw.length);
-
-      if (postToEdit) {
-        setImages(
-          (postToEdit.images || []).map((url) => ({
-            preview: url,
-            isExisting: true,
-          }))
-        );
-        setRemovedImages([]);
-      } else {
-        setImages([]);
-        setRemovedImages([]);
-      }
-      setHashtagVisible(false);
-      setHashtagSuggestions([]);
-      setMentionVisible(false);
-      setMentionSuggestions([]);
-
-      // Focus end
-      requestAnimationFrame(() => {
-        if (editorRef.current) {
-          editorRef.current.focus();
-        }
-      });
+    if (!open) {
+      isInitializedRef.current = false;
+      lastPostIdRef.current = null;
+      return;
     }
-  }, [open, postToEdit, initialContent]);
+
+    if (open && editorElement) {
+      const currentEditId = postToEdit ? postToEdit.id : null;
+      if (!isInitializedRef.current || lastPostIdRef.current !== currentEditId) {
+        isInitializedRef.current = true;
+        lastPostIdRef.current = currentEditId;
+
+        let raw = postToEdit ? postToEdit.content || "" : initialContent || "";
+
+        // Check saved draft if creating new post without initial content
+        if (!postToEdit && !initialContent && typeof window !== "undefined") {
+          try {
+            const savedDraft = localStorage.getItem("blogx_composer_draft");
+            if (savedDraft) {
+              const parsed = JSON.parse(savedDraft);
+              if (parsed.content) {
+                raw = parsed.content;
+              }
+            }
+          } catch {
+            // Ignored
+          }
+        }
+
+        editorElement.innerHTML = textToHtmlWithChips(raw);
+        setContentLength(raw.length);
+
+        if (postToEdit) {
+          setImages(
+            (postToEdit.images || []).map((url) => ({
+              preview: url,
+              isExisting: true,
+            }))
+          );
+          setRemovedImages([]);
+        } else {
+          setImages([]);
+          setRemovedImages([]);
+        }
+        setHashtagVisible(false);
+        setHashtagSuggestions([]);
+        setMentionVisible(false);
+        setMentionSuggestions([]);
+
+        // Focus and place cursor at end
+        requestAnimationFrame(() => {
+          if (editorElement) {
+            editorElement.focus();
+            try {
+              const range = document.createRange();
+              const sel = window.getSelection();
+              range.selectNodeContents(editorElement);
+              range.collapse(false);
+              sel?.removeAllRanges();
+              sel?.addRange(range);
+            } catch {
+              // Ignored
+            }
+          }
+        });
+      }
+    }
+  }, [open, postToEdit, initialContent, editorElement]);
+
+  // Auto-save draft on changes (when not editing existing post)
+  const saveDraft = useCallback((text: string) => {
+    if (postToEdit || typeof window === "undefined") return;
+    if (draftTimerRef.current) clearTimeout(draftTimerRef.current);
+
+    draftTimerRef.current = setTimeout(() => {
+      if (text.trim()) {
+        localStorage.setItem(
+          "blogx_composer_draft",
+          JSON.stringify({ content: text })
+        );
+        setDraftSaved(true);
+      } else {
+        localStorage.removeItem("blogx_composer_draft");
+        setDraftSaved(false);
+      }
+    }, 600);
+  }, [postToEdit]);
 
   // ── Hashtag suggestion fetch ───────────────────────────────────
   const fetchHashtags = useCallback(async (q: string) => {
@@ -254,6 +321,7 @@ export default function PostEditorDialog({
     const text = extractPlainText(editorRef.current);
     setContentLength(text.length);
     checkTriggersAtCursor();
+    saveDraft(text);
   };
 
   const handleSelectMention = (username: string) => {
@@ -546,11 +614,17 @@ export default function PostEditorDialog({
         toast.success("Post published!");
         onPostCreated?.(res.data.post);
         window.dispatchEvent(new CustomEvent("post-created", { detail: res.data.post }));
+
+        // Clear saved draft
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("blogx_composer_draft");
+        }
       }
 
       if (editorRef.current) editorRef.current.innerHTML = "";
       setImages([]);
       setRemovedImages([]);
+      setDraftSaved(false);
       onOpenChange(false);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -622,7 +696,7 @@ export default function PostEditorDialog({
           className="relative flex-1 min-h-0 px-4 pt-3 pb-2 sm:px-6 sm:pt-4 sm:pb-3 overflow-y-auto"
         >
           <div
-            ref={editorRef}
+            ref={setEditorRef}
             contentEditable="true"
             dir="auto"
             suppressContentEditableWarning
@@ -671,17 +745,27 @@ export default function PostEditorDialog({
         </div>
 
         {/* Image previews */}
-        <div className="shrink-0 max-h-[25vh] overflow-y-auto px-4 sm:px-6">
-          <ImagePreview images={images} onRemove={removeImage} />
-        </div>
+        {images.length > 0 && (
+          <div className="shrink-0 max-h-[25vh] overflow-y-auto px-4 sm:px-6 mb-2">
+            <ImagePreview images={images} onRemove={removeImage} />
+          </div>
+        )}
 
         {/* Bottom toolbar */}
-        <div className="shrink-0 relative flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-3.5 border-t border-border">
-          <Toolbar
-            onImageSelect={handleImageSelect}
-            onInsertHashtag={insertHashtag}
-            imageCount={images.length}
-          />
+        <div className="shrink-0 relative flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-3.5 border-t border-border bg-background">
+          <div className="flex items-center gap-3">
+            <Toolbar
+              onImageSelect={handleImageSelect}
+              onInsertHashtag={insertHashtag}
+              imageCount={images.length}
+            />
+            {draftSaved && !postToEdit && (
+              <span className="text-[11px] text-muted-foreground/70 hidden sm:inline-flex items-center gap-1 font-medium">
+                <Check className="size-3 text-emerald-500" /> Draft saved
+              </span>
+            )}
+          </div>
+
           <Button
             onClick={handlePost}
             disabled={!canPost}

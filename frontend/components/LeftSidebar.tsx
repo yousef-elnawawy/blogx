@@ -71,9 +71,9 @@ const navItems = [
     href: "/mentions",
     icon: AtSign,
     color: "blue",
-    activeClass: "bg-sky-500/10 text-sky-500 font-semibold",
-    hoverClass: "hover:bg-sky-500/10 hover:text-sky-500",
-    iconActive: "text-sky-500",
+    activeClass: "bg-blue-500/10 text-blue-600 font-semibold",
+    hoverClass: "hover:bg-blue-500/10 hover:text-blue-600",
+    iconActive: "text-blue-600",
   },
   {
     label: "Likes",
@@ -88,10 +88,10 @@ const navItems = [
     label: "Bookmarks",
     href: "/bookmarks",
     icon: Bookmark,
-    color: "green",
-    activeClass: "bg-emerald-500/10 text-emerald-500 font-semibold",
-    hoverClass: "hover:bg-emerald-500/10 hover:text-emerald-500",
-    iconActive: "text-emerald-500 fill-emerald-500",
+    color: "violet",
+    activeClass: "bg-violet-500/10 text-violet-500 font-semibold",
+    hoverClass: "hover:bg-violet-500/10 hover:text-violet-500",
+    iconActive: "text-violet-500 fill-violet-500",
   },
   { label: "Profile", href: "/profile", icon: User, color: "primary" },
   { label: "Settings", href: "/settings", icon: Settings, color: "primary" },
@@ -282,7 +282,7 @@ export default function LeftSidebar() {
                   )}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/mentions")} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
-                  <AtSign className="size-4 text-sky-500" />
+                  <AtSign className="size-4 text-blue-600" />
                   <span>Mentions</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/likes")} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
@@ -290,7 +290,7 @@ export default function LeftSidebar() {
                   <span>Likes</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/bookmarks")} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
-                  <Bookmark className="size-4 text-emerald-500" />
+                  <Bookmark className="size-4 text-violet-500" />
                   <span>Bookmarks</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">

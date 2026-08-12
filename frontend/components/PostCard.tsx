@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Bookmark, Share2, MoreHorizontal, Pencil, Trash2, Loader2, Repeat2, BarChart3 } from "lucide-react";
+import { Heart, MessageSquare, Bookmark, Share2, MoreHorizontal, Pencil, Trash2, Loader2, Repeat2, BarChart3, Pin } from "lucide-react";
 import Link from "next/link";
 import { cn, getAvatarUrl } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -31,6 +31,7 @@ import PostImageGrid from "@/components/post/PostImageGrid";
 import ImageLightbox from "@/components/post/ImageLightbox";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import VideoEmbed from "@/components/post/VideoEmbed";
+import LinkPreviewCard from "@/components/post/LinkPreviewCard";
 import api from "@/lib/api";
 
 export interface PostCardProps {
@@ -50,6 +51,9 @@ export interface PostCardProps {
   views_count?: number;
   created_at: string;
   is_edited?: boolean;
+  is_pinned?: boolean;
+  status?: string;
+  scheduled_at?: string | null;
   is_liked?: boolean;
   is_bookmarked?: boolean;
 }
@@ -79,7 +83,7 @@ function renderHighlighted(text: string, validMentions?: string[]) {
           key={i}
           href={`/hashtag/${encodeURIComponent(tag)}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-primary font-semibold hover:underline relative z-10"
+          className="text-amber-600 dark:text-amber-400 font-semibold hover:underline relative z-10"
         >
           {part}
         </Link>
@@ -100,7 +104,7 @@ function renderHighlighted(text: string, validMentions?: string[]) {
           key={i}
           href={`/@${username}`}
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 font-semibold border border-sky-500/20 hover:border-sky-500/40 transition-colors align-baseline relative z-10"
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20 hover:border-blue-500/40 transition-colors align-baseline relative z-10"
         >
           {part}
         </Link>
@@ -121,6 +125,7 @@ export default function PostCard({
   views_count = 0,
   created_at,
   is_edited = false,
+  is_pinned: initialPinned = false,
   is_liked: initialLiked = false,
   is_bookmarked: initialBookmarked = false,
 }: PostCardProps) {
@@ -132,6 +137,7 @@ export default function PostCard({
   const [postContent, setPostContent] = useState(content);
   const [postImages, setPostImages] = useState<string[]>(images);
   const [isEdited, setIsEdited] = useState(is_edited);
+  const [isPinned, setIsPinned] = useState(initialPinned);
   const articleRef = useRef<HTMLElement>(null);
 
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -155,7 +161,8 @@ export default function PostCard({
   useEffect(() => {
     setPostContent(content);
     setPostImages(images);
-  }, [content, images]);
+    setIsPinned(Boolean(initialPinned));
+  }, [content, images, initialPinned]);
 
   useEffect(() => {
     const handlePostUpdated = (e: Event) => {
@@ -175,6 +182,11 @@ export default function PostCard({
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    if (!user) {
+      toast.error("Sign in to like posts");
+      return;
+    }
 
     if (isLiking) return;
 
@@ -241,6 +253,19 @@ export default function PostCard({
     }
   };
 
+  const handleTogglePin = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const res = await api.post(`/api/posts/${id}/pin`);
+      const newPinned = res.data.is_pinned;
+      setIsPinned(newPinned);
+      toast.success(newPinned ? "Post pinned to your profile" : "Post unpinned from profile");
+    } catch {
+      toast.error("Failed to update pin status");
+    }
+  };
+
   const handleImageClick = (index: number) => {
     setLightboxIndex(index);
     setLightboxOpen(true);
@@ -267,6 +292,14 @@ export default function PostCard({
         />
 
         <div className="p-4 sm:p-5">
+          {/* Pinned Post Badge */}
+          {isPinned && (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500 mb-2 pl-9">
+              <Pin className="size-3.5 rotate-45 fill-current" />
+              <span>Pinned Post</span>
+            </div>
+          )}
+
           {/* Header */}
           <div className="flex items-start gap-3">
             <Link
@@ -313,6 +346,8 @@ export default function PostCard({
                 </p>
                 {/* Embedded Video (YouTube, Instagram Reels, Direct Video) */}
                 <VideoEmbed content={postContent} />
+                {/* Rich Link OpenGraph Preview Card */}
+                <LinkPreviewCard content={postContent} />
               </div>
 
               {/* Image Grid */}
@@ -331,24 +366,24 @@ export default function PostCard({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 px-2 gap-1.5 text-xs font-medium text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-full"
+                      className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-teal-500 hover:bg-teal-500/10 rounded-full transition-colors"
                     >
                       <MessageSquare className="size-[16px]" />
                       {comments_count > 0 && <span>{formatCount(comments_count)}</span>}
                     </Button>
                   </Link>
 
-                  {/* Like - Red Theme */}
+                  {/* Like */}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleLike}
                     disabled={false}
                     className={cn(
-                      "h-8 px-2 gap-1.5 text-xs font-medium rounded-full",
+                      "h-8 px-2 gap-1.5 text-xs font-medium rounded-full transition-colors",
                       liked
                         ? "text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                        : "text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                        : "text-[#78716C] hover:text-red-500 hover:bg-red-500/10"
                     )}
                   >
                     <Heart className={cn("size-[16px]", liked && "fill-current")} />
@@ -360,7 +395,7 @@ export default function PostCard({
                     variant="ghost"
                     size="sm"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    className="h-8 px-2 gap-1.5 text-xs font-medium text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+                    className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-amber-600 hover:bg-amber-500/10 rounded-full transition-colors"
                   >
                     <BarChart3 className="size-[16px]" />
                     <span>{formatCount(viewCount)}</span>
@@ -369,16 +404,16 @@ export default function PostCard({
 
                 {/* Right actions */}
                 <div className="flex items-center gap-0">
-                  {/* Bookmark - Green Theme */}
+                  {/* Bookmark */}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleBookmark}
                     className={cn(
-                      "h-8 px-2 rounded-full",
+                      "h-8 px-2 rounded-full transition-colors",
                       bookmarked
-                        ? "text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10"
-                        : "text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10"
+                        ? "text-violet-500 hover:text-violet-600 hover:bg-violet-500/10"
+                        : "text-[#78716C] hover:text-violet-500 hover:bg-violet-500/10"
                     )}
                   >
                     <Bookmark className={cn("size-[16px]", bookmarked && "fill-current")} />
@@ -392,7 +427,7 @@ export default function PostCard({
                       e.stopPropagation();
                       setShareDialogOpen(true);
                     }}
-                    className="h-8 px-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-full"
+                    className="h-8 px-2 text-[#78716C] hover:text-cyan-500 hover:bg-cyan-500/10 rounded-full transition-colors"
                   >
                     <Share2 className="size-[16px]" />
                   </Button>
@@ -415,10 +450,17 @@ export default function PostCard({
                       </Button>
                     }
                   />
-                  <DropdownMenuContent align="end" className="w-36">
+                  <DropdownMenuContent align="end" className="w-44 p-1 rounded-xl">
+                    <DropdownMenuItem
+                      onClick={handleTogglePin}
+                      className="cursor-pointer gap-2.5 px-3 py-2 text-sm font-medium"
+                    >
+                      <Pin className="h-4 w-4 text-amber-500" />
+                      <span>{isPinned ? "Unpin from profile" : "Pin to profile"}</span>
+                    </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => setEditDialogOpen(true)}
-                      className="cursor-pointer gap-2"
+                      className="cursor-pointer gap-2.5 px-3 py-2 text-sm font-medium"
                     >
                       <Pencil className="h-4 w-4" />
                       <span>Edit</span>
@@ -426,7 +468,7 @@ export default function PostCard({
                     <DropdownMenuItem
                       variant="destructive"
                       onClick={() => setDeleteDialogOpen(true)}
-                      className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+                      className="cursor-pointer gap-2.5 px-3 py-2 text-sm font-medium text-destructive focus:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
                       <span>Delete</span>
@@ -454,6 +496,7 @@ export default function PostCard({
         onPostUpdated={(updatedPost) => {
           setPostContent(updatedPost.content);
           setPostImages(updatedPost.images || []);
+          setIsEdited(true);
         }}
       />
 

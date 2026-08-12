@@ -342,7 +342,7 @@ export default function UserProfilePage() {
                 className={`rounded-full px-6 h-9 font-bold text-sm transition-all ${
                   profileUser.is_following
                     ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive border border-border"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "bg-amber-500 text-white hover:bg-amber-600"
                 }`}
               >
                 {profileUser.is_following ? (

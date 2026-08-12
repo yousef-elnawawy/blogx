@@ -204,10 +204,10 @@ export default function RightSidebar() {
                     <Button
                       size="sm"
                       onClick={() => handleFollow(person.id)}
-                      className={`rounded-full px-4 h-8 text-xs font-bold shrink-0 ${
+                      className={`rounded-full px-4 h-8 text-xs font-bold shrink-0 transition-colors ${
                         isFollowing
-                          ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive"
-                          : "bg-foreground text-background hover:bg-foreground/90"
+                          ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive border border-border"
+                          : "bg-amber-500 text-white hover:bg-amber-600"
                       }`}
                     >
                       {isFollowing ? "Unfollow" : "Follow"}

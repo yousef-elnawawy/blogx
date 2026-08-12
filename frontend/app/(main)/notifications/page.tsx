@@ -27,6 +27,7 @@ import {
   Award,
   Trophy,
   FileText,
+  Settings,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -60,34 +61,34 @@ function getTypeBadge(type: string): BadgeInfo {
     case "like_post":
     case "like_comment":
       return {
-        icon: <Heart className="size-3 fill-rose-500 text-rose-500" />,
-        bg: "bg-rose-500",
-        ring: "ring-rose-200 dark:ring-rose-900",
+        icon: <Heart className="size-3 fill-red-500 text-red-500" />,
+        bg: "bg-red-500",
+        ring: "ring-red-200 dark:ring-red-900",
       };
     case "share_post":
       return {
         icon: <Repeat2 className="size-3 text-white" />,
-        bg: "bg-blue-500",
-        ring: "ring-blue-200 dark:ring-blue-900",
+        bg: "bg-cyan-500",
+        ring: "ring-cyan-200 dark:ring-cyan-900",
       };
     case "follow":
       return {
         icon: <UserPlus className="size-3 text-white" />,
-        bg: "bg-emerald-500",
-        ring: "ring-emerald-200 dark:ring-emerald-900",
+        bg: "bg-amber-500",
+        ring: "ring-amber-200 dark:ring-amber-900",
       };
     case "comment":
     case "comment_reply":
       return {
         icon: <MessageSquare className="size-3 text-white" />,
-        bg: "bg-sky-500",
-        ring: "ring-sky-200 dark:ring-sky-900",
+        bg: "bg-teal-500",
+        ring: "ring-teal-200 dark:ring-teal-900",
       };
     case "mention":
       return {
         icon: <AtSign className="size-3 text-white" />,
-        bg: "bg-violet-500",
-        ring: "ring-violet-200 dark:ring-violet-900",
+        bg: "bg-blue-500",
+        ring: "ring-blue-200 dark:ring-blue-900",
       };
     case "view_milestone":
     case "milestone_post":
@@ -124,41 +125,41 @@ const FILTER_TABS = [
     key: "likes",
     label: "Likes",
     icon: <Heart className="size-3.5 fill-current" />,
-    color: "text-rose-500",
-    activeColor: "bg-rose-500 text-white",
-    hoverColor: "hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-950/40",
+    color: "text-red-500",
+    activeColor: "bg-red-500 text-white",
+    hoverColor: "hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40",
   },
   {
     key: "comments",
     label: "Comments",
     icon: <MessageSquare className="size-3.5" />,
-    color: "text-sky-500",
-    activeColor: "bg-sky-500 text-white",
-    hoverColor: "hover:bg-sky-50 hover:text-sky-500 dark:hover:bg-sky-950/40",
+    color: "text-teal-500",
+    activeColor: "bg-teal-500 text-white",
+    hoverColor: "hover:bg-teal-50 hover:text-teal-500 dark:hover:bg-teal-950/40",
   },
   {
     key: "follows",
     label: "Follows",
     icon: <UserPlus className="size-3.5" />,
-    color: "text-emerald-500",
-    activeColor: "bg-emerald-500 text-white",
-    hoverColor: "hover:bg-emerald-50 hover:text-emerald-500 dark:hover:bg-emerald-950/40",
+    color: "text-amber-500",
+    activeColor: "bg-amber-500 text-white",
+    hoverColor: "hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-950/40",
   },
   {
     key: "mentions",
     label: "Mentions",
     icon: <AtSign className="size-3.5" />,
-    color: "text-violet-500",
-    activeColor: "bg-violet-500 text-white",
-    hoverColor: "hover:bg-violet-50 hover:text-violet-500 dark:hover:bg-violet-950/40",
+    color: "text-blue-500",
+    activeColor: "bg-blue-500 text-white",
+    hoverColor: "hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-950/40",
   },
   {
     key: "shares",
     label: "Shares",
     icon: <Repeat2 className="size-3.5" />,
-    color: "text-blue-500",
-    activeColor: "bg-blue-500 text-white",
-    hoverColor: "hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-950/40",
+    color: "text-cyan-500",
+    activeColor: "bg-cyan-500 text-white",
+    hoverColor: "hover:bg-cyan-50 hover:text-cyan-500 dark:hover:bg-cyan-950/40",
   },
   {
     key: "milestone",
@@ -197,41 +198,32 @@ export default function NotificationsPage() {
     data: MilestoneData;
   }>({ open: false, data: {} });
 
-  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE);
-  const observerRef = useRef<IntersectionObserver | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   /* load on mount & filter change */
   useEffect(() => {
     if (user) {
       fetchNotifications(filter, 1, true);
-      setVisibleCount(BATCH_SIZE);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, filter]);
 
-  /* lazy render sentinel */
-  const handleSentinel = useCallback(
-    (entries: IntersectionObserverEntry[]) => {
-      if (entries[0].isIntersecting) {
-        setVisibleCount((prev) => {
-          const next = prev + BATCH_SIZE;
-          if (next >= notifications.length && hasMore && !loading) loadMore();
-          return next;
-        });
-      }
-    },
-    [notifications.length, hasMore, loading, loadMore]
-  );
-
+  /* Infinite scroll intersection observer */
   useEffect(() => {
-    observerRef.current?.disconnect();
-    observerRef.current = new IntersectionObserver(handleSentinel, {
-      threshold: 0.1,
-    });
-    if (sentinelRef.current) observerRef.current.observe(sentinelRef.current);
-    return () => observerRef.current?.disconnect();
-  }, [handleSentinel]);
+    if (!sentinelRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1, rootMargin: "300px" }
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadMore]);
 
   /* click handler */
   const handleNotificationClick = async (
@@ -305,7 +297,7 @@ export default function NotificationsPage() {
     });
   };
 
-  const visibleNotifications = notifications.slice(0, visibleCount);
+
 
   /* ── unauthenticated ── */
   if (!user) {
@@ -361,35 +353,54 @@ export default function NotificationsPage() {
             </div>
           </div>
 
-          {/* Actions dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+          {/* Action buttons: Settings & Actions dropdown */}
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => router.push("/settings?tab=notifications")}
+              className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              title="Notification Settings"
             >
-              <MoreHorizontal className="size-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 rounded-2xl p-1">
-              {unreadCount > 0 && (
-                <>
-                  <DropdownMenuItem
-                    onClick={markAllAsRead}
-                    className="gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-primary focus:text-primary focus:bg-primary/10"
-                  >
-                    <CheckCheck className="size-4" />
-                    Mark all as read
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="my-1" />
-                </>
-              )}
-              <DropdownMenuItem
-                onClick={clearAll}
-                className="gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+              <Settings className="size-4" />
+            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
               >
-                <Trash2 className="size-4" />
-                Clear all notifications
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <MoreHorizontal className="size-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 rounded-2xl p-1">
+                <DropdownMenuItem
+                  onClick={() => router.push("/settings?tab=notifications")}
+                  className="gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer"
+                >
+                  <Settings className="size-4" />
+                  Notification settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-1" />
+                {unreadCount > 0 && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={markAllAsRead}
+                      className="gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-primary focus:text-primary focus:bg-primary/10"
+                    >
+                      <CheckCheck className="size-4" />
+                      Mark all as read
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="my-1" />
+                  </>
+                )}
+                <DropdownMenuItem
+                  onClick={clearAll}
+                  className="gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
+                  <Trash2 className="size-4" />
+                  Clear all notifications
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
 
         {/* Filter tabs */}
@@ -451,7 +462,7 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div className="divide-y divide-border/40">
-            {visibleNotifications.map((notif) => {
+            {notifications.map((notif) => {
               const isMilestone = isMilestoneType(notif.type);
               const actorAvatarUrl = getAvatarUrl(notif.actor?.avatar);
               const actorName = notif.actor?.name || "BlogX";
@@ -635,7 +646,7 @@ export default function NotificationsPage() {
             )}
 
             {/* End of list */}
-            {!hasMore && notifications.length > BATCH_SIZE && (
+            {!hasMore && notifications.length > 0 && (
               <div className="py-8 text-center text-xs text-muted-foreground/50 font-medium">
                 You&apos;re all caught up ✓
               </div>

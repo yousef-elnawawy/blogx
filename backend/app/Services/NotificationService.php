@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Events\NewNotification;
 use App\Models\Notification;
 use App\Models\Post;
 use App\Models\User;
@@ -43,6 +44,35 @@ class NotificationService
         return $query->exists();
     }
 
+    /**
+     * Internal helper to create notification, check user preferences, and broadcast real-time.
+     */
+    private static function createAndBroadcast(array $attributes): ?Notification
+    {
+        $userId = $attributes['user_id'] ?? null;
+        if (!$userId) return null;
+
+        $targetUser = User::find($userId);
+        if (!$targetUser || !$targetUser->allowsNotification($attributes['type'] ?? '')) {
+            return null;
+        }
+
+        $notification = Notification::create($attributes);
+
+        $notification->load(['actor' => function ($q) {
+            $q->select('id', 'name', 'username', 'avatar', 'verified');
+        }]);
+
+        try {
+            event(new NewNotification($notification));
+        } catch (\Throwable $e) {
+            // Fail gracefully if broadcast server is offline
+            report($e);
+        }
+
+        return $notification;
+    }
+
     // ─── Public API ──────────────────────────────────────────────────────────
 
     /**
@@ -54,7 +84,7 @@ class NotificationService
 
         if (self::isDuplicate($target->id, 'follow', $actor->id)) return;
 
-        Notification::create([
+        self::createAndBroadcast([
             'user_id'  => $target->id,
             'actor_id' => $actor->id,
             'type'     => 'follow',
@@ -85,7 +115,7 @@ class NotificationService
 
         $snippet = self::truncate($post->content, 80);
 
-        Notification::create([
+        self::createAndBroadcast([
             'user_id'  => $post->user_id,
             'actor_id' => $actor->id,
             'type'     => 'like_post',
@@ -109,7 +139,7 @@ class NotificationService
 
         $snippet = self::truncate($comment->content, 80);
 
-        Notification::create([
+        self::createAndBroadcast([
             'user_id'  => $comment->user_id,
             'actor_id' => $actor->id,
             'type'     => 'like_comment',
@@ -143,7 +173,7 @@ class NotificationService
 
         if (self::isDuplicate($targetId, $type, $actor->id, ['post_id' => $post->id])) return;
 
-        Notification::create([
+        self::createAndBroadcast([
             'user_id'  => $targetId,
             'actor_id' => $actor->id,
             'type'     => $type,
@@ -168,7 +198,7 @@ class NotificationService
 
         if (self::isDuplicate($mentioned->id, 'mention', $actor->id, ['post_id' => $post->id])) return;
 
-        Notification::create([
+        self::createAndBroadcast([
             'user_id'  => $mentioned->id,
             'actor_id' => $actor->id,
             'type'     => 'mention',
@@ -191,7 +221,7 @@ class NotificationService
 
         if ($actorId && $actorId === $post->user_id) return;
 
-        Notification::create([
+        self::createAndBroadcast([
             'user_id'  => $post->user_id,
             'actor_id' => $actorId,
             'type'     => 'share_post',
@@ -224,7 +254,7 @@ class NotificationService
 
         if ($alreadySent) return;
 
-        Notification::create([
+        self::createAndBroadcast([
             'user_id'  => $user->id,
             'actor_id' => null,
             'type'     => 'milestone_post',
@@ -255,7 +285,7 @@ class NotificationService
 
         $formatted = self::formatNumber($views);
 
-        Notification::create([
+        self::createAndBroadcast([
             'user_id'  => $post->user_id,
             'actor_id' => null,
             'type'     => 'view_milestone',
@@ -284,7 +314,7 @@ class NotificationService
 
         $formatted = self::formatNumber($count);
 
-        Notification::create([
+        self::createAndBroadcast([
             'user_id'  => $user->id,
             'actor_id' => null,
             'type'     => 'milestone_followers',

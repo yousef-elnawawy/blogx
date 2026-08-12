@@ -37,7 +37,8 @@ export default function Toolbar({
         aria-label="Add image"
         disabled={!canAddMore}
         onClick={() => fileInputRef.current?.click()}
-        className="p-2 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        className="p-2 rounded-full hover:bg-primary/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+        title="Add image"
       >
         <ImageIcon className="size-5" />
       </button>
@@ -46,7 +47,8 @@ export default function Toolbar({
         type="button"
         aria-label="Add hashtag"
         onClick={onInsertHashtag}
-        className="p-2 rounded-full hover:bg-primary/10 transition-colors"
+        className="p-2 rounded-full hover:bg-primary/10 transition-colors cursor-pointer"
+        title="Add hashtag"
       >
         <Hash className="size-5" />
       </button>

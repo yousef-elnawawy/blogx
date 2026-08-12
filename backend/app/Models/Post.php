@@ -15,13 +15,33 @@ class Post extends Model
         'comments_enabled',
         'views_count',
         'is_edited',
+        'is_pinned',
+        'status',
+        'scheduled_at',
     ];
 
     protected $casts = [
         'comments_enabled' => 'boolean',
         'views_count'      => 'integer',
         'is_edited'        => 'boolean',
+        'is_pinned'        => 'boolean',
+        'scheduled_at'     => 'datetime',
     ];
+
+    // Scopes
+    public function scopePublished($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('scheduled_at')
+              ->orWhere('scheduled_at', '<=', now());
+        })->where('status', '!=', 'draft');
+    }
+
+    public function scopeScheduled($query)
+    {
+        return $query->whereNotNull('scheduled_at')
+                     ->where('scheduled_at', '>', now());
+    }
 
     // Relationships
     public function user()

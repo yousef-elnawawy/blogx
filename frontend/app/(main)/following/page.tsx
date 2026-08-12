@@ -174,8 +174,8 @@ export default function FollowingPage() {
                         onClick={() => handleFollowToggle(sugUser.id, sugUser.is_following, sugUser.name)}
                         className={`rounded-full h-8 text-xs font-bold px-4 transition-all ${
                           sugUser.is_following
-                            ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive"
-                            : "bg-primary text-primary-foreground hover:bg-primary/90"
+                            ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive border border-border"
+                            : "bg-amber-500 text-white hover:bg-amber-600"
                         }`}
                       >
                         {sugUser.is_following ? (

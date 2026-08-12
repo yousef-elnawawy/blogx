@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Play, ExternalLink, Film } from "lucide-react";
+import { Play, Film, ExternalLink } from "lucide-react";
 
 interface VideoEmbedProps {
   content: string;
 }
 
-interface VideoMatch {
+export interface VideoMatch {
   type: "youtube" | "instagram" | "direct";
   url: string;
   id?: string;
@@ -16,7 +16,7 @@ interface VideoMatch {
 export function extractVideoFromContent(text: string): VideoMatch | null {
   if (!text) return null;
 
-  // 1. YouTube patterns
+  // 1. YouTube patterns (watch, shorts, embed, youtu.be)
   const ytMatch = text.match(
     /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/i
   );
@@ -57,15 +57,16 @@ export function extractVideoFromContent(text: string): VideoMatch | null {
 export default function VideoEmbed({ content }: VideoEmbedProps) {
   const video = extractVideoFromContent(content);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [imgSrc, setImgSrc] = useState<string>(
+    video?.id ? `https://img.youtube.com/vi/${video.id}/maxresdefault.jpg` : ""
+  );
 
   if (!video) return null;
 
   // YouTube Embed
   if (video.type === "youtube" && video.id) {
-    const thumbnailUrl = `https://img.youtube.com/vi/${video.id}/hqdefault.jpg`;
-
     return (
-      <div className="mt-3 rounded-2xl overflow-hidden border border-border/80 bg-card shadow-md">
+      <div className="mt-3 rounded-2xl overflow-hidden border border-border/80 bg-card shadow-md relative z-10">
         {!isPlaying ? (
           <div
             onClick={(e) => {
@@ -74,23 +75,27 @@ export default function VideoEmbed({ content }: VideoEmbedProps) {
             }}
             className="relative aspect-video w-full bg-black cursor-pointer group overflow-hidden"
           >
-            {/* Thumbnail */}
+            {/* High-res YouTube Thumbnail */}
             <img
-              src={thumbnailUrl}
-              alt="YouTube video thumbnail"
+              src={imgSrc}
+              alt="YouTube Video Preview"
+              onError={() => {
+                // Fallback to standard quality thumbnail if maxres is unavailable
+                setImgSrc(`https://img.youtube.com/vi/${video.id}/hqdefault.jpg`);
+              }}
               className="size-full object-cover group-hover:scale-105 transition-transform duration-300 opacity-90"
               loading="lazy"
             />
 
-            {/* Play Button Overlay */}
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/20 transition-colors">
-              <div className="size-14 sm:size-16 rounded-full bg-red-600/90 text-white flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:bg-red-600 transition-all duration-200 pl-1">
-                <Play className="size-7 sm:size-8 fill-current" />
+            {/* Play Button Overlay with Amber/Red glow */}
+            <div className="absolute inset-0 bg-black/35 flex items-center justify-center group-hover:bg-black/20 transition-colors">
+              <div className="size-14 sm:size-16 rounded-full bg-red-600 text-white flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:bg-red-500 transition-all duration-200 pl-1 ring-4 ring-white/20">
+                <Play className="size-6 sm:size-7 fill-current" />
               </div>
             </div>
 
             {/* Video Badge */}
-            <div className="absolute bottom-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/80 backdrop-blur-sm text-[11px] font-bold text-white flex items-center gap-1.5 shadow-md">
+            <div className="absolute bottom-3 left-3 px-3 py-1.5 rounded-xl bg-black/80 backdrop-blur-md text-[11px] font-bold text-white flex items-center gap-2 shadow-lg border border-white/10">
               <div className="size-2 rounded-full bg-red-500 animate-pulse" />
               <span>YouTube Video</span>
             </div>
@@ -113,7 +118,7 @@ export default function VideoEmbed({ content }: VideoEmbedProps) {
   // Instagram Reel / Post Embed
   if (video.type === "instagram" && video.id) {
     return (
-      <div className="mt-3 rounded-2xl overflow-hidden border border-border/80 bg-card shadow-md">
+      <div className="mt-3 rounded-2xl overflow-hidden border border-border/80 bg-card shadow-md relative z-10">
         <div className="relative w-full aspect-[9/14] max-h-[500px] bg-black/90 flex flex-col items-center justify-center p-4">
           <iframe
             src={`https://www.instagram.com/reel/${video.id}/embed`}
@@ -130,7 +135,7 @@ export default function VideoEmbed({ content }: VideoEmbedProps) {
   // Direct HTML5 Video
   if (video.type === "direct" && video.url) {
     return (
-      <div className="mt-3 rounded-2xl overflow-hidden border border-border/80 bg-black shadow-md">
+      <div className="mt-3 rounded-2xl overflow-hidden border border-border/80 bg-black shadow-md relative z-10">
         <video
           controls
           preload="metadata"

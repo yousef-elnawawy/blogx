@@ -10,8 +10,8 @@ import PostEditorDialog from "./create-post/PostEditorDialog";
 const navItems = [
   { label: "Feed", href: "/", icon: Home, activeColor: "text-primary" },
   { label: "Search", href: "/search", icon: Search, activeColor: "text-primary" },
-  { label: "Mentions", href: "/mentions", icon: AtSign, activeColor: "text-sky-500 font-bold" },
-  { label: "Bookmarks", href: "/bookmarks", icon: Bookmark, activeColor: "text-emerald-500 font-bold" },
+  { label: "Mentions", href: "/mentions", icon: AtSign, activeColor: "text-blue-600 font-bold" },
+  { label: "Bookmarks", href: "/bookmarks", icon: Bookmark, activeColor: "text-violet-500 font-bold" },
   { label: "Profile", href: "/profile", icon: User, activeColor: "text-primary" },
 ];
 

@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, Bookmark, Share2, ArrowLeft, Send, Loader2, Lock, Repeat2, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
@@ -14,6 +15,8 @@ import ImageLightbox from "@/components/post/ImageLightbox";
 import ShareDialog from "@/components/post/ShareDialog";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import VideoEmbed from "@/components/post/VideoEmbed";
+import LinkPreviewCard from "@/components/post/LinkPreviewCard";
+import { toast } from "sonner";
 
 interface Author {
   id: number;
@@ -75,7 +78,7 @@ function renderContent(text: string, validMentions?: string[]) {
         <Link
           key={i}
           href={`/hashtag/${encodeURIComponent(tag)}`}
-          className="text-primary font-semibold hover:underline"
+          className="text-amber-600 dark:text-amber-400 font-semibold hover:underline"
         >
           {part}
         </Link>
@@ -95,7 +98,7 @@ function renderContent(text: string, validMentions?: string[]) {
         <Link
           key={i}
           href={`/@${username}`}
-          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-md bg-sky-500/10 hover:bg-sky-500/20 text-sky-600 dark:text-sky-400 font-semibold border border-sky-500/20 hover:border-sky-500/40 transition-colors align-baseline"
+          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20 hover:border-blue-500/40 transition-colors align-baseline"
         >
           {part}
         </Link>
@@ -109,6 +112,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
   const resolvedParams = use(params);
   const id = resolvedParams.id;
   const { user } = useAuth();
+  const router = useRouter();
 
   const [post, setPost] = useState<PostDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -151,6 +155,11 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
 
   const handleLike = async () => {
     if (!post || isLiking) return;
+
+    if (!user) {
+      toast.error("Sign in to like posts");
+      return;
+    }
 
     const previousLiked = post.is_liked;
     const previousCount = post.likes_count;
@@ -425,12 +434,13 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
       {/* Sticky Header */}
       <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/60">
         <div className="flex items-center gap-4 px-4 py-2.5">
-          <Link
-            href="/"
-            className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors"
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-all duration-200 active:scale-90"
           >
             <ArrowLeft className="size-5" />
-          </Link>
+          </button>
           <h1 className="text-xl font-bold text-foreground">Post</h1>
         </div>
       </div>
@@ -468,6 +478,8 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
           </p>
           {/* Embedded Video (YouTube, Instagram Reels, Direct Video) */}
           <VideoEmbed content={post.content} />
+          {/* Rich Link OpenGraph Preview Card */}
+          <LinkPreviewCard content={post.content} />
         </div>
 
         {/* Images */}
@@ -501,39 +513,39 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
             <Button
               variant="ghost"
               size="sm"
-              className="h-9 px-3 gap-2 rounded-full text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10"
+              className="h-9 px-3 gap-2 rounded-full text-[#78716C] hover:text-teal-500 hover:bg-teal-500/10 transition-colors"
             >
               <MessageSquare className="size-5" />
             </Button>
 
-            {/* Like - Red Theme */}
+            {/* Like */}
             <Button
               variant="ghost"
               size="sm"
               onClick={handleLike}
               disabled={false}
               className={cn(
-                "h-9 px-3 gap-2 rounded-full",
+                "h-9 px-3 gap-2 rounded-full transition-colors",
                 post.is_liked
                   ? "text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                  : "text-muted-foreground hover:text-red-500 hover:bg-red-500/10"
+                  : "text-[#78716C] hover:text-red-500 hover:bg-red-500/10"
               )}
             >
               <Heart className={cn("size-5", post.is_liked && "fill-current")} />
             </Button>
 
             <div className="flex items-center gap-1">
-              {/* Bookmark - Green Theme */}
+              {/* Bookmark */}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleBookmark}
                 disabled={isBookmarking}
                 className={cn(
-                  "h-9 px-2 rounded-full",
+                  "h-9 px-2 rounded-full transition-colors",
                   post.is_bookmarked
-                    ? "text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10"
-                    : "text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10"
+                    ? "text-violet-500 hover:text-violet-600 hover:bg-violet-500/10"
+                    : "text-[#78716C] hover:text-violet-500 hover:bg-violet-500/10"
                 )}
               >
                 <Bookmark className={cn("size-5", post.is_bookmarked && "fill-current")} />
@@ -542,7 +554,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                 variant="ghost"
                 size="sm"
                 onClick={() => setShareDialogOpen(true)}
-                className="h-9 px-2 rounded-full text-muted-foreground hover:text-primary hover:bg-primary/10"
+                className="h-9 px-2 rounded-full text-[#78716C] hover:text-cyan-500 hover:bg-cyan-500/10 transition-colors"
               >
                 <Share2 className="size-5" />
               </Button>
@@ -556,20 +568,20 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         <form onSubmit={handleAddComment} className="flex items-center gap-3 px-4 py-3 border-b border-border/60">
           <Avatar className="size-8 shrink-0">
             <AvatarImage src={user.avatar ?? undefined} />
-            <AvatarFallback className="bg-muted text-xs">{getInitials(user.name)}</AvatarFallback>
+            <AvatarFallback className="bg-teal-500/15 text-teal-600 dark:text-teal-400 text-xs">{getInitials(user.name)}</AvatarFallback>
           </Avatar>
           <input
             type="text"
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Post your reply"
+            placeholder="Post your reply…"
             className="flex-1 bg-transparent text-[15px] focus:outline-none text-foreground placeholder:text-muted-foreground"
           />
           <Button
             type="submit"
             size="sm"
             disabled={!newComment.trim() || submittingComment}
-            className="rounded-full px-4 h-8 text-sm font-bold"
+            className="rounded-full px-4 h-8 text-sm font-bold bg-teal-600 hover:bg-teal-700 text-white"
           >
             {submittingComment ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -656,7 +668,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                       <button
                         type="button"
                         onClick={() => setReplyingToCommentId(comment.id)}
-                        className="text-sm font-medium text-muted-foreground hover:text-primary"
+                        className="text-sm font-medium text-teal-500 hover:text-teal-600 transition-colors"
                       >
                         Reply
                       </button>
@@ -665,7 +677,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                       <button
                         type="button"
                         onClick={() => setExpandedReplies((prev) => ({ ...prev, [comment.id]: !prev[comment.id] }))}
-                        className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-primary"
+                        className="inline-flex items-center gap-1 text-sm font-medium text-teal-500 hover:text-teal-600 transition-colors"
                       >
                         {expandedReplies[comment.id] ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
                         {expandedReplies[comment.id] ? "Hide replies" : `View ${comment.replies?.length ?? 0} replies`}
@@ -678,15 +690,15 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
               {replyingToCommentId === comment.id ? (
                 <form
                   onSubmit={(e) => handleAddReply(comment.id, e)}
-                  className="mx-4 mb-3 flex items-center gap-2 rounded-2xl border border-border/60 bg-background px-3 py-2"
+                  className="mx-4 mb-3 flex items-center gap-2 rounded-2xl border border-teal-500/30 bg-teal-500/5 px-3 py-2"
                 >
                   <input
                     value={replyDrafts[comment.id] ?? ""}
                     onChange={(e) => setReplyDrafts((prev) => ({ ...prev, [comment.id]: e.target.value }))}
-                    placeholder="Write a reply..."
-                    className="flex-1 bg-transparent text-sm focus:outline-none"
+                    placeholder="Write a reply…"
+                    className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-muted-foreground"
                   />
-                  <Button type="submit" size="sm" className="rounded-full px-3 h-8" disabled={!replyDrafts[comment.id]?.trim() || submittingReplyId === comment.id}>
+                  <Button type="submit" size="sm" className="rounded-full px-3 h-8 bg-teal-600 hover:bg-teal-700 text-white" disabled={!replyDrafts[comment.id]?.trim() || submittingReplyId === comment.id}>
                     {submittingReplyId === comment.id ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />}
                   </Button>
                 </form>

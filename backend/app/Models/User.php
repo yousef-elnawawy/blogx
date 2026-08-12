@@ -31,6 +31,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'two_factor_secret',
         'two_factor_recovery_codes',
         'two_factor_confirmed_at',
+        'notification_preferences',
     ];
 
     protected $hidden = [
@@ -45,12 +46,33 @@ class User extends Authenticatable implements MustVerifyEmail
         'is_admin' => 'boolean',
         'email_verified_at' => 'datetime',
         'two_factor_confirmed_at' => 'datetime',
+        'notification_preferences' => 'array',
     ];
 
     protected $appends = [
         'has_2fa',
         'is_email_verified',
     ];
+
+    public function allowsNotification(string $type): bool
+    {
+        $prefs = $this->notification_preferences;
+        if (!is_array($prefs)) {
+            return true;
+        }
+
+        $key = match ($type) {
+            'like_post', 'like_comment' => 'likes',
+            'comment', 'comment_reply' => 'comments',
+            'follow' => 'follows',
+            'mention' => 'mentions',
+            'share_post' => 'shares',
+            'milestone_post', 'milestone_likes', 'milestone_followers', 'view_milestone' => 'milestones',
+            default => $type,
+        };
+
+        return (bool) ($prefs[$key] ?? true);
+    }
 
     public function getHas2faAttribute(): bool
     {

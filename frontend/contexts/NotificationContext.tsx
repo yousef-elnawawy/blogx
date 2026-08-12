@@ -21,6 +21,7 @@ import {
   Bell,
 } from "lucide-react";
 import api from "@/lib/api";
+import { getEcho, disconnectEcho } from "@/lib/echo";
 import { useAuth } from "./AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -46,12 +47,32 @@ export interface NotificationItem {
   actor: NotificationActor | null;
 }
 
+export interface NotificationPreferences {
+  likes: boolean;
+  comments: boolean;
+  follows: boolean;
+  mentions: boolean;
+  shares: boolean;
+  milestones: boolean;
+}
+
+const DEFAULT_PREFERENCES: NotificationPreferences = {
+  likes: true,
+  comments: true,
+  follows: true,
+  mentions: true,
+  shares: true,
+  milestones: true,
+};
+
 interface NotificationContextType {
   notifications: NotificationItem[];
   unreadCount: number;
   loading: boolean;
   hasMore: boolean;
   filter: string;
+  preferences: NotificationPreferences;
+  loadingPreferences: boolean;
   setFilter: (f: string) => void;
   fetchNotifications: (category?: string, pageNum?: number, reset?: boolean) => Promise<void>;
   loadMore: () => Promise<void>;
@@ -60,6 +81,8 @@ interface NotificationContextType {
   deleteNotification: (id: number) => Promise<void>;
   clearAll: () => Promise<void>;
   refreshUnreadCount: () => Promise<void>;
+  updatePreference: (key: keyof NotificationPreferences, value: boolean) => Promise<void>;
+  fetchPreferences: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -79,16 +102,16 @@ function getNotificationIcon(type: string) {
   switch (type) {
     case "like_post":
     case "like_comment":
-      return <Heart className="size-3.5 fill-current text-rose-500" />;
+      return <Heart className="size-3.5 fill-current text-red-500" />;
     case "share_post":
-      return <Repeat2 className="size-3.5 text-blue-500" />;
+      return <Repeat2 className="size-3.5 text-cyan-500" />;
     case "follow":
-      return <UserPlus className="size-3.5 text-emerald-500" />;
+      return <UserPlus className="size-3.5 text-amber-500" />;
     case "comment":
     case "comment_reply":
-      return <MessageSquare className="size-3.5 text-sky-500" />;
+      return <MessageSquare className="size-3.5 text-teal-500" />;
     case "mention":
-      return <AtSign className="size-3.5 text-purple-500" />;
+      return <AtSign className="size-3.5 text-blue-500" />;
     case "view_milestone":
       return <Eye className="size-3.5 text-amber-500" />;
     case "milestone_post":
@@ -109,8 +132,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [filter, setFilter] = useState<string>("all");
-  const lastSeenIdRef = useRef<number>(0);
-  const isPollingRef = useRef<boolean>(false);
+  const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_PREFERENCES);
+  const [loadingPreferences, setLoadingPreferences] = useState<boolean>(false);
+  const filterRef = useRef<string>("all");
+  filterRef.current = filter;
 
   // Mark single notification as read
   const markAsRead = async (id: number) => {
@@ -198,47 +223,48 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     [router]
   );
 
-  // Fast non-blocking poll
-  const pollUpdates = useCallback(async () => {
-    if (!user || isPollingRef.current) return;
-    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
-
-    isPollingRef.current = true;
+  // Fetch unread count
+  const refreshUnreadCount = useCallback(async () => {
+    if (!user) return;
     try {
-      const res = await api.get("/api/notifications/poll", {
-        params: { after_id: lastSeenIdRef.current },
-      });
+      const res = await api.get("/api/notifications/unread-count");
+      if (res.data?.unread_count !== undefined) {
+        setUnreadCount(res.data.unread_count);
+      }
+    } catch {
+      // Ignored
+    }
+  }, [user]);
 
-      if (res.data) {
-        if (res.data.unread_count !== undefined) {
-          setUnreadCount(res.data.unread_count);
-        }
-
-        const recent: NotificationItem[] = res.data.recent || [];
-        if (recent.length > 0) {
-          const maxId = Math.max(...recent.map((r) => r.id));
-          lastSeenIdRef.current = Math.max(lastSeenIdRef.current, maxId);
-
-          setNotifications((prev) => {
-            const existingIds = new Set(prev.map((n) => n.id));
-            const fresh = recent.filter((r) => !existingIds.has(r.id));
-            return [...fresh, ...prev];
-          });
-
-          // Show toast for latest notification
-          showNotificationToast(recent[0]);
-        }
+  // Fetch preferences
+  const fetchPreferences = useCallback(async () => {
+    if (!user) return;
+    setLoadingPreferences(true);
+    try {
+      const res = await api.get("/api/notifications/preferences");
+      if (res.data?.preferences) {
+        setPreferences(res.data.preferences);
       }
     } catch {
       // Ignored
     } finally {
-      isPollingRef.current = false;
+      setLoadingPreferences(false);
     }
-  }, [user, showNotificationToast]);
+  }, [user]);
 
-  const refreshUnreadCount = useCallback(async () => {
-    await pollUpdates();
-  }, [pollUpdates]);
+  // Update a single preference
+  const updatePreference = async (key: keyof NotificationPreferences, value: boolean) => {
+    const updated = { ...preferences, [key]: value };
+    setPreferences(updated);
+    try {
+      await api.put("/api/notifications/preferences", { [key]: value });
+      toast.success("Preferences updated");
+    } catch {
+      // Revert on failure
+      setPreferences(preferences);
+      toast.error("Failed to update preferences");
+    }
+  };
 
   // Fetch full notifications list (called by notifications page)
   const fetchNotifications = useCallback(
@@ -253,11 +279,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         const data = res.data;
         const newItems: NotificationItem[] = data.notifications?.data || [];
         const lastPage: number = data.notifications?.last_page || 1;
-
-        if (newItems.length > 0) {
-          const maxId = Math.max(...newItems.map((n) => n.id));
-          lastSeenIdRef.current = Math.max(lastSeenIdRef.current, maxId);
-        }
 
         if (reset || pageNum === 1) {
           setNotifications(newItems);
@@ -332,36 +353,68 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
   };
 
-  // Setup smart background polling & window focus listener
+  // Setup Real-time WebSocket connection using Laravel Reverb (Echo)
   useEffect(() => {
     if (!user) {
       setNotifications([]);
       setUnreadCount(0);
-      lastSeenIdRef.current = 0;
+      disconnectEcho();
       return;
     }
 
-    // Initial check
-    pollUpdates();
+    // Initial fetch of unread count and preferences
+    refreshUnreadCount();
+    fetchPreferences();
 
-    // Poll every 12 seconds
-    const interval = setInterval(pollUpdates, 12000);
+    const echo = getEcho();
+    if (!echo) return;
 
-    // Refresh instantly on tab focus
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        pollUpdates();
+    const channelName = `user.${user.id}`;
+    const channel = echo.private(channelName);
+
+    const handleNewNotification = (data: {
+      notification: NotificationItem;
+      unread_count?: number;
+    }) => {
+      const incoming = data.notification;
+      if (!incoming) return;
+
+      if (data.unread_count !== undefined) {
+        setUnreadCount(data.unread_count);
+      } else {
+        setUnreadCount((c) => c + 1);
       }
+
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === incoming.id)) {
+          return prev;
+        }
+        return [incoming, ...prev];
+      });
+
+      // Trigger rich real-time toast alert
+      showNotificationToast(incoming);
     };
-    window.addEventListener("visibilitychange", handleVisibility);
-    window.addEventListener("focus", handleVisibility);
+
+    // Listen on all standard naming conventions
+    channel
+      .listen(".NewNotification", handleNewNotification)
+      .listen("NewNotification", handleNewNotification)
+      .listen(".App\\Events\\NewNotification", handleNewNotification)
+      .listen("App\\Events\\NewNotification", handleNewNotification);
 
     return () => {
-      clearInterval(interval);
-      window.removeEventListener("visibilitychange", handleVisibility);
-      window.removeEventListener("focus", handleVisibility);
+      try {
+        channel.stopListening(".NewNotification");
+        channel.stopListening("NewNotification");
+        channel.stopListening(".App\\Events\\NewNotification");
+        channel.stopListening("App\\Events\\NewNotification");
+        echo.leave(channelName);
+      } catch {
+        // Cleanup error ignored
+      }
     };
-  }, [user, pollUpdates]);
+  }, [user, showNotificationToast, refreshUnreadCount, fetchPreferences]);
 
   return (
     <NotificationContext.Provider
@@ -371,6 +424,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         loading,
         hasMore,
         filter,
+        preferences,
+        loadingPreferences,
         setFilter: (f: string) => {
           setFilter(f);
           fetchNotifications(f, 1, true);
@@ -382,6 +437,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         deleteNotification,
         clearAll,
         refreshUnreadCount,
+        updatePreference,
+        fetchPreferences,
       }}
     >
       {children}

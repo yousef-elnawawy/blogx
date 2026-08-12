@@ -174,39 +174,63 @@ class NotificationController extends Controller
     }
 
     /**
-     * Lightweight stream endpoint (non-blocking).
+     * Get user notification preferences.
      */
-    public function stream(Request $request): StreamedResponse
+    public function getPreferences(Request $request)
     {
-        $user = $request->user() ?? auth('sanctum')->user();
+        $user = $request->user();
 
-        if (!$user && $request->has('api_token')) {
-            $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($request->query('api_token'));
-            if ($accessToken) {
-                $user = $accessToken->tokenable;
-            }
-        }
+        $defaults = [
+            'likes'      => true,
+            'comments'   => true,
+            'follows'    => true,
+            'mentions'   => true,
+            'shares'     => true,
+            'milestones' => true,
+        ];
 
-        if (!$user) {
-            abort(401, 'Unauthorized');
-        }
+        $preferences = array_merge($defaults, $user->notification_preferences ?? []);
 
-        $response = new StreamedResponse(function () use ($user) {
-            if (ob_get_level() > 0) {
-                ob_end_clean();
-            }
+        return response()->json([
+            'preferences' => $preferences,
+        ]);
+    }
 
-            $unreadCount = Notification::where('user_id', $user->id)->unread()->count();
-            echo "event: init\n";
-            echo "data: " . json_encode(['unread_count' => $unreadCount]) . "\n\n";
-            flush();
-        });
+    /**
+     * Update user notification preferences.
+     */
+    public function updatePreferences(Request $request)
+    {
+        $user = $request->user();
 
-        $response->headers->set('Content-Type', 'text/event-stream');
-        $response->headers->set('Cache-Control', 'no-cache, no-store, must-revalidate');
-        $response->headers->set('Connection', 'close');
-        $response->headers->set('X-Accel-Buffering', 'no');
+        $validated = $request->validate([
+            'likes'      => 'nullable|boolean',
+            'comments'   => 'nullable|boolean',
+            'follows'    => 'nullable|boolean',
+            'mentions'   => 'nullable|boolean',
+            'shares'     => 'nullable|boolean',
+            'milestones' => 'nullable|boolean',
+        ]);
 
-        return $response;
+        $defaults = [
+            'likes'      => true,
+            'comments'   => true,
+            'follows'    => true,
+            'mentions'   => true,
+            'shares'     => true,
+            'milestones' => true,
+        ];
+
+        $current = array_merge($defaults, $user->notification_preferences ?? []);
+        $updated = array_merge($current, array_filter($validated, fn($v) => !is_null($v)));
+
+        $user->forceFill([
+            'notification_preferences' => $updated,
+        ])->save();
+
+        return response()->json([
+            'message'     => 'Notification preferences updated successfully',
+            'preferences' => $updated,
+        ]);
     }
 }

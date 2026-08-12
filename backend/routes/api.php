@@ -59,20 +59,26 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/admin/verification-requests/{id}/approve', [VerificationController::class, 'adminApprove']);
     Route::post('/admin/verification-requests/{id}/reject', [VerificationController::class, 'adminReject']);
 
+    // Broadcasting Authentication (Sanctum)
+    Broadcast::routes(['middleware' => ['auth:sanctum']]);
+
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::get('/notifications/preferences', [NotificationController::class, 'getPreferences']);
+    Route::put('/notifications/preferences', [NotificationController::class, 'updatePreferences']);
     Route::get('/notifications/poll', [NotificationController::class, 'poll']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
     Route::delete('/notifications/{id}', [NotificationController::class, 'destroy']);
     Route::delete('/notifications', [NotificationController::class, 'clearAll']);
-    Route::get('/notifications/stream', [NotificationController::class, 'stream']);
 
     // Posts & Feed Actions
     Route::post('/posts', [PostController::class, 'store']);
     Route::post('/posts/{id}/update', [PostController::class, 'update']);
     Route::delete('/posts/{id}', [PostController::class, 'destroy']);
+    Route::post('/posts/{id}/pin', [PostController::class, 'togglePin']);
+    Route::get('/posts/scheduled', [PostController::class, 'scheduled']);
     Route::post('/posts/{id}/like', [PostController::class, 'toggleLike']);
     Route::post('/posts/{id}/share', [PostController::class, 'recordShare']);
     Route::post('/posts/{id}/comments', [PostController::class, 'storeComment']);
@@ -86,7 +92,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Public routes — enriched when auth token is present
-Route::get('/notifications/stream', [NotificationController::class, 'stream']);
+Route::get('/posts/preview-link', [PostController::class, 'previewLink']);
 Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::post('/posts/{id}/share', [PostController::class, 'recordShare']);
