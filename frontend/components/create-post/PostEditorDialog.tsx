@@ -49,27 +49,17 @@ function getInitials(name: string) {
     .slice(0, 2);
 }
 
-/** Convert plain text to HTML with atomic mention blocks */
-function textToHtmlWithChips(text: string): string {
+/** Escape plain text for contenteditable HTML */
+function escapeHtml(text: string): string {
   if (!text) return "";
-  const parts = text.split(/(@[\p{L}\p{N}_.-]+)/gu);
-  return parts
-    .map((part) => {
-      if (part.startsWith("@") && part.length > 1) {
-        const username = part.slice(1);
-        return `<span class="mention-chip inline-flex items-center px-2 py-0.5 mx-0.5 rounded-lg bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold border border-sky-500/30 text-[0.92em] align-baseline select-none" contenteditable="false" data-mention="${username}">@${username}</span>`;
-      }
-      // escape HTML
-      return part
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/\n/g, "<br>");
-    })
-    .join("");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
 }
 
-/** Extract plain text from editor content containing mention chips */
+/** Extract plain text from editor content */
 function extractPlainText(node: Node): string {
   let result = "";
   for (let i = 0; i < node.childNodes.length; i++) {
@@ -78,9 +68,7 @@ function extractPlainText(node: Node): string {
       result += child.textContent || "";
     } else if (child.nodeType === Node.ELEMENT_NODE) {
       const el = child as HTMLElement;
-      if (el.classList.contains("mention-chip") && el.dataset.mention) {
-        result += `@${el.dataset.mention}`;
-      } else if (el.tagName === "BR") {
+      if (el.tagName === "BR") {
         result += "\n";
       } else if (el.tagName === "DIV" || el.tagName === "P") {
         const inner = extractPlainText(el);
@@ -127,6 +115,10 @@ export default function PostEditorDialog({
   const [mentionActiveIdx, setMentionActiveIdx] = useState(0);
   const [mentionRange, setMentionRange] = useState<{ node: Text; start: number; end: number; word: string } | null>(null);
 
+  // Remember last searched query to prevent unnecessary API refetches and selection resets on arrow keys
+  const lastMentionQueryRef = useRef<string | null>(null);
+  const lastHashtagQueryRef = useRef<string | null>(null);
+
   // Caret popup coordinates
   const [popupPos, setPopupPos] = useState<{ top: number; left: number }>({ top: 35, left: 16 });
 
@@ -168,7 +160,7 @@ export default function PostEditorDialog({
           }
         }
 
-        editorElement.innerHTML = textToHtmlWithChips(raw);
+        editorElement.innerHTML = escapeHtml(raw);
         setContentLength(raw.length);
 
         if (postToEdit) {
@@ -187,6 +179,8 @@ export default function PostEditorDialog({
         setHashtagSuggestions([]);
         setMentionVisible(false);
         setMentionSuggestions([]);
+        lastMentionQueryRef.current = null;
+        lastHashtagQueryRef.current = null;
 
         // Focus and place cursor at end
         requestAnimationFrame(() => {
@@ -263,18 +257,34 @@ export default function PostEditorDialog({
 
     // Calculate screen position for popup
     if (containerRef.current) {
-      const rect = range.getBoundingClientRect();
+      let rect = range.getBoundingClientRect();
       const containerRect = containerRef.current.getBoundingClientRect();
-      if (rect.width !== 0 || rect.height !== 0) {
-        setPopupPos({
-          top: rect.bottom - containerRect.top + 4,
-          left: Math.max(rect.left - containerRect.left, 8),
-        });
+
+      // If collapsed range rect is 0 (can happen at line boundaries), measure with temporary marker
+      if (rect.width === 0 && rect.height === 0) {
+        try {
+          const span = document.createElement("span");
+          span.appendChild(document.createTextNode("\u200b"));
+          const tempRange = range.cloneRange();
+          tempRange.insertNode(span);
+          rect = span.getBoundingClientRect();
+          span.parentNode?.removeChild(span);
+        } catch {
+          // fallback
+        }
+      }
+
+      if (rect.width !== 0 || rect.height !== 0 || rect.top !== 0) {
+        const top = rect.bottom - containerRect.top + containerRef.current.scrollTop + 6;
+        const left = rect.left - containerRect.left + containerRef.current.scrollLeft;
+        setPopupPos({ top, left });
       }
     }
 
     const node = range.startContainer;
     if (node.nodeType !== Node.TEXT_NODE) {
+      lastMentionQueryRef.current = null;
+      lastHashtagQueryRef.current = null;
       setMentionVisible(false);
       setHashtagVisible(false);
       return;
@@ -287,27 +297,42 @@ export default function PostEditorDialog({
     const htMatch = before.match(/#([\p{L}\p{N}_]*)$/u);
     const mtMatch = before.match(/@([\p{L}\p{N}_.-]*)$/u);
 
-    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
-
     if (htMatch) {
       const word = htMatch[1];
       const start = before.length - htMatch[0].length;
       setHashtagRange({ node: node as Text, start, end: cursor, word });
       setMentionVisible(false);
       setMentionRange(null);
-      suggestDebounceRef.current = setTimeout(() => {
-        fetchHashtags(word);
-      }, 100);
+      lastMentionQueryRef.current = null;
+
+      // Only refetch if the hashtag query word actually changed
+      if (lastHashtagQueryRef.current !== word) {
+        lastHashtagQueryRef.current = word;
+        if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+        suggestDebounceRef.current = setTimeout(() => {
+          fetchHashtags(word);
+        }, 100);
+      }
     } else if (mtMatch) {
       const word = mtMatch[1];
       const start = before.length - mtMatch[0].length;
       setMentionRange({ node: node as Text, start, end: cursor, word });
       setHashtagVisible(false);
       setHashtagRange(null);
-      suggestDebounceRef.current = setTimeout(() => {
-        fetchMentions(word);
-      }, 100);
+      lastHashtagQueryRef.current = null;
+
+      // Only refetch if the mention query word actually changed
+      if (lastMentionQueryRef.current !== word) {
+        lastMentionQueryRef.current = word;
+        if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+        suggestDebounceRef.current = setTimeout(() => {
+          fetchMentions(word);
+        }, 100);
+      }
     } else {
+      if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+      lastHashtagQueryRef.current = null;
+      lastMentionQueryRef.current = null;
       setHashtagVisible(false);
       setHashtagSuggestions([]);
       setHashtagRange(null);
@@ -333,32 +358,14 @@ export default function PostEditorDialog({
     const before = fullText.slice(0, start);
     const after = fullText.slice(end);
 
-    // Create chip element (Atomic block)
-    const chip = document.createElement("span");
-    chip.className =
-      "mention-chip inline-flex items-center px-2 py-0.5 mx-0.5 rounded-lg bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold border border-sky-500/30 text-[0.92em] align-baseline select-none";
-    chip.contentEditable = "false";
-    chip.dataset.mention = username;
-    chip.textContent = `@${username}`;
+    // Normal plain text insertion with trailing space
+    node.textContent = `${before}@${username} ${after}`;
 
-    const parent = node.parentNode;
-    if (!parent) return;
-
-    const textBefore = document.createTextNode(before);
-    const spaceAfter = document.createTextNode("\u00A0"); // non-breaking space
-    const textAfter = document.createTextNode(after);
-
-    parent.insertBefore(textBefore, node);
-    parent.insertBefore(chip, node);
-    parent.insertBefore(spaceAfter, node);
-    parent.insertBefore(textAfter, node);
-    parent.removeChild(node);
-
-    // Place caret after spaceAfter
     const sel = window.getSelection();
     if (sel) {
       const newRange = document.createRange();
-      newRange.setStartAfter(spaceAfter);
+      const pos = before.length + username.length + 2; // '@' + username + ' '
+      newRange.setStart(node, Math.min(pos, node.textContent.length));
       newRange.collapse(true);
       sel.removeAllRanges();
       sel.addRange(newRange);
@@ -367,9 +374,11 @@ export default function PostEditorDialog({
     setMentionVisible(false);
     setMentionSuggestions([]);
     setMentionRange(null);
+    lastMentionQueryRef.current = null;
 
     const text = extractPlainText(editorRef.current);
     setContentLength(text.length);
+    saveDraft(text);
   };
 
   const handleSelectHashtag = (tag: string) => {
@@ -380,6 +389,7 @@ export default function PostEditorDialog({
     const before = fullText.slice(0, start);
     const after = fullText.slice(end);
 
+    // Normal plain text insertion with trailing space
     node.textContent = `${before}#${tag} ${after}`;
 
     const sel = window.getSelection();
@@ -395,9 +405,27 @@ export default function PostEditorDialog({
     setHashtagVisible(false);
     setHashtagSuggestions([]);
     setHashtagRange(null);
+    lastHashtagQueryRef.current = null;
 
     const text = extractPlainText(editorRef.current);
     setContentLength(text.length);
+    saveDraft(text);
+  };
+
+  const handleKeyUp = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Ignore navigation keys on keyup so we don't trigger refetches or reset activeIndex
+    if (
+      e.key === "ArrowDown" ||
+      e.key === "ArrowUp" ||
+      e.key === "ArrowLeft" ||
+      e.key === "ArrowRight" ||
+      e.key === "Enter" ||
+      e.key === "Tab" ||
+      e.key === "Escape"
+    ) {
+      return;
+    }
+    checkTriggersAtCursor();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -405,11 +433,11 @@ export default function PostEditorDialog({
     if (hashtagVisible && hashtagSuggestions.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setHashtagActiveIdx((i) => Math.min(i + 1, hashtagSuggestions.length - 1));
+        setHashtagActiveIdx((i) => (i + 1) % hashtagSuggestions.length);
         return;
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setHashtagActiveIdx((i) => Math.max(i - 1, 0));
+        setHashtagActiveIdx((i) => (i - 1 + hashtagSuggestions.length) % hashtagSuggestions.length);
         return;
       } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
@@ -417,6 +445,7 @@ export default function PostEditorDialog({
         if (chosen) handleSelectHashtag(chosen.tag);
         return;
       } else if (e.key === "Escape") {
+        e.preventDefault();
         setHashtagVisible(false);
         return;
       }
@@ -426,11 +455,11 @@ export default function PostEditorDialog({
     if (mentionVisible && mentionSuggestions.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setMentionActiveIdx((i) => Math.min(i + 1, mentionSuggestions.length - 1));
+        setMentionActiveIdx((i) => (i + 1) % mentionSuggestions.length);
         return;
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
-        setMentionActiveIdx((i) => Math.max(i - 1, 0));
+        setMentionActiveIdx((i) => (i - 1 + mentionSuggestions.length) % mentionSuggestions.length);
         return;
       } else if (e.key === "Enter" || e.key === "Tab") {
         e.preventDefault();
@@ -438,95 +467,9 @@ export default function PostEditorDialog({
         if (chosen) handleSelectMention(chosen.username);
         return;
       } else if (e.key === "Escape") {
+        e.preventDefault();
         setMentionVisible(false);
         return;
-      }
-    }
-
-    // Direct Backspace deletion of Mention Chip Blocks
-    if (e.key === "Backspace") {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount && editorRef.current) {
-        const range = sel.getRangeAt(0);
-        if (range.collapsed) {
-          const container = range.startContainer;
-          const offset = range.startOffset;
-
-          // Case 1: inside text node at offset 0 and previous sibling is a mention chip
-          if (container.nodeType === Node.TEXT_NODE && offset === 0) {
-            const prev = container.previousSibling as HTMLElement | null;
-            if (prev && prev.nodeType === Node.ELEMENT_NODE && prev.classList.contains("mention-chip")) {
-              e.preventDefault();
-              prev.remove();
-              handleInput();
-              return;
-            }
-          }
-
-          // Case 2: inside text node at offset 1 and char is space (\u00A0 or ' ') right after chip
-          if (container.nodeType === Node.TEXT_NODE && offset <= 1) {
-            const text = container.textContent || "";
-            if (text === "" || text[0] === "\u00A0" || text[0] === " ") {
-              const prev = container.previousSibling as HTMLElement | null;
-              if (prev && prev.nodeType === Node.ELEMENT_NODE && prev.classList.contains("mention-chip")) {
-                e.preventDefault();
-                if (text.length > 0) {
-                  container.textContent = text.slice(1);
-                }
-                prev.remove();
-                handleInput();
-                return;
-              }
-            }
-          }
-
-          // Case 3: container is parent element and previous child is mention chip
-          if (container.nodeType === Node.ELEMENT_NODE) {
-            const el = container as HTMLElement;
-            if (offset > 0) {
-              const prevChild = el.childNodes[offset - 1] as HTMLElement | undefined;
-              if (prevChild && prevChild.nodeType === Node.ELEMENT_NODE && prevChild.classList.contains("mention-chip")) {
-                e.preventDefault();
-                prevChild.remove();
-                handleInput();
-                return;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Direct Delete key deletion of Mention Chip Blocks
-    if (e.key === "Delete") {
-      const sel = window.getSelection();
-      if (sel && sel.rangeCount && editorRef.current) {
-        const range = sel.getRangeAt(0);
-        if (range.collapsed) {
-          const container = range.startContainer;
-          const offset = range.startOffset;
-
-          if (container.nodeType === Node.TEXT_NODE && offset === (container.textContent?.length || 0)) {
-            const next = container.nextSibling as HTMLElement | null;
-            if (next && next.nodeType === Node.ELEMENT_NODE && next.classList.contains("mention-chip")) {
-              e.preventDefault();
-              next.remove();
-              handleInput();
-              return;
-            }
-          }
-
-          if (container.nodeType === Node.ELEMENT_NODE) {
-            const el = container as HTMLElement;
-            const nextChild = el.childNodes[offset] as HTMLElement | undefined;
-            if (nextChild && nextChild.nodeType === Node.ELEMENT_NODE && nextChild.classList.contains("mention-chip")) {
-              e.preventDefault();
-              nextChild.remove();
-              handleInput();
-              return;
-            }
-          }
-        }
       }
     }
   };
@@ -644,9 +587,13 @@ export default function PostEditorDialog({
   const avatarSrc = getAvatarUrl(user?.avatar);
   const canPost = (contentLength > 0 || images.length > 0) && !submitting;
 
+  const containerWidth = containerRef.current?.clientWidth ?? 450;
+  const popupWidth = 320;
+  const clampedLeft = Math.max(12, Math.min(popupPos.left, Math.max(12, containerWidth - popupWidth - 12)));
+
   const computedPopupStyle: React.CSSProperties = {
     top: `${Math.max(popupPos.top, 36)}px`,
-    left: `${Math.min(popupPos.left, 240)}px`,
+    left: `${clampedLeft}px`,
   };
 
   return (
@@ -708,7 +655,7 @@ export default function PostEditorDialog({
             dir="auto"
             suppressContentEditableWarning
             onInput={handleInput}
-            onKeyUp={checkTriggersAtCursor}
+            onKeyUp={handleKeyUp}
             onClick={checkTriggersAtCursor}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
@@ -737,6 +684,7 @@ export default function PostEditorDialog({
           <MentionSuggestions
             suggestions={mentionSuggestions}
             activeIndex={mentionActiveIdx}
+            onActiveIndexChange={setMentionActiveIdx}
             onSelect={handleSelectMention}
             visible={mentionVisible}
             style={computedPopupStyle}
@@ -745,6 +693,7 @@ export default function PostEditorDialog({
           <HashtagSuggestions
             suggestions={hashtagSuggestions}
             activeIndex={hashtagActiveIdx}
+            onActiveIndexChange={setHashtagActiveIdx}
             onSelect={handleSelectHashtag}
             visible={hashtagVisible}
             style={computedPopupStyle}

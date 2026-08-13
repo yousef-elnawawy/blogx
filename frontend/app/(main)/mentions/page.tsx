@@ -64,12 +64,13 @@ function renderMentionContent(text: string, validMentions?: string[]) {
       }
 
       return (
-        <span
+        <Link
           key={i}
-          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-md bg-sky-500/10 text-sky-600 dark:text-sky-400 font-semibold border border-sky-500/20 align-baseline"
+          href={`/@${username}`}
+          className="text-sky-600 dark:text-sky-400 font-semibold hover:underline"
         >
           {part}
-        </span>
+        </Link>
       );
     }
     return <span key={i}>{part}</span>;

@@ -106,7 +106,7 @@ function renderHighlighted(text: string, validMentions?: string[]) {
           key={i}
           href={`/@${username}`}
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center px-1.5 py-0.5 mx-0.5 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-semibold border border-blue-500/20 hover:border-blue-500/40 transition-colors align-baseline relative z-10"
+          className="text-sky-600 dark:text-sky-400 font-semibold hover:underline relative z-10"
         >
           {part}
         </Link>

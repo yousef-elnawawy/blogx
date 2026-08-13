@@ -11,6 +11,7 @@ export interface HashtagSuggestion {
 interface HashtagSuggestionsProps {
   suggestions: HashtagSuggestion[];
   activeIndex: number;
+  onActiveIndexChange?: (index: number) => void;
   onSelect: (tag: string) => void;
   visible: boolean;
   style?: React.CSSProperties;
@@ -24,17 +25,30 @@ function formatCount(n: number): string {
 export default function HashtagSuggestions({
   suggestions,
   activeIndex,
+  onActiveIndexChange,
   onSelect,
   visible,
   style,
 }: HashtagSuggestionsProps) {
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Scroll active item into view
+  // Smooth container-only scrolling without polluting parent page/dialog scroll
   useEffect(() => {
-    if (listRef.current) {
-      const el = listRef.current.children[activeIndex] as HTMLElement | undefined;
-      el?.scrollIntoView({ block: "nearest" });
+    if (listRef.current && activeIndex >= 0) {
+      const listEl = listRef.current;
+      const itemEl = listEl.children[activeIndex] as HTMLElement | undefined;
+      if (itemEl) {
+        const itemTop = itemEl.offsetTop;
+        const itemBottom = itemTop + itemEl.offsetHeight;
+        const listTop = listEl.scrollTop;
+        const listBottom = listTop + listEl.clientHeight;
+
+        if (itemTop < listTop) {
+          listEl.scrollTop = itemTop;
+        } else if (itemBottom > listBottom) {
+          listEl.scrollTop = itemBottom - listEl.clientHeight;
+        }
+      }
     }
   }, [activeIndex]);
 
@@ -43,51 +57,64 @@ export default function HashtagSuggestions({
   return (
     <div
       style={style}
-      className="absolute z-50 w-full max-w-[280px] sm:max-w-xs rounded-2xl border border-border/80 bg-card/95 backdrop-blur-md shadow-2xl overflow-hidden animate-in fade-in-0 slide-in-from-top-1 duration-150"
+      className="absolute z-50 w-72 sm:w-80 max-w-[calc(100vw-32px)] rounded-2xl border border-border/80 bg-popover/95 dark:bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/10 dark:shadow-black/60 ring-1 ring-black/5 dark:ring-white/10 overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150 select-none"
     >
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50 bg-muted/40">
-        <TrendingUp className="size-3.5 text-primary" />
-        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-          Hashtag Suggestions
+      {/* Sleek minimal header */}
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-border/40 bg-muted/30">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <TrendingUp className="size-3.5 text-primary" />
+          <span className="text-[11px] font-semibold tracking-wide">
+            Hashtags
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground/60 hidden sm:inline">
+          ↑↓ to navigate
         </span>
       </div>
-      <ul ref={listRef} className="max-h-48 overflow-y-auto divide-y divide-border/20">
-        {suggestions.map((item, i) => (
-          <li key={item.tag}>
-            <button
-              type="button"
-              onMouseDown={(e) => {
-                e.preventDefault(); // prevent textarea blur
-                onSelect(item.tag);
-              }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors cursor-pointer ${
-                i === activeIndex
-                  ? "bg-primary/10 text-primary font-semibold"
-                  : "hover:bg-muted/60 text-foreground"
-              }`}
-            >
-              <div
-                className={`grid place-items-center size-7 rounded-lg shrink-0 ${
-                  i === activeIndex ? "bg-primary/15" : "bg-muted"
+
+      {/* Suggestion list */}
+      <ul
+        ref={listRef}
+        className="relative max-h-56 overflow-y-auto p-1.5 space-y-0.5 scrollbar-thin scrollbar-thumb-muted-foreground/20"
+      >
+        {suggestions.map((item, i) => {
+          const isActive = i === activeIndex;
+          return (
+            <li key={item.tag}>
+              <button
+                type="button"
+                onMouseEnter={() => onActiveIndexChange?.(i)}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // prevent editor textarea blur
+                  onSelect(item.tag);
+                }}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-start transition-all duration-100 cursor-pointer ${
+                  isActive
+                    ? "bg-primary/10 text-foreground font-medium shadow-xs"
+                    : "hover:bg-muted/50 text-foreground/90"
                 }`}
               >
-                <Hash
-                  className={`size-3.5 ${
-                    i === activeIndex ? "text-primary" : "text-muted-foreground"
+                <div
+                  className={`grid place-items-center size-8 rounded-lg shrink-0 transition-colors ${
+                    isActive ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
                   }`}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold truncate">#{item.tag}</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {item.usage_count > 0
-                    ? `${formatCount(item.usage_count)} posts`
-                    : "New hashtag"}
-                </p>
-              </div>
-            </button>
-          </li>
-        ))}
+                >
+                  <Hash className="size-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs sm:text-sm font-semibold truncate leading-tight" dir="auto">
+                    #{item.tag}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground font-normal truncate mt-0.5">
+                    {item.usage_count > 0
+                      ? `${formatCount(item.usage_count)} posts`
+                      : "New hashtag"}
+                  </p>
+                </div>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
