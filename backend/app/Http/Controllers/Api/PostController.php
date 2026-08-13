@@ -304,19 +304,29 @@ class PostController extends Controller
         $validated = $request->validate([
             'content'           => ['required_without:images', 'nullable', 'string', 'max:5000'],
             'images'            => ['nullable', 'array', 'max:10'],
-            'images.*'          => ['image', 'max:5120'], // 5 MB per image
+            'images.*'          => ['image', 'max:25600'], // 25 MB per image
             'comments_enabled'  => ['nullable', 'boolean'],
             'scheduled_at'      => ['nullable', 'date'],
+            'status'            => ['nullable', 'in:published,draft'],
         ]);
 
+        $status = $validated['status'] ?? 'published';
         $scheduledAt = !empty($validated['scheduled_at']) ? \Carbon\Carbon::parse($validated['scheduled_at']) : null;
-        $isScheduled = $scheduledAt && $scheduledAt->isFuture();
+        $isScheduled = $scheduledAt && $scheduledAt->isFuture() && $status !== 'draft';
+
+        if ($status === 'draft') {
+            $postStatus = 'draft';
+        } elseif ($isScheduled) {
+            $postStatus = 'scheduled';
+        } else {
+            $postStatus = 'published';
+        }
 
         $post = Post::create([
             'user_id'          => $request->user()->id,
             'content'          => $validated['content'] ?? '',
             'comments_enabled' => $validated['comments_enabled'] ?? true,
-            'status'           => $isScheduled ? 'scheduled' : 'published',
+            'status'           => $postStatus,
             'scheduled_at'     => $scheduledAt,
         ]);
 
@@ -505,15 +515,21 @@ class PostController extends Controller
         $validated = $request->validate([
             'content'          => ['nullable', 'string', 'max:5000'],
             'images'           => ['nullable', 'array', 'max:10'],
-            'images.*'         => ['image', 'max:5120'],
+            'images.*'         => ['image', 'max:25600'], // 25 MB per image
             'removed_images'   => ['nullable', 'array'],
             'removed_images.*' => ['string'],
+            'status'           => ['nullable', 'in:published,draft,scheduled'],
         ]);
 
-        $post->update([
+        $updateData = [
             'content'   => $validated['content'] ?? '',
             'is_edited' => true,
-        ]);
+        ];
+        if (isset($validated['status'])) {
+            $updateData['status'] = $validated['status'];
+        }
+
+        $post->update($updateData);
 
         // Handle removed images
         if ($request->has('removed_images') && is_array($request->removed_images)) {

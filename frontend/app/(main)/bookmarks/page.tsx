@@ -37,23 +37,23 @@ export default function BookmarksPage() {
   return (
     <div>
       {/* Sticky Header */}
-     <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/60 px-4 py-2.5 sm:px-6">
+      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/60 px-4 py-2.5 sm:px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors"
+              className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
               aria-label="Back"
             >
               <ArrowLeft className="size-5" />
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <div className="grid place-items-center size-7 rounded-lg bg-green-500/10 text-green-500">
-                  <Bookmark className="size-4" strokeWidth={2.5} />
+                <div className="grid place-items-center size-7 rounded-lg bg-violet-500/10 dark:bg-violet-500/20 text-violet-500 dark:text-violet-400">
+                  <Bookmark className="size-4 fill-violet-500/30 dark:fill-violet-400/30" strokeWidth={2.5} />
                 </div>
                 <h1 className="text-lg font-bold text-foreground leading-tight">
-                  BookMarks
+                  Bookmarks
                 </h1>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -65,17 +65,17 @@ export default function BookmarksPage() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        <div className="py-16 text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-violet-500" />
         </div>
       ) : posts.length === 0 ? (
-        <div className="p-12 text-center">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-green-500/10">
-            <Bookmark className="size-8 text-green-500 -foreground" />
+        <div className="p-12 text-center max-w-sm mx-auto">
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-violet-500/10 dark:bg-violet-500/20 ring-8 ring-violet-500/5">
+            <Bookmark className="size-8 text-violet-500 dark:text-violet-400 fill-violet-500/30 dark:fill-violet-400/30" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground mb-1">No saved posts</h2>
-          <p className="text-sm text-muted-foreground">
-            When you save posts, they will appear here.
+          <h2 className="text-lg font-bold text-foreground mb-1">Save posts for later</h2>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Don't let the good ones fly away! Bookmark posts to easily find them again anytime.
           </p>
         </div>
       ) : (

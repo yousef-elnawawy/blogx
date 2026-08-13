@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\NotificationController;
@@ -89,6 +90,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mentions', [PostController::class, 'mentions']);
     Route::get('/following/posts', [PostController::class, 'followingFeed']);
     Route::post('/users/{id}/follow', [ProfileController::class, 'toggleFollow']);
+
+    // Articles & Drafts
+    Route::post('/articles', [ArticleController::class, 'store']);
+    Route::post('/articles/{id}', [ArticleController::class, 'update']);
+    Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
+    Route::post('/articles/{id}/like', [ArticleController::class, 'toggleLike']);
+    Route::get('/drafts', [ArticleController::class, 'myDrafts']);
 });
 
 // Public routes — enriched when auth token is present
@@ -101,7 +109,12 @@ Route::post('/posts/views/batch', [PostController::class, 'recordBatchImpression
 Route::get('/profile/{username}', [ProfileController::class, 'show']);
 Route::get('/profile/{username}/followers', [ProfileController::class, 'followersList']);
 Route::get('/profile/{username}/following', [ProfileController::class, 'followingList']);
+Route::get('/profile/{username}/articles', [ArticleController::class, 'userArticles']);
 Route::get('/users/suggestions', [ProfileController::class, 'suggestions']);
+
+// Articles Public
+Route::get('/articles', [ArticleController::class, 'index']);
+Route::get('/articles/{slugOrId}', [ArticleController::class, 'show']);
 
 // Search, Hashtags & Mention suggestions (public)
 Route::get('/search', [SearchController::class, 'search']);

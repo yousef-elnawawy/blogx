@@ -43,24 +43,34 @@ class SearchController extends Controller
         }
 
         if (in_array($type, ['all', 'people'])) {
+            $peopleLimit = ($type === 'all') ? 6 : 30;
             $people = User::where('name', 'like', "%{$q}%")
                 ->orWhere('username', 'like', "%{$q}%")
                 ->orWhere('bio', 'like', "%{$q}%")
-                ->take(20)
+                ->take($peopleLimit)
                 ->get()
                 ->map(function ($u) use ($user) {
                     $avatarUrl = $u->avatar;
                     if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
                         $avatarUrl = config('app.url') . $avatarUrl;
                     }
+                    $coverUrl = $u->cover;
+                    if ($coverUrl && !str_starts_with($coverUrl, 'http')) {
+                        $coverUrl = config('app.url') . $coverUrl;
+                    }
                     return [
                         'id'              => $u->id,
                         'name'            => $u->name,
                         'username'        => $u->username,
                         'avatar'          => $avatarUrl,
+                        'cover'           => $coverUrl,
                         'bio'             => $u->bio,
-                        'verified'        => $u->verified,
+                        'location'        => $u->location,
+                        'website'         => $u->website,
+                        'verified'        => (bool) $u->verified,
                         'followers_count' => $u->followers()->count(),
+                        'following_count' => $u->following()->count(),
+                        'posts_count'     => Post::where('user_id', $u->id)->published()->count(),
                         'is_following'    => $user ? $user->isFollowing($u) : false,
                     ];
                 });

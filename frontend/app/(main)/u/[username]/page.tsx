@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,8 +29,16 @@ import {
   Users,
   Share2,
   QrCode,
+  BookOpen,
+  Lock,
+  Plus,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
+import ArticleCard, { ArticleItem } from "@/components/article/ArticleCard";
+import ArticleEditorDialog, { ArticleEditorInitialData } from "@/components/article/ArticleEditorDialog";
+import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import api from "@/lib/api";
 import { getAvatarUrl } from "@/lib/utils";
 import { toast } from "sonner";
@@ -65,7 +73,15 @@ interface UserListItem {
   is_following: boolean;
 }
 
-const profileTabs = ["Posts", "Replies", "Highlights", "Media", "Likes"];
+function getInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 function ProfileSkeleton() {
   return (
@@ -87,19 +103,37 @@ function ProfileSkeleton() {
   );
 }
 
-export default function UserProfilePage() {
+function UserProfileContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { user: currentUser, loading: authLoading } = useAuth();
 
   const rawUsername = params.username as string;
   const username = rawUsername ? decodeURIComponent(rawUsername).replace(/^@/, "") : "";
+  const initialTab = searchParams.get("tab") || "Posts";
 
   const [profileUser, setProfileUser] = useState<ProfileUser | null>(null);
   const [userPosts, setUserPosts] = useState<PostCardProps[]>([]);
+  const [userArticles, setUserArticles] = useState<ArticleItem[]>([]);
+  const [articlesLoading, setArticlesLoading] = useState(false);
+  const [articlesLoaded, setArticlesLoaded] = useState(false);
+
+  // Drafts state (only for profile owner)
+  const [articleDrafts, setArticleDrafts] = useState<ArticleItem[]>([]);
+  const [postDrafts, setPostDrafts] = useState<PostCardProps[]>([]);
+  const [draftsLoading, setDraftsLoading] = useState(false);
+  const [draftsLoaded, setDraftsLoaded] = useState(false);
+
   const [notFound, setNotFound] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("Posts");
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  // Editor states
+  const [articleEditorOpen, setArticleEditorOpen] = useState(false);
+  const [selectedArticleDraft, setSelectedArticleDraft] = useState<ArticleEditorInitialData | null>(null);
+  const [postEditorOpen, setPostEditorOpen] = useState(false);
+  const [selectedPostDraft, setSelectedPostDraft] = useState<any>(null);
 
   // User list modal state (Followers / Following)
   const [userListModalOpen, setUserListModalOpen] = useState(false);
@@ -111,6 +145,11 @@ export default function UserProfilePage() {
   const isOwnProfile =
     !authLoading && currentUser?.username === username;
 
+  const profileTabs = isOwnProfile
+    ? ["Posts", "Articles", "Drafts", "Media", "Likes"]
+    : ["Posts", "Articles", "Media", "Likes"];
+
+  // Fetch base profile data
   useEffect(() => {
     if (!username) return;
 
@@ -155,243 +194,291 @@ export default function UserProfilePage() {
     };
   }, [username, currentUser?.username]);
 
+  // Fetch articles when Articles tab is active
+  const fetchArticles = useCallback(() => {
+    if (!username) return;
+    setArticlesLoading(true);
+    api
+      .get(`/api/profile/${username}/articles`)
+      .then((res) => {
+        setUserArticles(res.data.data ?? []);
+        setArticlesLoaded(true);
+      })
+      .catch(() => {})
+      .finally(() => setArticlesLoading(false));
+  }, [username]);
+
+  useEffect(() => {
+    if (activeTab === "Articles" && !articlesLoaded) {
+      fetchArticles();
+    }
+  }, [activeTab, articlesLoaded, fetchArticles]);
+
+  // Fetch drafts when Drafts tab is active
+  const fetchDrafts = useCallback(() => {
+    if (!isOwnProfile) return;
+    setDraftsLoading(true);
+    api
+      .get("/api/drafts")
+      .then((res) => {
+        setArticleDrafts(res.data.article_drafts ?? []);
+        setPostDrafts(res.data.post_drafts ?? []);
+        setDraftsLoaded(true);
+      })
+      .catch(() => {})
+      .finally(() => setDraftsLoading(false));
+  }, [isOwnProfile]);
+
+  useEffect(() => {
+    if (activeTab === "Drafts" && isOwnProfile && !draftsLoaded) {
+      fetchDrafts();
+    }
+  }, [activeTab, isOwnProfile, draftsLoaded, fetchDrafts]);
+
+  // Handle follow / unfollow
   const handleFollowToggle = async () => {
+    if (!currentUser) {
+      toast.error("Please sign in to follow users");
+      return;
+    }
     if (!profileUser) return;
+
     try {
       const res = await api.post(`/api/users/${profileUser.id}/follow`);
+      const isFollowing = res.data.is_following;
       setProfileUser((prev) =>
         prev
           ? {
               ...prev,
-              is_following: res.data.is_following,
+              is_following: isFollowing,
               followers_count: res.data.followers_count,
             }
           : null
       );
-      toast.success(res.data.is_following ? `Following @${profileUser.username}` : `Unfollowed @${profileUser.username}`);
+      toast.success(isFollowing ? `Following @${profileUser.username}` : `Unfollowed @${profileUser.username}`);
     } catch {
       toast.error("Failed to update follow status");
     }
   };
 
-  const handleModalUserFollowToggle = async (targetId: number, name: string) => {
+  // Draft actions
+  const handleEditArticleDraft = (art: ArticleItem) => {
+    setSelectedArticleDraft({
+      id: art.id,
+      title: art.title,
+      content: art.content,
+      excerpt: art.excerpt,
+      cover_image: art.cover_image,
+      tags: art.tags,
+      status: art.status,
+    });
+    setArticleEditorOpen(true);
+  };
+
+  const handleDeleteArticleDraft = async (id: number) => {
     try {
-      const res = await api.post(`/api/users/${targetId}/follow`);
-      const newStatus = res.data.is_following;
-
-      setUserListUsers((prev) =>
-        prev.map((u) => (u.id === targetId ? { ...u, is_following: newStatus } : u))
-      );
-
-      toast.success(newStatus ? `Following ${name}` : `Unfollowed ${name}`);
+      await api.delete(`/api/articles/${id}`);
+      setArticleDrafts((prev) => prev.filter((d) => d.id !== id));
+      toast.success("Draft deleted");
     } catch {
-      toast.error("Failed to update follow status");
+      toast.error("Failed to delete draft");
     }
   };
 
+  const handleDeletePostDraft = async (id: string | number) => {
+    try {
+      await api.delete(`/api/posts/${id}`);
+      setPostDrafts((prev) => prev.filter((d) => String(d.id) !== String(id)));
+      toast.success("Post draft deleted");
+    } catch {
+      toast.error("Failed to delete draft");
+    }
+  };
+
+  // Open user list modal
   const openUserListModal = async (type: "Followers" | "Following") => {
     setUserListModalTitle(type);
     setUserListModalOpen(true);
     setUserListLoading(true);
     try {
-      const endpoint = type === "Followers" ? `/api/profile/${username}/followers` : `/api/profile/${username}/following`;
+      const endpoint =
+        type === "Followers"
+          ? `/api/profile/${username}/followers`
+          : `/api/profile/${username}/following`;
       const res = await api.get(endpoint);
-      setUserListUsers(res.data.users ?? []);
-    } catch (err) {
-      console.error(err);
+      setUserListUsers(res.data.users || []);
+    } catch {
       setUserListUsers([]);
     } finally {
       setUserListLoading(false);
     }
   };
 
-  const getInitials = (name: string) =>
-    name
-      ? name
-          .split(" ")
-          .filter(Boolean)
-          .map((p) => p[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2)
-      : "U";
+  const handleModalUserFollowToggle = async (userId: number, targetName: string) => {
+    if (!currentUser) {
+      toast.error("Please sign in to follow users");
+      return;
+    }
+    try {
+      const res = await api.post(`/api/users/${userId}/follow`);
+      const nextState = res.data.is_following;
+      setUserListUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, is_following: nextState } : u))
+      );
+      toast.success(nextState ? `Following ${targetName}` : `Unfollowed ${targetName}`);
+    } catch {
+      toast.error("Failed to follow user");
+    }
+  };
 
   if (profileLoading) {
-    return (
-      <div>
-        <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/60 px-4 py-2.5">
-          <div className="h-5 w-32 rounded bg-muted animate-pulse" />
-        </div>
-        <ProfileSkeleton />
-      </div>
-    );
+    return <ProfileSkeleton />;
   }
 
-  if (notFound) {
+  if (notFound || !profileUser) {
     return (
-      <div className="py-20 text-center px-4">
-        <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
+      <div className="flex flex-col items-center justify-center p-12 text-center">
+        <div className="mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
           <UserX className="size-8 text-muted-foreground" />
         </div>
-        <h1 className="text-2xl font-bold text-foreground mb-2">
-          Profile not found
-        </h1>
-        <p className="text-muted-foreground mb-6">
-          @{username} doesn&apos;t exist on BlogX.
+        <h2 className="mb-1 text-xl font-bold text-foreground">User not found</h2>
+        <p className="mb-6 text-sm text-muted-foreground">
+          The user @{username} doesn&apos;t exist or was suspended.
         </p>
-        <Button onClick={() => router.push("/")} className="rounded-full px-6">Go Home</Button>
+        <Link href="/">
+          <Button variant="outline" className="gap-2 rounded-full">
+            <ArrowLeft className="size-4" />
+            Back to Home
+          </Button>
+        </Link>
       </div>
     );
   }
 
-  if (!profileUser) return null;
-
-  const joinDate = (() => {
-    if (!profileUser.created_at) return null;
-    try {
-      const d = new Date(profileUser.created_at);
-      if (isNaN(d.getTime())) return null;
-      return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    } catch {
-      return null;
-    }
-  })();
-
-  const postsCount = profileUser.posts_count ?? 0;
+  const joinDate = profileUser.created_at
+    ? new Date(profileUser.created_at).toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      })
+    : null;
 
   return (
     <div>
-      {/* Sticky Header with back arrow */}
-      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/60">
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => router.back()}
-              className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors"
-            >
-              <ArrowLeft className="size-5" />
-            </button>
-            <div>
-              <h1 className="text-lg font-bold text-foreground leading-tight flex items-center gap-1.5">
-                <span>{profileUser.name}</span>
-                {Boolean(profileUser.verified) && (
-                  <VerifiedBadge size="md" />
-                )}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {postsCount} {postsCount === 1 ? "Post" : "Posts"}
-              </p>
-            </div>
+      {/* Sticky top header */}
+      <div className="sticky top-0 z-30 flex items-center gap-4 border-b border-border/60 bg-background/80 px-4 py-2 backdrop-blur-md">
+        <button
+          onClick={() => router.back()}
+          className="rounded-full p-1.5 hover:bg-muted transition-colors"
+          aria-label="Back"
+        >
+          <ArrowLeft className="size-5" />
+        </button>
+        <div>
+          <div className="flex items-center gap-1">
+            <h1 className="text-base font-bold text-foreground leading-tight">
+              {profileUser.name}
+            </h1>
+            {Boolean(profileUser.verified) && <VerifiedBadge size="sm" />}
           </div>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShareProfileOpen(true)}
-            className="rounded-full p-2 h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-muted"
-            title="Share Profile & QR Code"
-          >
-            <Share2 className="size-4" />
-          </Button>
+          <p className="text-xs text-muted-foreground">
+            {profileUser.posts_count ?? userPosts.length} posts
+          </p>
         </div>
       </div>
 
-      {/* Cover */}
-      <div className="relative h-32 bg-gradient-to-br from-primary/25 via-primary/10 to-accent/25 sm:h-48">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/15 via-transparent to-transparent" />
+      {/* Cover image / gradient header */}
+      <div className="h-32 sm:h-48 w-full bg-gradient-to-r from-primary/30 via-amber-500/20 to-violet-500/30 relative overflow-hidden">
+        {profileUser.cover && (
+          <img
+            src={getAvatarUrl(profileUser.cover)}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        )}
       </div>
 
-      {/* Profile Info */}
-      <div className="px-4 sm:px-5 pb-4">
-        {/* Avatar and Action Button */}
+      {/* Profile Header Details */}
+      <div className="px-4 pb-4 sm:px-5">
+        {/* Avatar & Actions Row */}
         <div className="-mt-12 mb-3 flex items-end justify-between sm:-mt-16">
-          <Avatar className="size-24 border-4 border-background sm:size-32">
+          <Avatar className="size-24 sm:size-32 rounded-full border-4 border-background shadow-lg ring-2 ring-border/30">
             <AvatarImage
               src={getAvatarUrl(profileUser.avatar)}
               alt={profileUser.name}
               className="object-cover"
             />
-            <AvatarFallback className="bg-muted text-2xl font-semibold text-muted-foreground sm:text-3xl">
-              {getInitials(profileUser.name)}
+            <AvatarFallback className="bg-muted text-xl sm:text-2xl font-bold text-muted-foreground">
+              {profileUser.name.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>
 
           <div className="flex items-center gap-2">
-            {/* Share / QR Button */}
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
+              className="size-9 rounded-full"
               onClick={() => setShareProfileOpen(true)}
-              className="rounded-full size-9 p-0 border-border hover:bg-muted"
-              title="Share profile & QR Code"
+              title="Share profile / QR Code"
             >
-              <QrCode className="size-4 text-foreground" />
+              <Share2 className="size-4" />
             </Button>
 
             {isOwnProfile ? (
               <Button
                 variant="outline"
-                className="rounded-full border-border px-5 h-9 font-bold text-sm hover:bg-muted"
+                className="rounded-full text-sm font-semibold h-9 px-4"
                 onClick={() => router.push("/settings")}
               >
-                Edit profile
+                Edit Profile
               </Button>
             ) : (
               <Button
                 onClick={handleFollowToggle}
-                className={`rounded-full px-6 h-9 font-bold text-sm transition-all ${
+                className={`rounded-full text-sm font-bold h-9 px-5 transition-all ${
                   profileUser.is_following
                     ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive border border-border"
-                    : "bg-amber-500 text-white hover:bg-amber-600"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                 }`}
               >
-                {profileUser.is_following ? (
-                  <span className="flex items-center gap-1.5">
-                    <Check className="size-4" />
-                    Following
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1.5">
-                    <UserPlus className="size-4" />
-                    Follow
-                  </span>
-                )}
+                {profileUser.is_following ? "Following" : "Follow"}
               </Button>
             )}
           </div>
         </div>
 
-        {/* Name and Username */}
+        {/* User Names */}
         <div className="mb-3">
-          <div className="flex items-center gap-1.5">
-            <h2 className="text-xl font-extrabold text-foreground">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <h2 className="text-xl font-bold text-foreground">
               {profileUser.name}
             </h2>
-            {Boolean(profileUser.verified) && (
-              <VerifiedBadge size="lg" />
-            )}
+            {Boolean(profileUser.verified) && <VerifiedBadge size="md" />}
           </div>
-          <p className="text-muted-foreground text-[15px]">@{profileUser.username}</p>
+          <p className="text-sm text-muted-foreground font-medium">@{profileUser.username}</p>
         </div>
 
         {/* Bio */}
         {profileUser.bio && (
-          <p className="mb-3 whitespace-pre-line leading-relaxed text-[15px] text-foreground">
+          <p className="mb-3 text-[15px] leading-relaxed text-foreground/90 whitespace-pre-line">
             {profileUser.bio}
           </p>
         )}
 
         {/* Meta Info */}
-        <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-muted-foreground mb-3">
+        <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
           {profileUser.location && (
             <span className="flex items-center gap-1">
-              <MapPin className="size-4" />
+              <MapPin className="size-4 text-muted-foreground/70" />
               {profileUser.location}
             </span>
           )}
           {profileUser.website && (
             <a
-              href={profileUser.website}
+              href={
+                profileUser.website.startsWith("http")
+                  ? profileUser.website
+                  : `https://${profileUser.website}`
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-primary hover:underline"
@@ -402,13 +489,13 @@ export default function UserProfilePage() {
           )}
           {joinDate && (
             <span className="flex items-center gap-1">
-              <Calendar className="size-4" />
+              <Calendar className="size-4 text-muted-foreground/70" />
               Joined {joinDate}
             </span>
           )}
         </div>
 
-        {/* Followers / Following Clickable Modal Triggers */}
+        {/* Followers / Following counts */}
         <div className="flex gap-5 text-sm">
           <button
             onClick={() => openUserListModal("Following")}
@@ -430,33 +517,33 @@ export default function UserProfilePage() {
 
       {/* Profile Tabs */}
       <div className="border-b border-border/60">
-        <div className="flex">
+        <div className="flex overflow-x-auto no-scrollbar">
           {profileTabs.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3.5 text-sm font-medium text-center transition-colors relative ${
+              className={`flex-1 min-w-[75px] py-3.5 text-sm font-semibold text-center transition-colors relative ${
                 activeTab === tab
                   ? "text-foreground font-bold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
               }`}
             >
-              {tab}
+              <span>{tab}</span>
               {activeTab === tab && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 rounded-full bg-primary" />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-primary" />
               )}
             </button>
           ))}
         </div>
       </div>
 
-      {/* User Posts Feed */}
+      {/* ── TAB: POSTS ── */}
       {activeTab === "Posts" && (
-        <>
+        <div>
           {userPosts.length > 0 ? (
             <div>
               {userPosts.map((post) => (
-                <PostCard key={post.id} {...post} />
+                <PostCard key={post.id} {...post} showPinnedBadge={true} />
               ))}
             </div>
           ) : (
@@ -464,7 +551,7 @@ export default function UserProfilePage() {
               <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
                 <FileText className="size-8 text-muted-foreground" />
               </div>
-              <h3 className="mb-1 text-lg font-semibold text-foreground">
+              <h3 className="mb-1 text-lg font-bold text-foreground">
                 No posts yet
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -474,11 +561,161 @@ export default function UserProfilePage() {
               </p>
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {/* Empty states for other tabs */}
-      {activeTab !== "Posts" && (
+      {/* ── TAB: ARTICLES ── */}
+      {activeTab === "Articles" && (
+        <div>
+          {articlesLoading ? (
+            <div className="py-16 text-center">
+              <Loader2 className="size-8 animate-spin mx-auto text-primary" />
+            </div>
+          ) : userArticles.length > 0 ? (
+            <div className="divide-y divide-border/60">
+              {userArticles.map((art) => (
+                <ArticleCard key={art.id} article={art} />
+              ))}
+            </div>
+          ) : (
+            <div className="p-12 text-center max-w-sm mx-auto">
+              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <BookOpen className="size-8" />
+              </div>
+              <h3 className="mb-1 text-lg font-bold text-foreground">
+                No articles yet
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                {isOwnProfile
+                  ? "Write and publish comprehensive long-form articles, guides, or stories."
+                  : `@${profileUser.username} hasn't published any articles yet.`}
+              </p>
+              {isOwnProfile && (
+                <Button
+                  onClick={() => {
+                    setSelectedArticleDraft(null);
+                    setArticleEditorOpen(true);
+                  }}
+                  className="rounded-full text-xs font-bold gap-1.5"
+                >
+                  <Plus className="size-4" />
+                  Write an Article
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: DRAFTS (Private - Owner Only) ── */}
+      {activeTab === "Drafts" && isOwnProfile && (
+        <div className="p-4 sm:p-5 space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Lock className="size-4 text-amber-500" />
+                Private Drafts
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                These drafts are only visible to you. Finish writing or publish them anytime.
+              </p>
+            </div>
+
+            <Button
+              size="sm"
+              onClick={() => {
+                setSelectedArticleDraft(null);
+                setArticleEditorOpen(true);
+              }}
+              className="rounded-full text-xs font-bold gap-1"
+            >
+              <Plus className="size-3.5" />
+              New Draft
+            </Button>
+          </div>
+
+          {draftsLoading ? (
+            <div className="py-12 text-center">
+              <Loader2 className="size-8 animate-spin mx-auto text-primary" />
+            </div>
+          ) : articleDrafts.length === 0 && postDrafts.length === 0 ? (
+            <div className="p-12 text-center border-2 border-dashed border-border/60 rounded-2xl">
+              <p className="text-sm font-semibold text-foreground mb-1">No drafts saved</p>
+              <p className="text-xs text-muted-foreground">
+                When you click &quot;Save as Draft&quot; while writing a post or article, it will appear here safely.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Article Drafts */}
+              {articleDrafts.length > 0 && (
+                <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/60">
+                  <div className="px-4 py-2.5 bg-muted/30 text-xs font-bold text-foreground">
+                    Article Drafts ({articleDrafts.length})
+                  </div>
+                  {articleDrafts.map((d) => (
+                    <ArticleCard
+                      key={d.id}
+                      article={d}
+                      isDraft={true}
+                      onEditDraft={handleEditArticleDraft}
+                      onDeleteDraft={handleDeleteArticleDraft}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Post Drafts */}
+              {postDrafts.length > 0 && (
+                <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/60">
+                  <div className="px-4 py-2.5 bg-muted/30 text-xs font-bold text-foreground">
+                    Post Drafts ({postDrafts.length})
+                  </div>
+                  {postDrafts.map((pd) => (
+                    <div key={pd.id} className="p-4 flex items-start justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground line-clamp-2">{pd.content || "Empty post content"}</p>
+                        <span className="text-[11px] text-muted-foreground mt-1 inline-block">
+                          Draft post
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedPostDraft({
+                              id: pd.id,
+                              content: pd.content,
+                              images: pd.images,
+                            });
+                            setPostEditorOpen(true);
+                          }}
+                          className="h-8 px-3 text-xs rounded-full"
+                        >
+                          <Pencil className="size-3 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeletePostDraft(pd.id)}
+                          className="h-8 px-2 text-xs rounded-full text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Empty states for Media & Likes tabs ── */}
+      {(activeTab === "Media" || activeTab === "Likes") && (
         <div className="p-12 text-center">
           <p className="text-sm text-muted-foreground">Nothing to show here yet.</p>
         </div>
@@ -560,6 +797,35 @@ export default function UserProfilePage() {
           user={profileUser}
         />
       )}
+
+      {/* Article Editor Dialog */}
+      <ArticleEditorDialog
+        open={articleEditorOpen}
+        onOpenChange={setArticleEditorOpen}
+        initialData={selectedArticleDraft}
+        onSaved={() => {
+          fetchArticles();
+          if (isOwnProfile) fetchDrafts();
+        }}
+      />
+
+      {/* Post Editor Dialog for editing post drafts */}
+      <PostEditorDialog
+        open={postEditorOpen}
+        onOpenChange={setPostEditorOpen}
+        postToEdit={selectedPostDraft}
+        onPostUpdated={() => {
+          if (isOwnProfile) fetchDrafts();
+        }}
+      />
     </div>
+  );
+}
+
+export default function UserProfilePage() {
+  return (
+    <Suspense fallback={<ProfileSkeleton />}>
+      <UserProfileContent />
+    </Suspense>
   );
 }

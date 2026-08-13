@@ -354,12 +354,18 @@ class AuthController extends Controller
             'bio' => ['nullable', 'string', 'max:500'],
             'location' => ['nullable', 'string', 'max:100'],
             'website' => ['nullable', 'string', 'max:255'],
-            'avatar' => ['nullable', 'image', 'max:2048'],
+            'avatar' => ['nullable', 'image', 'max:25600'], // 25MB
+            'cover' => ['nullable', 'image', 'max:25600'], // 25MB
         ]);
 
         if ($request->hasFile('avatar')) {
             $path = $request->file('avatar')->store('avatars', 'public');
             $validated['avatar'] = '/storage/' . $path;
+        }
+
+        if ($request->hasFile('cover')) {
+            $path = $request->file('cover')->store('covers', 'public');
+            $validated['cover'] = '/storage/' . $path;
         }
 
         if (isset($validated['username'])) {

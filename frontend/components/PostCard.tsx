@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, Bookmark, Share2, MoreHorizontal, Pencil, Trash2, Loader2, Repeat2, BarChart3, Pin } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn, getAvatarUrl } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
@@ -52,6 +53,7 @@ export interface PostCardProps {
   created_at: string;
   is_edited?: boolean;
   is_pinned?: boolean;
+  showPinnedBadge?: boolean;
   status?: string;
   scheduled_at?: string | null;
   is_liked?: boolean;
@@ -126,10 +128,12 @@ export default function PostCard({
   created_at,
   is_edited = false,
   is_pinned: initialPinned = false,
+  showPinnedBadge = false,
   is_liked: initialLiked = false,
   is_bookmarked: initialBookmarked = false,
 }: PostCardProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const [liked, setLiked] = useState(initialLiked);
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
   const [likeCount, setLikeCount] = useState(likes_count);
@@ -281,19 +285,32 @@ export default function PostCard({
     }
   })();
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    // Don't navigate if user clicked on an interactive element (buttons, links, menus, inputs, dialogs)
+    if (
+      target.closest('a, button, input, textarea, select, [role="button"], [role="menuitem"], [role="dialog"], [data-interactive]')
+    ) {
+      return;
+    }
+    // Don't navigate if user is selecting text
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim().length > 0) {
+      return;
+    }
+    router.push(`/post/${id}`);
+  };
+
   return (
     <>
-      <article ref={articleRef} className="relative border-b border-border/60 hover:bg-muted/30 transition-colors duration-150 cursor-pointer group">
-        {/* Invisible overlay link for post navigation */}
-        <Link
-          href={`/post/${id}`}
-          className="absolute inset-0 z-0"
-          aria-label={`View post by ${author.name}`}
-        />
-
+      <article
+        ref={articleRef}
+        onClick={handleCardClick}
+        className="relative border-b border-border/60 hover:bg-muted/20 transition-colors duration-150 cursor-pointer group"
+      >
         <div className="p-4 sm:p-5">
           {/* Pinned Post Badge */}
-          {isPinned && (
+          {showPinnedBadge && isPinned && (
             <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500 mb-2 pl-9">
               <Pin className="size-3.5 rotate-45 fill-current" />
               <span>Pinned Post</span>

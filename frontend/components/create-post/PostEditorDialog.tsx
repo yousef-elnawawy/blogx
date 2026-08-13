@@ -109,6 +109,7 @@ export default function PostEditorDialog({
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<"published" | "draft" | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
   const draftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInitializedRef = useRef(false);
@@ -573,7 +574,7 @@ export default function PostEditorDialog({
     handleInput();
   };
 
-  const handlePost = async () => {
+  const handlePost = async (status: "published" | "draft" = "published") => {
     if (!editorRef.current) return;
     const content = extractPlainText(editorRef.current).trim();
 
@@ -584,9 +585,11 @@ export default function PostEditorDialog({
     }
 
     setSubmitting(true);
+    setSubmittingAction(status);
     try {
       const formData = new FormData();
       formData.append("content", content);
+      formData.append("status", status);
 
       images.forEach((entry) => {
         if (entry.file) {
@@ -603,7 +606,7 @@ export default function PostEditorDialog({
           headers: { "Content-Type": "multipart/form-data" },
         });
 
-        toast.success("Post updated!");
+        toast.success(status === "draft" ? "Draft updated!" : "Post published!");
         onPostUpdated?.(res.data.post);
         window.dispatchEvent(new CustomEvent("post-updated", { detail: res.data.post }));
       } else {
@@ -611,16 +614,19 @@ export default function PostEditorDialog({
           headers: { "Content-Type": "multipart/form-data" },
         });
 
-        toast.success("Post published!");
-        onPostCreated?.(res.data.post);
-        window.dispatchEvent(new CustomEvent("post-created", { detail: res.data.post }));
+        toast.success(status === "draft" ? "Saved to private drafts!" : "Post published!");
+        if (status === "published") {
+          onPostCreated?.(res.data.post);
+          window.dispatchEvent(new CustomEvent("post-created", { detail: res.data.post }));
+        }
 
-        // Clear saved draft
+        // Clear saved draft from localStorage
         if (typeof window !== "undefined") {
           localStorage.removeItem("blogx_composer_draft");
         }
       }
 
+      window.dispatchEvent(new CustomEvent("drafts-updated"));
       if (editorRef.current) editorRef.current.innerHTML = "";
       setImages([]);
       setRemovedImages([]);
@@ -631,6 +637,7 @@ export default function PostEditorDialog({
       toast.error(axiosErr?.response?.data?.message ?? "Failed to save post. Try again.");
     } finally {
       setSubmitting(false);
+      setSubmittingAction(null);
     }
   };
 
@@ -759,27 +766,38 @@ export default function PostEditorDialog({
               onInsertHashtag={insertHashtag}
               imageCount={images.length}
             />
-            {draftSaved && !postToEdit && (
-              <span className="text-[11px] text-muted-foreground/70 hidden sm:inline-flex items-center gap-1 font-medium">
-                <Check className="size-3 text-emerald-500" /> Draft saved
-              </span>
-            )}
           </div>
 
-          <Button
-            onClick={handlePost}
-            disabled={!canPost}
-            size="sm"
-            className="h-8 sm:h-9 rounded-full px-5 sm:px-6 text-sm bg-primary text-primary-foreground hover:bg-primary/90 min-w-[72px] cursor-pointer font-bold"
-          >
-            {submitting ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : postToEdit ? (
-              "Save"
-            ) : (
-              "Post"
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handlePost("draft")}
+              disabled={!canPost}
+              size="sm"
+              className="h-8 sm:h-9 rounded-full px-3 sm:px-4 text-xs font-semibold"
+            >
+              {submitting && submittingAction === "draft" ? (
+                <Loader2 className="size-3.5 animate-spin mr-1" />
+              ) : null}
+              Save Draft
+            </Button>
+
+            <Button
+              onClick={() => handlePost("published")}
+              disabled={!canPost}
+              size="sm"
+              className="h-8 sm:h-9 rounded-full px-5 sm:px-6 text-sm bg-primary text-primary-foreground hover:bg-primary/90 min-w-[72px] cursor-pointer font-bold shadow-sm"
+            >
+              {submitting && submittingAction === "published" ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : postToEdit ? (
+                "Publish"
+              ) : (
+                "Post"
+              )}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

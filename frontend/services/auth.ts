@@ -52,6 +52,7 @@ export interface UpdateProfileData {
   location?: string;
   website?: string;
   avatar?: File;
+  cover?: File;
 }
 
 export interface ChangePasswordData {

@@ -17,7 +17,10 @@ import {
   Moon,
   AtSign,
   Bell,
+  BookOpen,
+  FileText,
 } from "lucide-react";
+import ArticleEditorDialog from "@/components/article/ArticleEditorDialog";
 import { Fraunces } from "next/font/google";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -114,6 +117,7 @@ export default function LeftSidebar() {
   const { unreadCount } = useNotifications();
   const { setTheme, resolvedTheme } = useTheme();
   const [createPostOpen, setCreatePostOpen] = useState(false);
+  const [articleEditorOpen, setArticleEditorOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -213,13 +217,22 @@ export default function LeftSidebar() {
         </ul>
 
         {user && (
-          <div className="mt-6 px-1">
+          <div className="mt-5 px-1 space-y-2">
             <Button
               onClick={() => setCreatePostOpen(true)}
-              className="w-full h-12 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-[15px] font-semibold shadow-md hover:shadow-lg transition-all duration-200 create-post-btn"
+              className="w-full h-11 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-bold shadow-md hover:shadow-lg transition-all duration-200 create-post-btn"
             >
-              <PenSquare className="size-5 create-post-icon hidden" />
+              <PenSquare className="size-4 create-post-icon hidden mr-1.5" />
               <span className="create-post-label">Create Post</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={() => setArticleEditorOpen(true)}
+              className="w-full h-10 rounded-full border-border/70 hover:border-primary/50 text-xs font-semibold shadow-2xs hover:bg-muted/60 transition-all duration-200"
+            >
+              <BookOpen className="size-4 mr-1.5 text-primary" />
+              <span>Write Article</span>
             </Button>
           </div>
         )}
@@ -269,6 +282,14 @@ export default function LeftSidebar() {
                 <DropdownMenuItem onClick={() => router.push(`/@${user.username}`)} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
                   <User className="size-4 text-primary" />
                   <span>Profile</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setArticleEditorOpen(true)} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
+                  <BookOpen className="size-4 text-amber-500" />
+                  <span>Write Article</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push(`/@${user.username}?tab=Drafts`)} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
+                  <FileText className="size-4 text-violet-500" />
+                  <span>My Drafts</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => router.push("/notifications")} className="flex items-center justify-between py-2 px-3 text-sm font-medium cursor-pointer">
                   <div className="flex items-center gap-2.5">
@@ -360,6 +381,7 @@ export default function LeftSidebar() {
       </div>
 
       <PostEditorDialog open={createPostOpen} onOpenChange={setCreatePostOpen} />
+      <ArticleEditorDialog open={articleEditorOpen} onOpenChange={setArticleEditorOpen} />
 
       <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
         <AlertDialogContent>

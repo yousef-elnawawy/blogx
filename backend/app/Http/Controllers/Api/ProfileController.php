@@ -37,11 +37,17 @@ class ProfileController extends Controller
             $avatarUrl = config('app.url') . $avatarUrl;
         }
 
+        $coverUrl = $user->cover;
+        if ($coverUrl && !str_starts_with($coverUrl, 'http')) {
+            $coverUrl = config('app.url') . $coverUrl;
+        }
+
         $userData = [
             'id'              => $user->id,
             'name'            => $user->name,
             'username'        => $user->username,
             'avatar'          => $avatarUrl,
+            'cover'           => $coverUrl,
             'bio'             => $user->bio,
             'location'        => $user->location,
             'website'         => $user->website,
@@ -155,6 +161,7 @@ class ProfileController extends Controller
     public function suggestions(Request $request)
     {
         $authUser = $request->user() ?? auth('sanctum')->user();
+        $limit = min((int) $request->get('limit', 6), 20);
 
         $query = User::query();
 
@@ -163,19 +170,29 @@ class ProfileController extends Controller
             $query->whereNotIn('id', $followingIds);
         }
 
-        $users = $query->inRandomOrder()->take(5)->get()->map(function ($user) use ($authUser) {
+        $users = $query->inRandomOrder()->take($limit)->get()->map(function ($user) use ($authUser) {
             $avatarUrl = $user->avatar;
             if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
                 $avatarUrl = config('app.url') . $avatarUrl;
             }
+            $coverUrl = $user->cover;
+            if ($coverUrl && !str_starts_with($coverUrl, 'http')) {
+                $coverUrl = config('app.url') . $coverUrl;
+            }
             return [
-                'id'           => $user->id,
-                'name'         => $user->name,
-                'username'     => $user->username,
-                'avatar'       => $avatarUrl,
-                'bio'          => $user->bio,
-                'verified'     => (bool) $user->verified,
-                'is_following' => $authUser ? $authUser->isFollowing($user) : false,
+                'id'              => $user->id,
+                'name'            => $user->name,
+                'username'        => $user->username,
+                'avatar'          => $avatarUrl,
+                'cover'           => $coverUrl,
+                'bio'             => $user->bio,
+                'location'        => $user->location,
+                'website'         => $user->website,
+                'verified'        => (bool) $user->verified,
+                'followers_count' => $user->followers()->count(),
+                'following_count' => $user->following()->count(),
+                'posts_count'     => Post::where('user_id', $user->id)->published()->count(),
+                'is_following'    => $authUser ? $authUser->isFollowing($user) : false,
             ];
         });
 
