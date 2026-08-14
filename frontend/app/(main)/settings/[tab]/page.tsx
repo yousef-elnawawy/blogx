@@ -1,38 +1,30 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { use, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, ArrowLeft, BadgeCheck } from "lucide-react";
-import SettingsCategoriesHub from "@/components/settings/SettingsCategoriesHub";
 import AppearanceSettings from "@/components/settings/AppearanceSettings";
 import AccountSettings from "@/components/settings/AccountSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import VerificationTab from "@/components/settings/VerificationTab";
 
-type SettingsTab = "account" | "security" | "verification" | "notifications" | "appearance";
+interface PageProps {
+  params: Promise<{ tab: string }>;
+}
 
-const VALID_TABS: SettingsTab[] = ["account", "security", "verification", "notifications", "appearance"];
-
-function SettingsContent() {
-  const { user, loading } = useAuth();
+export default function DynamicSettingsSubpage({ params }: PageProps) {
+  const resolvedParams = use(params);
+  const tab = resolvedParams.tab;
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab") as SettingsTab | null;
-
-  const activeTab: SettingsTab | null =
-    tabParam && VALID_TABS.includes(tabParam) ? tabParam : null;
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
     }
   }, [user, loading, router]);
-
-  const handleSelectCategory = (categoryId: string) => {
-    router.push(`/settings?tab=${categoryId}`);
-  };
 
   const handleBackToHub = () => {
     router.push("/settings");
@@ -46,56 +38,25 @@ function SettingsContent() {
     );
   }
 
-  // 1. If no tab is selected, render the Category Circles Hub
-  if (!activeTab) {
-    return (
-      <div className="min-h-screen pb-24">
-        {/* Sticky Header */}
-        <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border/60 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              className="p-1.5 -ml-1 rounded-full hover:bg-muted transition-colors text-foreground cursor-pointer"
-              aria-label="Back"
-            >
-              <ArrowLeft className="size-5" />
-            </button>
-            <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight">
-              Settings
-            </h1>
-          </div>
-        </div>
-
-        <SettingsCategoriesHub onSelectCategory={handleSelectCategory} />
-      </div>
-    );
-  }
-
-  // 2. Render Appearance & Customization Dedicated Page
-  if (activeTab === "appearance") {
+  if (tab === "appearance" || tab === "customization") {
     return <AppearanceSettings onBack={handleBackToHub} />;
   }
 
-  // 3. Render Account & Profile Dedicated Page
-  if (activeTab === "account") {
+  if (tab === "account" || tab === "profile") {
     return <AccountSettings onBack={handleBackToHub} />;
   }
 
-  // 4. Render Privacy & Security Dedicated Page
-  if (activeTab === "security") {
+  if (tab === "security" || tab === "privacy") {
     return <SecuritySettings onBack={handleBackToHub} />;
   }
 
-  // 5. Render Notification Preferences Dedicated Page
-  if (activeTab === "notifications") {
+  if (tab === "notifications") {
     return <NotificationSettings onBack={handleBackToHub} />;
   }
 
-  // 6. Render Verification & Badges Dedicated Page
-  if (activeTab === "verification") {
+  if (tab === "verification" || tab === "verify") {
     return (
       <div className="min-h-screen pb-24 divide-y divide-border/60 animate-in fade-in duration-200">
-        {/* Top Sticky Header */}
         <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border/60 px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -130,20 +91,7 @@ function SettingsContent() {
     );
   }
 
+  // Fallback: redirect back to /settings
+  router.replace("/settings");
   return null;
-}
-
-export default function SettingsPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="py-20 text-center">
-          <Loader2 className="size-8 animate-spin mx-auto text-primary" />
-          <p className="mt-3 text-xs text-muted-foreground">Loading settings...</p>
-        </div>
-      }
-    >
-      <SettingsContent />
-    </Suspense>
-  );
 }

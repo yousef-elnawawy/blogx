@@ -89,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/likes', [PostController::class, 'likedPosts']);
     Route::get('/mentions', [PostController::class, 'mentions']);
     Route::get('/following/posts', [PostController::class, 'followingFeed']);
+    Route::get('/user/following', [ProfileController::class, 'myFollowingList']);
     Route::post('/users/{id}/follow', [ProfileController::class, 'toggleFollow']);
 
     // Articles & Drafts
@@ -110,10 +111,13 @@ Route::get('/profile/{username}', [ProfileController::class, 'show']);
 Route::get('/profile/{username}/followers', [ProfileController::class, 'followersList']);
 Route::get('/profile/{username}/following', [ProfileController::class, 'followingList']);
 Route::get('/profile/{username}/articles', [ArticleController::class, 'userArticles']);
+Route::get('/profile/{username}/media', [ProfileController::class, 'media']);
+Route::get('/profile/{username}/likes', [ProfileController::class, 'likes']);
 Route::get('/users/suggestions', [ProfileController::class, 'suggestions']);
 
 // Articles Public
 Route::get('/articles', [ArticleController::class, 'index']);
+Route::get('/articles/featured', [ArticleController::class, 'featured']);
 Route::get('/articles/{slugOrId}', [ArticleController::class, 'show']);
 
 // Search, Hashtags & Mention suggestions (public)

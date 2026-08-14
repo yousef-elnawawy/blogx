@@ -44,17 +44,58 @@ class ArticleController extends Controller
     }
 
     /**
+     * Get a featured article for discovery / feed.
+     */
+    public function featured(Request $request)
+    {
+        $authUser = $request->user() ?? auth('sanctum')->user();
+
+        $article = Article::published()
+            ->whereNotNull('cover_image')
+            ->where('cover_image', '!=', '')
+            ->with('user')
+            ->withCount('likes')
+            ->orderByRaw('(views_count + (likes_count * 3)) DESC')
+            ->latest('published_at')
+            ->first();
+
+        if (!$article) {
+            $article = Article::published()
+                ->with('user')
+                ->withCount('likes')
+                ->latest('published_at')
+                ->first();
+        }
+
+        if (!$article) {
+            return response()->json(['article' => null]);
+        }
+
+        return response()->json([
+            'article' => $this->formatArticle($article, $authUser),
+        ]);
+    }
+
+    /**
      * Get a single article by slug or ID.
      */
     public function show(Request $request, string $slugOrId)
     {
         $authUser = $request->user() ?? auth('sanctum')->user();
 
+        $raw = $slugOrId;
+        $decoded = urldecode($slugOrId);
+        $cleanDecoded = urldecode($decoded);
+
         $article = Article::with('user')
             ->withCount('likes')
-            ->where(function ($q) use ($slugOrId) {
-                $q->where('slug', $slugOrId)
-                  ->orWhere('id', $slugOrId);
+            ->where(function ($q) use ($raw, $decoded, $cleanDecoded) {
+                $q->where('slug', $raw)
+                  ->orWhere('slug', $decoded)
+                  ->orWhere('slug', $cleanDecoded);
+                if (is_numeric($raw)) {
+                    $q->orWhere('id', (int)$raw);
+                }
             })
             ->first();
 
@@ -119,7 +160,7 @@ class ArticleController extends Controller
         $coverPath = null;
         if ($request->hasFile('cover_image')) {
             $request->validate([
-                'cover_image' => ['image', 'max:25600'],
+                'cover_image' => ['image', 'max:102400'], // Up to 100MB
             ]);
             $coverPath = $request->file('cover_image')->store('articles', 'public');
         }
@@ -233,7 +274,7 @@ class ArticleController extends Controller
 
         if ($request->hasFile('cover_image')) {
             $request->validate([
-                'cover_image' => ['image', 'max:25600'],
+                'cover_image' => ['image', 'max:102400'], // Up to 100MB
             ]);
             if ($article->cover_image) {
                 Storage::disk('public')->delete($article->cover_image);

@@ -23,6 +23,7 @@ import MentionSuggestions, {
 import api from "@/lib/api";
 import { PostCardProps } from "@/components/PostCard";
 import { getAvatarUrl } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
 
 export interface PostToEdit {
   id: string | number;
@@ -480,7 +481,7 @@ export default function PostEditorDialog({
     document.execCommand("insertText", false, text);
   };
 
-  const handleImageSelect = (files: FileList) => {
+  const handleImageSelect = async (files: FileList) => {
     const maxImages = 10;
     const remaining = maxImages - images.length;
     if (files.length > remaining) {
@@ -488,18 +489,33 @@ export default function PostEditorDialog({
     }
     const selected = Array.from(files).slice(0, remaining);
 
-    const readers = selected.map(
-      (file) =>
-        new Promise<ImageEntry>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () =>
-            resolve({ preview: reader.result as string, file, isExisting: false });
-          reader.readAsDataURL(file);
+    try {
+      const entries = await Promise.all(
+        selected.map(async (file) => {
+          let optimizedFile = file;
+          try {
+            optimizedFile = await compressImage(file, {
+              maxWidth: 2560,
+              maxHeight: 2560,
+              quality: 0.88,
+              maxSizeBytes: 1.8 * 1024 * 1024,
+            });
+          } catch {
+            optimizedFile = file;
+          }
+
+          return new Promise<ImageEntry>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () =>
+              resolve({ preview: reader.result as string, file: optimizedFile, isExisting: false });
+            reader.readAsDataURL(optimizedFile);
+          });
         })
-    );
-    Promise.all(readers).then((entries) =>
-      setImages((prev) => [...prev, ...entries])
-    );
+      );
+      setImages((prev) => [...prev, ...entries]);
+    } catch {
+      toast.error("Failed to load some images.");
+    }
   };
 
   const removeImage = (index: number) => {

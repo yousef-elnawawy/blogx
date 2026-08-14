@@ -18,12 +18,29 @@ class PostController extends Controller
     public function index(Request $request)
     {
         $user = $request->user() ?? auth('sanctum')->user();
+        $tab = $request->query('tab', 'for_you');
 
-        $posts = Post::published()
+        $query = Post::published()
             ->with(['user', 'images', 'mentions.user'])
-            ->withCount(['likes', 'comments'])
-            ->latest()
-            ->paginate(15);
+            ->withCount(['likes', 'comments']);
+
+        if ($tab === 'following') {
+            if ($user) {
+                $followingIds = $user->following()->pluck('users.id');
+                $query->whereIn('user_id', $followingIds);
+            }
+            $query->latest();
+        } elseif ($tab === 'trending') {
+            $query->orderByRaw('(likes_count * 2 + comments_count * 3 + views_count) DESC')
+                  ->latest();
+        } elseif ($tab === 'latest') {
+            $query->latest('created_at');
+        } else {
+            // For You - default feed
+            $query->latest();
+        }
+
+        $posts = $query->paginate(15);
 
         $posts->getCollection()->transform(function ($post) use ($user) {
             return $this->formatPost($post, $user);
@@ -304,7 +321,7 @@ class PostController extends Controller
         $validated = $request->validate([
             'content'           => ['required_without:images', 'nullable', 'string', 'max:5000'],
             'images'            => ['nullable', 'array', 'max:10'],
-            'images.*'          => ['image', 'max:25600'], // 25 MB per image
+            'images.*'          => ['image', 'max:102400'], // Up to 100 MB per image
             'comments_enabled'  => ['nullable', 'boolean'],
             'scheduled_at'      => ['nullable', 'date'],
             'status'            => ['nullable', 'in:published,draft'],
@@ -515,7 +532,7 @@ class PostController extends Controller
         $validated = $request->validate([
             'content'          => ['nullable', 'string', 'max:5000'],
             'images'           => ['nullable', 'array', 'max:10'],
-            'images.*'         => ['image', 'max:25600'], // 25 MB per image
+            'images.*'         => ['image', 'max:102400'], // Up to 100 MB per image
             'removed_images'   => ['nullable', 'array'],
             'removed_images.*' => ['string'],
             'status'           => ['nullable', 'in:published,draft,scheduled'],

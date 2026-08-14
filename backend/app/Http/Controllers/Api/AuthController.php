@@ -354,8 +354,8 @@ class AuthController extends Controller
             'bio' => ['nullable', 'string', 'max:500'],
             'location' => ['nullable', 'string', 'max:100'],
             'website' => ['nullable', 'string', 'max:255'],
-            'avatar' => ['nullable', 'image', 'max:25600'], // 25MB
-            'cover' => ['nullable', 'image', 'max:25600'], // 25MB
+            'avatar' => ['nullable', 'image', 'max:102400'], // Up to 100MB
+            'cover' => ['nullable', 'image', 'max:102400'], // Up to 100MB
         ]);
 
         if ($request->hasFile('avatar')) {

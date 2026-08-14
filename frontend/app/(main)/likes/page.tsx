@@ -2,26 +2,46 @@
 
 import { useEffect, useState } from "react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
-import { Loader2, Heart, ArrowLeft } from "lucide-react";
+import ArticleCard, { ArticleItem } from "@/components/article/ArticleCard";
+import { Loader2, Heart, ArrowLeft, BookOpen, Layers } from "lucide-react";
 import api from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+
+type TabType = "all" | "posts" | "articles";
 
 export default function LikedPostsPage() {
+  const { user } = useAuth();
   const [posts, setPosts] = useState<PostCardProps[]>([]);
+  const [articles, setArticles] = useState<ArticleItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<TabType>("all");
   const router = useRouter();
 
   useEffect(() => {
-    api
-      .get("/api/likes")
-      .then((res) => {
-        setPosts(res.data.data ?? []);
-      })
-      .catch((err) => {
+    setLoading(true);
+
+    const fetchLikes = async () => {
+      try {
+        if (user?.username) {
+          const res = await api.get(`/api/profile/${user.username}/likes`);
+          setPosts(res.data.posts ?? []);
+          setArticles(res.data.articles ?? []);
+        } else {
+          const res = await api.get("/api/likes");
+          setPosts(res.data.data ?? []);
+        }
+      } catch (err) {
         console.error(err);
         setPosts([]);
-      })
-      .finally(() => setLoading(false));
+        setArticles([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLikes();
 
     const handlePostDeleted = (e: Event) => {
       const customEvent = e as CustomEvent<{ id: string | number }>;
@@ -32,56 +52,126 @@ export default function LikedPostsPage() {
 
     window.addEventListener("post-deleted", handlePostDeleted);
     return () => window.removeEventListener("post-deleted", handlePostDeleted);
-  }, []);
+  }, [user?.username]);
+
+  const displayedPosts = activeTab === "articles" ? [] : posts;
+  const displayedArticles = activeTab === "posts" ? [] : articles;
+  const totalCount = displayedPosts.length + displayedArticles.length;
 
   return (
-    <div>
+    <div className="min-h-screen">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/60 px-4 py-2.5 sm:px-6">
-        <div className="flex items-center justify-between">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/70">
+        <div className="px-4 py-3 sm:px-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors"
+              className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors cursor-pointer"
               aria-label="Back"
             >
-              <ArrowLeft className="size-5" />
+              <ArrowLeft className="size-5 text-foreground" />
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <div className="grid place-items-center size-7 rounded-lg bg-red-500/10 text-red-500">
-                  <Heart className="size-4" strokeWidth={2.5} />
-                </div>
-                <h1 className="text-lg font-bold text-foreground leading-tight">
+                <Heart className="size-5 text-rose-500 fill-rose-500" />
+                <h1 className="text-lg font-black text-foreground leading-tight">
                   Likes
                 </h1>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Posts are you pressed like and you
+                Posts and stories you&apos;ve liked
               </p>
             </div>
           </div>
         </div>
+
+        {/* Filter Tabs */}
+        <div className="grid grid-cols-3 border-t border-border/40 text-center">
+          <button
+            type="button"
+            onClick={() => setActiveTab("all")}
+            className={cn(
+              "py-3 text-xs sm:text-sm font-bold transition-colors relative cursor-pointer",
+              activeTab === "all" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span>All ({posts.length + articles.length})</span>
+            {activeTab === "all" && (
+              <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("posts")}
+            className={cn(
+              "py-3 text-xs sm:text-sm font-bold transition-colors relative cursor-pointer",
+              activeTab === "posts" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span>Posts ({posts.length})</span>
+            {activeTab === "posts" && (
+              <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("articles")}
+            className={cn(
+              "py-3 text-xs sm:text-sm font-bold transition-colors relative cursor-pointer",
+              activeTab === "articles" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <span>Articles ({articles.length})</span>
+            {activeTab === "articles" && (
+              <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
+            )}
+          </button>
+        </div>
       </div>
 
+      {/* Content Stream */}
       {loading ? (
-        <div className="py-12 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        <div className="divide-y divide-border/60 animate-in fade-in-50 duration-300">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-4 sm:p-5 space-y-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-full bg-muted" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-4 w-32 rounded bg-muted" />
+                  <div className="h-3 w-20 rounded bg-muted" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 w-full rounded bg-muted" />
+                <div className="h-4 w-3/4 rounded bg-muted" />
+              </div>
+            </div>
+          ))}
         </div>
-      ) : posts.length === 0 ? (
-        <div className="p-12 text-center">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-red-500/10">
-            <Heart className="size-8 text-red-500 -foreground" />
+      ) : totalCount === 0 ? (
+        <div className="p-12 text-center space-y-3">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500">
+            <Heart className="size-7 fill-current" />
           </div>
-          <h2 className="text-lg font-semibold text-foreground mb-1">No liked posts</h2>
-          <p className="text-sm text-red-900/50-foreground">
-            When you like posts, they will appear here.
-          </p>
+          <div>
+            <h2 className="text-base font-bold text-foreground">No liked {activeTab === "all" ? "content" : activeTab}</h2>
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
+              When you like posts or articles on BlogX, they will show up here.
+            </p>
+          </div>
         </div>
       ) : (
-        <div>
-          {posts.map((post) => (
-            <PostCard key={post.id} {...post} />
+        <div className="divide-y divide-border/60">
+          {/* Liked Articles */}
+          {displayedArticles.map((art) => (
+            <ArticleCard key={`liked_art_${art.id}`} article={art} />
+          ))}
+
+          {/* Liked Posts */}
+          {displayedPosts.map((post) => (
+            <PostCard key={`liked_post_${post.id}`} {...post} />
           ))}
         </div>
       )}

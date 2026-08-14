@@ -1,16 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
-import { Loader2, UserCheck, ArrowLeft, UserPlus, Check } from "lucide-react";
+import { Loader2, UserCheck, ArrowLeft, UserPlus, Check, Sparkles } from "lucide-react";
 import api from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import Link from "next/link";
 import { toast } from "sonner";
-import { getAvatarUrl } from "@/lib/utils";
+import { getAvatarUrl, cn } from "@/lib/utils";
+
+interface FollowedUser {
+  id: number;
+  name: string;
+  username: string;
+  avatar: string | null;
+  bio?: string | null;
+  verified?: boolean;
+}
 
 interface SuggestedUser {
   id: number;
@@ -18,6 +28,7 @@ interface SuggestedUser {
   username: string;
   avatar: string | null;
   bio: string | null;
+  verified?: boolean;
   is_following: boolean;
 }
 
@@ -34,10 +45,32 @@ function getInitials(name: string) {
 
 export default function FollowingPage() {
   const [posts, setPosts] = useState<PostCardProps[]>([]);
+  const [followingUsers, setFollowingUsers] = useState<FollowedUser[]>([]);
   const [suggestions, setSuggestions] = useState<SuggestedUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingUsers, setLoadingUsers] = useState(true);
   const { user } = useAuth();
   const router = useRouter();
+
+  const fetchFollowingUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const res = await api.get("/api/user/following");
+      setFollowingUsers(res.data.users ?? []);
+    } catch {
+      // Fallback to profile following
+      if (user?.username) {
+        try {
+          const res = await api.get(`/api/profile/${user.username}/following`);
+          setFollowingUsers(res.data.users ?? []);
+        } catch {
+          setFollowingUsers([]);
+        }
+      }
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
 
   const fetchFollowingPosts = async () => {
     setLoading(true);
@@ -62,6 +95,7 @@ export default function FollowingPage() {
   };
 
   useEffect(() => {
+    fetchFollowingUsers();
     fetchFollowingPosts();
     fetchSuggestions();
 
@@ -74,7 +108,7 @@ export default function FollowingPage() {
 
     window.addEventListener("post-deleted", handlePostDeleted);
     return () => window.removeEventListener("post-deleted", handlePostDeleted);
-  }, []);
+  }, [user]);
 
   const handleFollowToggle = async (targetId: number, currentStatus: boolean, name: string) => {
     try {
@@ -86,6 +120,7 @@ export default function FollowingPage() {
       );
 
       toast.success(newStatus ? `Following ${name}` : `Unfollowed ${name}`);
+      fetchFollowingUsers();
       fetchFollowingPosts();
     } catch {
       toast.error("Failed to update follow status");
@@ -93,76 +128,155 @@ export default function FollowingPage() {
   };
 
   return (
-    <div className="min-h-screen pb-12">
+    <div className="min-h-screen pb-16">
       {/* Sticky Header */}
-     <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/60 px-4 py-2.5 sm:px-6">
+      <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border/60 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors"
+              className="p-1.5 -ml-1 rounded-full hover:bg-muted transition-colors text-foreground cursor-pointer"
               aria-label="Back"
             >
               <ArrowLeft className="size-5" />
             </button>
             <div>
-              <div className="flex items-center gap-2">
-                <div className="grid place-items-center size-7 rounded-lg bg-primary/10 text-primary">
-                  <UserCheck className="size-4" strokeWidth={2.5} />
-                </div>
-                <h1 className="text-lg font-bold text-foreground leading-tight">
-                  Following
-                </h1>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Posts from people you follow
+              <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight flex items-center gap-2">
+                <UserCheck className="size-4 text-primary" strokeWidth={2.5} />
+                <span>Following</span>
+              </h1>
+              <p className="text-[11px] text-muted-foreground">
+                Stories and posts from creators you follow
               </p>
             </div>
           </div>
         </div>
       </div>
 
+      {/* ── TOP CIRCLES: FOLLOWED ACCOUNTS ROW ── */}
+      <div className="border-b border-border/60 bg-card/30">
+        <div className="px-4 py-3.5 sm:px-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Followed Creators
+            </span>
+            {followingUsers.length > 0 && (
+              <span className="text-xs text-muted-foreground font-medium">
+                {followingUsers.length} following
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-4 sm:gap-5 overflow-x-auto no-scrollbar py-1">
+            {loadingUsers ? (
+              // Loading Circles Skeleton
+              Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex flex-col items-center gap-1.5 shrink-0 animate-pulse">
+                  <div className="size-15 sm:size-16 rounded-full bg-muted/80" />
+                  <div className="h-2.5 w-12 rounded-full bg-muted/60" />
+                </div>
+              ))
+            ) : followingUsers.length === 0 ? (
+              // Empty Followed Users Prompt
+              <div className="flex items-center gap-3 py-2 text-xs text-muted-foreground">
+                <div className="size-12 rounded-full border-2 border-dashed border-border flex items-center justify-center text-muted-foreground shrink-0">
+                  <UserPlus className="size-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-foreground">You are not following anyone yet</p>
+                  <p className="text-[11px] text-muted-foreground">Follow creators below to see their circular avatars here!</p>
+                </div>
+              </div>
+            ) : (
+              // Followed Users Circles
+              followingUsers.map((fUser) => {
+                const avatarSrc = getAvatarUrl(fUser.avatar);
+
+                return (
+                  <Link
+                    key={fUser.id}
+                    href={`/@${fUser.username}`}
+                    className="group flex flex-col items-center gap-1.5 shrink-0 transition-transform duration-200 hover:-translate-y-0.5"
+                  >
+                    {/* Glowing Circular Avatar */}
+                    <div className="relative">
+                      <div className="size-15 sm:size-16 rounded-full p-0.5 ring-2 ring-primary/40 group-hover:ring-primary shadow-sm transition-all duration-200">
+                        <Avatar className="size-full">
+                          <AvatarImage src={avatarSrc} alt={fUser.name} className="object-cover" />
+                          <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                            {getInitials(fUser.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                      </div>
+
+                      {/* Verified Mini Badge on Circle */}
+                      {Boolean(fUser.verified) && (
+                        <div className="absolute -bottom-0.5 -right-0.5 bg-background rounded-full p-0.5 shadow-xs">
+                          <VerifiedBadge size="sm" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Small Name Underneath */}
+                    <span className="text-[11px] sm:text-xs font-semibold text-foreground text-center truncate w-16 sm:w-18 group-hover:text-primary transition-colors">
+                      {fUser.name}
+                    </span>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── POSTS FEED FROM FOLLOWED CREATORS ── */}
       {loading ? (
-        <div className="py-12 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-          <p className="mt-3 text-xs text-muted-foreground">Loading feed...</p>
+        <div className="py-16 text-center">
+          <Loader2 className="size-8 animate-spin mx-auto text-primary" />
+          <p className="mt-3 text-xs text-muted-foreground">Loading posts from people you follow...</p>
         </div>
       ) : posts.length === 0 ? (
-        <div className="p-6 space-y-8 max-w-xl mx-auto">
-          <div className="text-center pt-6">
-            <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <div className="p-6 space-y-6 max-w-xl mx-auto">
+          <div className="text-center pt-8 space-y-2">
+            <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
               <UserCheck className="size-7" />
             </div>
-            <h2 className="text-lg font-bold text-foreground mb-1">No posts from people you follow</h2>
+            <h2 className="text-base sm:text-lg font-bold text-foreground">
+              No recent posts from people you follow
+            </h2>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              Follow creators, thinkers, and friends to see their posts in this feed.
+              Follow more writers and creators to keep your timeline fresh and active.
             </p>
           </div>
 
-          {/* Suggestions Box */}
+          {/* Suggested Creators Section */}
           {suggestions.length > 0 && (
-            <div className="border border-border/60 rounded-2xl p-4 bg-card/40 space-y-4">
-              <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border/50 pb-2">
+            <div className="border border-border/70 rounded-2xl p-4 sm:p-5 bg-card/50 space-y-4 shadow-xs">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2 border-b border-border/50 pb-3">
                 <UserPlus className="size-4 text-primary" />
-                <span>Suggested People to Follow</span>
+                <span>Suggested Creators to Follow</span>
               </h3>
 
               <div className="divide-y divide-border/40">
                 {suggestions.map((sugUser) => {
                   const avatarSrc = getAvatarUrl(sugUser.avatar);
+
                   return (
                     <div key={sugUser.id} className="py-3 flex items-center justify-between gap-3">
-                      <Link href={`/@${sugUser.username}`} className="flex items-center gap-3 min-w-0">
-                        <Avatar className="size-10 shrink-0">
+                      <Link href={`/@${sugUser.username}`} className="flex items-center gap-3 min-w-0 group">
+                        <Avatar className="size-11 shrink-0 ring-1 ring-border">
                           <AvatarImage src={avatarSrc} alt={sugUser.name} />
                           <AvatarFallback className="text-xs bg-muted font-bold">
                             {getInitials(sugUser.name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-foreground truncate hover:underline">
-                            {sugUser.name}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs sm:text-sm font-bold text-foreground truncate group-hover:underline">
+                              {sugUser.name}
+                            </p>
+                            {Boolean(sugUser.verified) && <VerifiedBadge size="sm" />}
+                          </div>
                           <p className="text-xs text-muted-foreground truncate">
                             @{sugUser.username}
                           </p>
@@ -172,11 +286,12 @@ export default function FollowingPage() {
                       <Button
                         size="sm"
                         onClick={() => handleFollowToggle(sugUser.id, sugUser.is_following, sugUser.name)}
-                        className={`rounded-full h-8 text-xs font-bold px-4 transition-all ${
+                        className={cn(
+                          "rounded-full h-8 text-xs font-bold px-4 transition-all cursor-pointer shadow-xs",
                           sugUser.is_following
                             ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive border border-border"
-                            : "bg-amber-500 text-white hover:bg-amber-600"
-                        }`}
+                            : "bg-primary text-primary-foreground hover:bg-primary/90"
+                        )}
                       >
                         {sugUser.is_following ? (
                           <span className="flex items-center gap-1">
@@ -195,7 +310,7 @@ export default function FollowingPage() {
           )}
         </div>
       ) : (
-        <div>
+        <div className="divide-y divide-border/60">
           {posts.map((post) => (
             <PostCard key={post.id} {...post} />
           ))}

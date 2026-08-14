@@ -125,6 +125,17 @@ function UserProfileContent() {
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [draftsLoaded, setDraftsLoaded] = useState(false);
 
+  // Media state
+  const [userMedia, setUserMedia] = useState<any[]>([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaLoaded, setMediaLoaded] = useState(false);
+
+  // Likes state
+  const [likedPosts, setLikedPosts] = useState<PostCardProps[]>([]);
+  const [likedArticles, setLikedArticles] = useState<ArticleItem[]>([]);
+  const [likesLoading, setLikesLoading] = useState(false);
+  const [likesLoaded, setLikesLoaded] = useState(false);
+
   const [notFound, setNotFound] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -213,6 +224,47 @@ function UserProfileContent() {
       fetchArticles();
     }
   }, [activeTab, articlesLoaded, fetchArticles]);
+
+  // Fetch media when Media tab is active
+  const fetchMedia = useCallback(() => {
+    if (!username) return;
+    setMediaLoading(true);
+    api
+      .get(`/api/profile/${username}/media`)
+      .then((res) => {
+        setUserMedia(res.data.media ?? []);
+        setMediaLoaded(true);
+      })
+      .catch(() => {})
+      .finally(() => setMediaLoading(false));
+  }, [username]);
+
+  useEffect(() => {
+    if (activeTab === "Media" && !mediaLoaded) {
+      fetchMedia();
+    }
+  }, [activeTab, mediaLoaded, fetchMedia]);
+
+  // Fetch likes when Likes tab is active
+  const fetchLikes = useCallback(() => {
+    if (!username) return;
+    setLikesLoading(true);
+    api
+      .get(`/api/profile/${username}/likes`)
+      .then((res) => {
+        setLikedPosts(res.data.posts ?? []);
+        setLikedArticles(res.data.articles ?? []);
+        setLikesLoaded(true);
+      })
+      .catch(() => {})
+      .finally(() => setLikesLoading(false));
+  }, [username]);
+
+  useEffect(() => {
+    if (activeTab === "Likes" && !likesLoaded) {
+      fetchLikes();
+    }
+  }, [activeTab, likesLoaded, fetchLikes]);
 
   // Fetch drafts when Drafts tab is active
   const fetchDrafts = useCallback(() => {
@@ -621,7 +673,7 @@ function UserProfileContent() {
               </p>
             </div>
 
-            <Button
+            {/* <Button
               size="sm"
               onClick={() => {
                 setSelectedArticleDraft(null);
@@ -631,7 +683,7 @@ function UserProfileContent() {
             >
               <Plus className="size-3.5" />
               New Draft
-            </Button>
+            </Button> */}
           </div>
 
           {draftsLoading ? (
@@ -714,10 +766,93 @@ function UserProfileContent() {
         </div>
       )}
 
-      {/* ── Empty states for Media & Likes tabs ── */}
-      {(activeTab === "Media" || activeTab === "Likes") && (
-        <div className="p-12 text-center">
-          <p className="text-sm text-muted-foreground">Nothing to show here yet.</p>
+      {/* ── TAB 4: MEDIA ── */}
+      {activeTab === "Media" && (
+        <div>
+          {mediaLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 sm:p-5 animate-in fade-in-50 duration-300">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="aspect-square rounded-xl bg-muted/70 animate-pulse border border-border/50" />
+              ))}
+            </div>
+          ) : userMedia.length === 0 ? (
+            <div className="p-12 text-center space-y-2">
+              <div className="size-12 mx-auto rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                <FileText className="size-6" />
+              </div>
+              <p className="text-sm font-bold text-foreground">No media found</p>
+              <p className="text-xs text-muted-foreground">Photos and covers uploaded by @{username} will appear here.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 sm:p-5 animate-in fade-in duration-300">
+              {userMedia.map((m, idx) => (
+                <Link
+                  key={m.id || idx}
+                  href={m.type === "article_cover" ? `/article/${encodeURIComponent(m.article_slug)}` : `/post/${m.post_id}`}
+                  className="aspect-square rounded-xl overflow-hidden border border-border/60 bg-muted relative group shadow-2xs block"
+                >
+                  <img
+                    src={getAvatarUrl(m.url)}
+                    alt={m.title || "Media"}
+                    className="size-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2.5 flex flex-col justify-end">
+                    <span className="text-[11px] font-bold text-white line-clamp-1 drop-shadow-sm">
+                      {m.title || (m.type === "article_cover" ? "Article Cover" : "Post Photo")}
+                    </span>
+                    <span className="text-[9px] text-white/80 uppercase font-extrabold tracking-wider mt-0.5">
+                      {m.type === "article_cover" ? "Article" : "Post"}
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB 5: LIKES ── */}
+      {activeTab === "Likes" && (
+        <div className="divide-y divide-border/60 animate-in fade-in duration-300">
+          {likesLoading ? (
+            <div className="divide-y divide-border/60">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-4 sm:p-5 space-y-3 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="size-10 rounded-full bg-muted" />
+                    <div className="space-y-1.5 flex-1">
+                      <div className="h-4 w-32 rounded bg-muted" />
+                      <div className="h-3 w-20 rounded bg-muted" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="h-4 w-full rounded bg-muted" />
+                    <div className="h-4 w-3/4 rounded bg-muted" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : likedPosts.length === 0 && likedArticles.length === 0 ? (
+            <div className="p-12 text-center space-y-2">
+              <div className="size-12 mx-auto rounded-full bg-rose-500/10 flex items-center justify-center text-rose-500">
+                <FileText className="size-6" />
+              </div>
+              <p className="text-sm font-bold text-foreground">No liked content yet</p>
+              <p className="text-xs text-muted-foreground">Posts and articles liked by @{username} will appear here.</p>
+            </div>
+          ) : (
+            <div>
+              {/* Liked Articles */}
+              {likedArticles.map((art) => (
+                <ArticleCard key={`liked_art_${art.id}`} article={art} />
+              ))}
+
+              {/* Liked Posts */}
+              {likedPosts.map((post) => (
+                <PostCard key={`liked_post_${post.id}`} {...post} />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

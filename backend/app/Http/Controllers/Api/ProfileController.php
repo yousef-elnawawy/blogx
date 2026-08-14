@@ -122,6 +122,35 @@ class ProfileController extends Controller
     }
 
     /**
+     * Get list of users that the authenticated user is following.
+     */
+    public function myFollowingList(Request $request)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['users' => []]);
+        }
+
+        $following = $user->following()->get()->map(function ($fUser) {
+            $avatarUrl = $fUser->avatar;
+            if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
+                $avatarUrl = config('app.url') . $avatarUrl;
+            }
+            return [
+                'id'           => $fUser->id,
+                'name'         => $fUser->name,
+                'username'     => $fUser->username,
+                'avatar'       => $avatarUrl,
+                'bio'          => $fUser->bio,
+                'verified'     => (bool) $fUser->verified,
+                'is_following' => true,
+            ];
+        });
+
+        return response()->json(['users' => $following]);
+    }
+
+    /**
      * Toggle follow/unfollow on a target user.
      */
     public function toggleFollow(Request $request, $id)
@@ -197,5 +226,106 @@ class ProfileController extends Controller
         });
 
         return response()->json(['users' => $users]);
+    }
+
+    /**
+     * Get all media uploaded by this user (post images, article covers).
+     */
+    public function media(Request $request, string $username)
+    {
+        $cleanUsername = ltrim(strtolower(urldecode($username)), '@');
+        $user = User::where('username', $cleanUsername)->firstOrFail();
+
+        // 1. Post images
+        $postImages = \App\Models\PostImage::whereHas('post', function ($q) use ($user) {
+            $q->where('user_id', $user->id)->published();
+        })->with('post')->latest()->get()->map(function ($img) {
+            $url = $img->image_path;
+            if ($url && !str_starts_with($url, 'http')) {
+                $url = config('app.url') . '/storage/' . ltrim($url, '/');
+            }
+            return [
+                'id'         => 'post_img_' . $img->id,
+                'type'       => 'post_image',
+                'url'        => $url,
+                'post_id'    => $img->post_id,
+                'title'      => $img->post ? \Illuminate\Support\Str::limit($img->post->content, 60) : '',
+                'created_at' => $img->created_at ? $img->created_at->toIso8601String() : null,
+            ];
+        });
+
+        // 2. Article covers
+        $articleCovers = \App\Models\Article::where('user_id', $user->id)
+            ->published()
+            ->whereNotNull('cover_image')
+            ->where('cover_image', '!=', '')
+            ->latest('published_at')
+            ->get()
+            ->map(function ($art) {
+                $url = $art->cover_image;
+                if ($url && !str_starts_with($url, 'http')) {
+                    $url = config('app.url') . '/storage/' . ltrim($url, '/');
+                }
+                return [
+                    'id'           => 'art_cover_' . $art->id,
+                    'type'         => 'article_cover',
+                    'url'          => $url,
+                    'article_id'   => $art->id,
+                    'article_slug' => $art->slug,
+                    'title'        => $art->title,
+                    'created_at'   => $art->published_at ? $art->published_at->toIso8601String() : null,
+                ];
+            });
+
+        $allMedia = $postImages->concat($articleCovers)->sortByDesc('created_at')->values();
+
+        return response()->json(['media' => $allMedia]);
+    }
+
+    /**
+     * Get posts and articles liked by this user.
+     */
+    public function likes(Request $request, string $username)
+    {
+        $authUser = $request->user() ?? auth('sanctum')->user();
+        $cleanUsername = ltrim(strtolower(urldecode($username)), '@');
+        $user = User::where('username', $cleanUsername)->firstOrFail();
+
+        // 1. Liked posts
+        $postController = new PostController();
+        $likedPosts = Post::whereHas('likes', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })
+        ->published()
+        ->with(['user', 'images', 'mentions.user'])
+        ->withCount(['likes', 'comments'])
+        ->latest()
+        ->get()
+        ->map(function ($post) use ($authUser, $postController) {
+            $formatted = $postController->formatPost($post, $authUser);
+            $formatted['item_type'] = 'post';
+            return $formatted;
+        });
+
+        // 2. Liked articles
+        $articleController = new ArticleController();
+        $likedArticles = \App\Models\Article::whereHas('likes', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
+        })
+        ->published()
+        ->with('user')
+        ->withCount('likes')
+        ->latest('published_at')
+        ->get()
+        ->map(function ($art) use ($authUser, $articleController) {
+            $formatted = $articleController->formatArticle($art, $authUser);
+            $formatted['item_type'] = 'article';
+            return $formatted;
+        });
+
+        return response()->json([
+            'posts'    => $likedPosts,
+            'articles' => $likedArticles,
+        ]);
     }
 }

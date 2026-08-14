@@ -37,7 +37,7 @@ class VerificationController extends Controller
         $validated = $request->validate([
             'category' => ['required', 'string', 'max:100'],
             'reason'   => ['required', 'string', 'max:2000'],
-            'document' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp,pdf'],
+            'document' => ['nullable', 'file', 'max:102400', 'mimes:jpg,jpeg,png,webp,pdf'], // Up to 100MB
         ]);
 
         $documentPath = null;

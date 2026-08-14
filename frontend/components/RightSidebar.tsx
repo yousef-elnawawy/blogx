@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TrendingUp, Search, Hash, Loader2 } from "lucide-react";
+import { TrendingUp, Search, Hash, Loader2, Code2, Bot, Gamepad2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import VerifiedBadge from "./ui/VerifiedBadge";
 import Link from "next/link";
 import api from "@/lib/api";
-import { getAvatarUrl } from "@/lib/utils";
+import { getAvatarUrl, cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface TrendingHashtag {
   tag: string;
@@ -48,6 +49,7 @@ export default function RightSidebar() {
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [suggestions, setSuggestions] = useState<SuggestedUser[]>([]);
   const [followingMap, setFollowingMap] = useState<Record<number, boolean>>({});
+  const [joinedCommMap, setJoinedCommMap] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     api
@@ -79,6 +81,12 @@ export default function RightSidebar() {
     } catch {
       /* silent */
     }
+  };
+
+  const handleJoinCommunity = (id: string, name: string) => {
+    const isJoined = !joinedCommMap[id];
+    setJoinedCommMap((prev) => ({ ...prev, [id]: isJoined }));
+    toast.success(isJoined ? `Joined ${name}!` : `Left ${name}`);
   };
 
   return (
@@ -224,6 +232,69 @@ export default function RightSidebar() {
             </Link>
           </div>
         )}
+
+        {/* Suggested Communities */}
+        <div className="rounded-2xl border border-border bg-card overflow-hidden">
+          <div className="flex items-center justify-between px-4 pt-4 pb-2">
+            <h2 className="text-sm font-bold text-foreground">Suggested communities</h2>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600">
+              New
+            </span>
+          </div>
+
+          <div className="divide-y divide-border/50">
+            {[
+              {
+                id: "web",
+                name: "Web Development",
+                members: "14.2k",
+                image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=200&auto=format&fit=crop&q=80",
+              },
+              {
+                id: "ai",
+                name: "Artificial Intelligence",
+                members: "18.5k",
+                image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80",
+              },
+              {
+                id: "gaming",
+                name: "Game Development",
+                members: "9.1k",
+                image: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&auto=format&fit=crop&q=80",
+              },
+            ].map((comm) => {
+              const isJoined = joinedCommMap[comm.id];
+
+              return (
+                <div
+                  key={comm.id}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
+                >
+                  <img
+                    src={comm.image}
+                    alt={comm.name}
+                    className="size-9 rounded-xl object-cover shrink-0 border border-border/50"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-foreground truncate">{comm.name}</p>
+                    <p className="text-[11px] text-muted-foreground">{comm.members} members</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant={isJoined ? "outline" : "secondary"}
+                    onClick={() => handleJoinCommunity(comm.id, comm.name)}
+                    className={cn(
+                      "rounded-full px-3 h-7 text-[11px] font-bold shrink-0 transition-colors",
+                      isJoined ? "border-border text-foreground hover:text-destructive" : "bg-primary/10 text-primary hover:bg-primary/20"
+                    )}
+                  >
+                    {isJoined ? "Joined" : "Join"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
 
         {/* Footer */}
         <div className="px-1 pb-4">

@@ -217,22 +217,20 @@ export default function VerificationTab() {
             <button
               type="button"
               onClick={() => setAdminTab("my_status")}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-                adminTab === "my_status"
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${adminTab === "my_status"
                   ? "bg-card text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               My Status
             </button>
             <button
               type="button"
               onClick={() => setAdminTab("admin_panel")}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-                adminTab === "admin_panel"
+              className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${adminTab === "admin_panel"
                   ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
-              }`}
+                }`}
             >
               <Shield className="size-3" />
               <span>Admin Panel</span>
@@ -417,11 +415,10 @@ export default function VerificationTab() {
                 key={filter}
                 type="button"
                 onClick={() => setAdminFilter(filter)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold capitalize transition-colors ${
-                  adminFilter === filter
+                className={`px-3.5 py-1.5 rounded-full text-xs font-bold capitalize transition-colors ${adminFilter === filter
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-muted-foreground hover:text-foreground"
-                }`}
+                  }`}
               >
                 {filter}
               </button>
@@ -472,13 +469,12 @@ export default function VerificationTab() {
 
                     {/* Status Badge */}
                     <span
-                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize ${
-                        req.status === "approved"
+                      className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize ${req.status === "approved"
                           ? "bg-emerald-500/15 text-emerald-500 border border-emerald-500/30"
                           : req.status === "rejected"
-                          ? "bg-destructive/15 text-destructive border border-destructive/30"
-                          : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                      }`}
+                            ? "bg-destructive/15 text-destructive border border-destructive/30"
+                            : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                        }`}
                     >
                       {req.status}
                     </span>

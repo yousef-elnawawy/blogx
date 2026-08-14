@@ -33,6 +33,7 @@ import {
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { cn, getAvatarUrl } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
 import { useRouter } from "next/navigation";
 
 export interface ArticleEditorInitialData {
@@ -96,16 +97,23 @@ export default function ArticleEditorDialog({
   }, [initialData, open]);
 
   // Handle Cover Image
-  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 25 * 1024 * 1024) {
-        toast.error("Cover image must be under 25MB");
+      if (file.size > 100 * 1024 * 1024) {
+        toast.error("Cover image must be under 100MB");
         return;
       }
-      setCoverFile(file);
-      setCoverPreview(URL.createObjectURL(file));
-      setRemoveExistingCover(false);
+      try {
+        const optimized = await compressImage(file, { maxWidth: 3840, maxHeight: 2160, quality: 0.90 });
+        setCoverFile(optimized);
+        setCoverPreview(URL.createObjectURL(optimized));
+        setRemoveExistingCover(false);
+      } catch {
+        setCoverFile(file);
+        setCoverPreview(URL.createObjectURL(file));
+        setRemoveExistingCover(false);
+      }
     }
   };
 
@@ -197,7 +205,11 @@ export default function ArticleEditorDialog({
     });
 
     if (coverFile) {
-      formData.append("cover_image", coverFile);
+      // Ensure file is compressed under 1.5MB before sending
+      const readyFile = coverFile.size > 1.5 * 1024 * 1024
+        ? await compressImage(coverFile, { maxWidth: 2000, maxHeight: 1800, quality: 0.85 })
+        : coverFile;
+      formData.append("cover_image", readyFile);
     }
     if (removeExistingCover) {
       formData.append("remove_cover", "1");
@@ -222,7 +234,7 @@ export default function ArticleEditorDialog({
       onOpenChange(false);
 
       if (status === "published" && res.data.article?.slug) {
-        router.push(`/article/${res.data.article.slug}`);
+        router.push(`/article/${encodeURIComponent(res.data.article.slug)}`);
       }
     } catch (err: any) {
       let msg = "Failed to save article";

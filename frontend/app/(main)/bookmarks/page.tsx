@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
-import { Loader2, Bookmark, ArrowLeft } from "lucide-react";
+import { Bookmark, ArrowLeft } from "lucide-react";
 import api from "@/lib/api";
 import { useRouter } from "next/navigation";
 
@@ -12,6 +12,7 @@ export default function BookmarksPage() {
   const router = useRouter();
 
   useEffect(() => {
+    setLoading(true);
     api
       .get("/api/bookmarks")
       .then((res) => {
@@ -35,29 +36,27 @@ export default function BookmarksPage() {
   }, []);
 
   return (
-    <div>
+    <div className="min-h-screen">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/60 px-4 py-2.5 sm:px-6">
+      <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/70 px-4 py-3 sm:px-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+              className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors text-muted-foreground hover:text-foreground cursor-pointer"
               aria-label="Back"
             >
               <ArrowLeft className="size-5" />
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <div className="grid place-items-center size-7 rounded-lg bg-violet-500/10 dark:bg-violet-500/20 text-violet-500 dark:text-violet-400">
-                  <Bookmark className="size-4 fill-violet-500/30 dark:fill-violet-400/30" strokeWidth={2.5} />
-                </div>
-                <h1 className="text-lg font-bold text-foreground leading-tight">
+                <Bookmark className="size-5 text-violet-500 fill-violet-500" />
+                <h1 className="text-lg font-black text-foreground leading-tight">
                   Bookmarks
                 </h1>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Posts you have saved
+                Saved posts and resources
               </p>
             </div>
           </div>
@@ -65,21 +64,35 @@ export default function BookmarksPage() {
       </div>
 
       {loading ? (
-        <div className="py-16 text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-violet-500" />
+        <div className="divide-y divide-border/60 animate-in fade-in-50 duration-300">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="p-4 sm:p-5 space-y-3 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="size-10 rounded-full bg-muted" />
+                <div className="space-y-1.5 flex-1">
+                  <div className="h-4 w-32 rounded bg-muted" />
+                  <div className="h-3 w-20 rounded bg-muted" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="h-4 w-full rounded bg-muted" />
+                <div className="h-4 w-3/4 rounded bg-muted" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : posts.length === 0 ? (
-        <div className="p-12 text-center max-w-sm mx-auto">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-violet-500/10 dark:bg-violet-500/20 ring-8 ring-violet-500/5">
-            <Bookmark className="size-8 text-violet-500 dark:text-violet-400 fill-violet-500/30 dark:fill-violet-400/30" />
+        <div className="p-12 text-center max-w-sm mx-auto space-y-3">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-500">
+            <Bookmark className="size-7 fill-current" />
           </div>
-          <h2 className="text-lg font-bold text-foreground mb-1">Save posts for later</h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
-            Don't let the good ones fly away! Bookmark posts to easily find them again anytime.
+          <h2 className="text-base font-bold text-foreground">Save posts for later</h2>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Bookmark posts on BlogX to easily find and read them again anytime.
           </p>
         </div>
       ) : (
-        <div>
+        <div className="divide-y divide-border/60">
           {posts.map((post) => (
             <PostCard key={post.id} {...post} />
           ))}

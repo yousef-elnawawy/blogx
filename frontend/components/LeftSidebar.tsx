@@ -56,8 +56,23 @@ const fraunces = Fraunces({
   variable: "--font-fraunces",
 });
 
-const navItems = [
+interface NavItem {
+  label: string;
+  href: string;
+  icon: any;
+  color?: string;
+  activeClass?: string;
+  hoverClass?: string;
+  iconActive?: string;
+}
+
+const mainNavItems: NavItem[] = [
   { label: "Feed", href: "/", icon: Home, color: "primary" },
+  { label: "Articles", href: "/articles", icon: BookOpen, color: "primary" },
+  { label: "Search", href: "/search", icon: Search, color: "primary" },
+];
+
+const activityNavItems: NavItem[] = [
   {
     label: "Notifications",
     href: "/notifications",
@@ -67,8 +82,6 @@ const navItems = [
     hoverClass: "hover:bg-amber-500/10 hover:text-amber-500",
     iconActive: "text-amber-500",
   },
-  { label: "Search", href: "/search", icon: Search, color: "primary" },
-  { label: "Following", href: "/following", icon: UserCheck, color: "primary" },
   {
     label: "Mentions",
     href: "/mentions",
@@ -78,6 +91,10 @@ const navItems = [
     hoverClass: "hover:bg-blue-500/10 hover:text-blue-600",
     iconActive: "text-blue-600",
   },
+  { label: "Following", href: "/following", icon: UserCheck, color: "primary" },
+];
+
+const savedNavItems: NavItem[] = [
   {
     label: "Likes",
     href: "/likes",
@@ -96,6 +113,9 @@ const navItems = [
     hoverClass: "hover:bg-violet-500/10 hover:text-violet-500",
     iconActive: "text-violet-500 fill-violet-500",
   },
+];
+
+const accountNavItems: NavItem[] = [
   { label: "Profile", href: "/profile", icon: User, color: "primary" },
   { label: "Settings", href: "/settings", icon: Settings, color: "primary" },
 ];
@@ -150,11 +170,55 @@ export default function LeftSidebar() {
     return pathname.startsWith(href);
   };
 
-  const getNavHref = (item: (typeof navItems)[0]) => {
+  const getNavHref = (item: NavItem) => {
     if (item.href === "/profile" && user) {
       return `/@${user.username}`;
     }
     return item.href;
+  };
+
+  const renderNavItem = (item: NavItem) => {
+    const active = isActive(item.href);
+    const Icon = item.icon;
+    const isNotifications = item.href === "/notifications";
+
+    const activeClass =
+      item.activeClass || "bg-primary/10 text-primary font-semibold";
+    const hoverClass =
+      item.hoverClass || "hover:bg-muted hover:text-foreground";
+    const iconActive = item.iconActive || "text-primary";
+
+    return (
+      <li key={item.href}>
+        <Link
+          href={getNavHref(item)}
+          className={`group flex items-center gap-4 rounded-xl px-4 py-3 text-[15px] font-medium transition-all duration-200 ${
+            active
+              ? activeClass
+              : `text-foreground/80 ${hoverClass}`
+          }`}
+        >
+          <div className="relative">
+            <Icon
+              className={`size-[22px] transition-transform duration-200 group-hover:scale-110 ${
+                active ? iconActive : ""
+              }`}
+              strokeWidth={active ? 2.5 : 2}
+            />
+            {isNotifications && unreadCount > 0 && (
+              <span className="lg:hidden absolute -top-1 -right-1 size-2.5 rounded-full bg-primary ring-2 ring-background" />
+            )}
+          </div>
+          <span className="sidebar-label">{item.label}</span>
+
+          {isNotifications && unreadCount > 0 && (
+            <span className="sidebar-label ml-auto text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground shadow-xs animate-in fade-in zoom-in duration-200">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </Link>
+      </li>
+    );
   };
 
   return (
@@ -171,49 +235,32 @@ export default function LeftSidebar() {
 
       <nav className="flex-1 px-3 py-4">
         <ul className="space-y-1">
-          {navItems.map((item) => {
-            const active = isActive(item.href);
-            const Icon = item.icon;
-            const isNotifications = item.href === "/notifications";
+          {/* القسم الرئيسي */}
+          {mainNavItems.map(renderNavItem)}
 
-            const activeClass =
-              item.activeClass || "bg-primary/10 text-primary font-semibold";
-            const hoverClass =
-              item.hoverClass || "hover:bg-muted hover:text-foreground";
-            const iconActive = item.iconActive || "text-primary";
+          {/* فاصل */}
+          <li className="pt-2 pb-1">
+            <div className="border-t border-border/60 mx-2" />
+          </li>
 
-            return (
-              <li key={item.href}>
-                <Link
-                  href={getNavHref(item)}
-                  className={`group flex items-center gap-4 rounded-xl px-4 py-3 text-[15px] font-medium transition-all duration-200 ${
-                    active
-                      ? activeClass
-                      : `text-foreground/80 ${hoverClass}`
-                  }`}
-                >
-                  <div className="relative">
-                    <Icon
-                      className={`size-[22px] transition-transform duration-200 group-hover:scale-110 ${
-                        active ? iconActive : ""
-                      }`}
-                      strokeWidth={active ? 2.5 : 2}
-                    />
-                    {isNotifications && unreadCount > 0 && (
-                      <span className="lg:hidden absolute -top-1 -right-1 size-2.5 rounded-full bg-primary ring-2 ring-background" />
-                    )}
-                  </div>
-                  <span className="sidebar-label">{item.label}</span>
+          {/* التفاعلات */}
+          {activityNavItems.map(renderNavItem)}
 
-                  {isNotifications && unreadCount > 0 && (
-                    <span className="sidebar-label ml-auto text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground shadow-xs animate-in fade-in zoom-in duration-200">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
+          {/* فاصل */}
+          <li className="pt-2 pb-1">
+            <div className="border-t border-border/60 mx-2" />
+          </li>
+
+          {/* المحفوظات */}
+          {savedNavItems.map(renderNavItem)}
+
+          {/* فاصل */}
+          <li className="pt-2 pb-1">
+            <div className="border-t border-border/60 mx-2" />
+          </li>
+
+          {/* الحساب */}
+          {accountNavItems.map(renderNavItem)}
         </ul>
 
         {user && (
@@ -270,78 +317,47 @@ export default function LeftSidebar() {
                 </div>
               </div>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="top" sideOffset={8} className="w-56 p-1 bg-card border border-border shadow-xl rounded-xl">
-              <div className="px-3 py-2 border-b border-border/50">
+            <DropdownMenuContent align="start" side="top" sideOffset={6} className="w-48 p-1 bg-card/95 backdrop-blur-md border border-border shadow-lg rounded-xl text-xs animate-in fade-in-0 zoom-in-95 duration-150">
+              <div className="px-2.5 py-1.5 border-b border-border/50">
                 <div className="flex items-center gap-1">
-                  <p className="text-sm font-bold text-foreground truncate">{user.name}</p>
+                  <p className="text-xs font-bold text-foreground truncate">{user.name}</p>
                   {Boolean(user.verified) && <VerifiedBadge size="sm" />}
                 </div>
-                <p className="text-xs text-muted-foreground truncate">@{user.username}</p>
+                <p className="text-[11px] text-muted-foreground truncate">@{user.username}</p>
               </div>
-              <div className="py-1">
-                <DropdownMenuItem onClick={() => router.push(`/@${user.username}`)} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
-                  <User className="size-4 text-primary" />
+              <div className="py-0.5 space-y-0.5">
+                <DropdownMenuItem onClick={() => router.push(`/@${user.username}`)} className="flex items-center gap-2 py-1.5 px-2.5 text-xs font-medium cursor-pointer rounded-lg">
+                  <User className="size-3.5 text-primary" />
                   <span>Profile</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setArticleEditorOpen(true)} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
-                  <BookOpen className="size-4 text-amber-500" />
-                  <span>Write Article</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push(`/@${user.username}?tab=Drafts`)} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
-                  <FileText className="size-4 text-violet-500" />
+                <DropdownMenuItem onClick={() => router.push(`/@${user.username}?tab=Drafts`)} className="flex items-center gap-2 py-1.5 px-2.5 text-xs font-medium cursor-pointer rounded-lg">
+                  <FileText className="size-3.5 text-violet-500" />
                   <span>My Drafts</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/notifications")} className="flex items-center justify-between py-2 px-3 text-sm font-medium cursor-pointer">
-                  <div className="flex items-center gap-2.5">
-                    <Bell className="size-4 text-amber-500" />
-                    <span>Notifications</span>
-                  </div>
-                  {unreadCount > 0 && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-primary text-primary-foreground">
-                      {unreadCount}
-                    </span>
-                  )}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/mentions")} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
-                  <AtSign className="size-4 text-blue-600" />
-                  <span>Mentions</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/likes")} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
-                  <Heart className="size-4 text-red-500" />
-                  <span>Likes</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/bookmarks")} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
-                  <Bookmark className="size-4 text-violet-500" />
-                  <span>Bookmarks</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/settings")} className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer">
-                  <Settings className="size-4 text-primary" />
-                  <span>Settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-                  className="flex items-center justify-between py-2 px-3 text-sm font-medium cursor-pointer"
+                  className="flex items-center justify-between py-1.5 px-2.5 text-xs font-medium cursor-pointer rounded-lg"
                 >
-                  <div className="flex items-center gap-2.5">
+                  <div className="flex items-center gap-2">
                     {mounted && resolvedTheme === "dark" ? (
-                      <Moon className="size-4 text-primary" />
+                      <Moon className="size-3.5 text-primary" />
                     ) : (
-                      <Sun className="size-4 text-amber-500" />
+                      <Sun className="size-3.5 text-amber-500" />
                     )}
                     <span>{mounted && resolvedTheme === "dark" ? "Dark Mode" : "Light Mode"}</span>
                   </div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground px-1.5 py-0.5 rounded bg-muted/80">
+                  <span className="text-[9px] uppercase font-bold tracking-wider text-muted-foreground px-1 py-0.2 rounded bg-muted/80">
                     {mounted && resolvedTheme === "dark" ? "Dark" : "Light"}
                   </span>
                 </DropdownMenuItem>
               </div>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="my-0.5" />
               <DropdownMenuItem
                 variant="destructive"
                 onClick={() => setLogoutDialogOpen(true)}
-                className="flex items-center gap-2.5 py-2 px-3 text-sm font-medium cursor-pointer text-destructive focus:text-destructive"
+                className="flex items-center gap-2 py-1.5 px-2.5 text-xs font-medium cursor-pointer text-destructive focus:text-destructive rounded-lg"
               >
-                <LogOut className="size-4" />
+                <LogOut className="size-3.5" />
                 <span>Log out</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

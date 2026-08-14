@@ -236,8 +236,19 @@ export default function ArticleDetailPage() {
     setLoading(true);
     setNotFound(false);
 
+    let cleanSlug = slug;
+    try {
+      cleanSlug = decodeURIComponent(decodeURIComponent(slug));
+    } catch {
+      try {
+        cleanSlug = decodeURIComponent(slug);
+      } catch {
+        cleanSlug = slug;
+      }
+    }
+
     api
-      .get(`/api/articles/${encodeURIComponent(slug)}`)
+      .get(`/api/articles/${encodeURIComponent(cleanSlug)}`)
       .then((res) => {
         const art = res.data.article;
         setArticle(art);

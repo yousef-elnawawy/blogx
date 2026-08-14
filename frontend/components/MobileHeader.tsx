@@ -20,7 +20,10 @@ import {
   X,
   Sparkles,
   Bell,
+  BookOpen,
+  FileText,
 } from "lucide-react";
+import ArticleEditorDialog from "@/components/article/ArticleEditorDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
@@ -47,6 +50,7 @@ export default function MobileHeader() {
   const { unreadCount } = useNotifications();
   const { setTheme, resolvedTheme } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [articleEditorOpen, setArticleEditorOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -67,27 +71,23 @@ export default function MobileHeader() {
   const avatarUrl = getAvatarUrl(user?.avatar);
 
   const navLinks = [
-    { label: "Feed", href: "/", icon: Home, color: "primary" },
     {
-      label: "Notifications",
-      href: "/notifications",
-      icon: Bell,
-      color: "amber",
-      activeColor: "text-amber-500 bg-amber-500/10 font-bold",
-      hoverColor: "hover:bg-amber-500/10 hover:text-amber-500",
-      iconColor: "text-amber-500",
-      badgeCount: unreadCount,
+      label: "My Drafts",
+      href: user ? `/@${user.username}?tab=Drafts` : "/login",
+      icon: FileText,
+      color: "violet",
+      activeColor: "text-violet-500 bg-violet-500/10 font-bold",
+      hoverColor: "hover:bg-violet-500/10 hover:text-violet-500",
+      iconColor: "text-violet-500",
     },
-    { label: "Search", href: "/search", icon: Search, color: "primary" },
-    { label: "Following", href: "/following", icon: UserCheck, color: "primary" },
     {
-      label: "Mentions",
-      href: "/mentions",
-      icon: AtSign,
-      color: "blue",
-      activeColor: "text-blue-600 bg-blue-500/10 font-bold",
-      hoverColor: "hover:bg-blue-500/10 hover:text-blue-600",
-      iconColor: "text-blue-600",
+      label: "Following",
+      href: "/following",
+      icon: UserCheck,
+      color: "primary",
+      activeColor: "text-primary bg-primary/10 font-bold",
+      hoverColor: "hover:bg-primary/10 hover:text-primary",
+      iconColor: "text-primary",
     },
     {
       label: "Likes",
@@ -99,21 +99,24 @@ export default function MobileHeader() {
       iconColor: "text-red-500",
     },
     {
-      label: "Bookmarks",
-      href: "/bookmarks",
-      icon: Bookmark,
-      color: "violet",
-      activeColor: "text-violet-500 bg-violet-500/10 font-bold",
-      hoverColor: "hover:bg-violet-500/10 hover:text-violet-500",
-      iconColor: "text-violet-500",
+      label: "Notifications",
+      href: "/notifications",
+      icon: Bell,
+      color: "amber",
+      activeColor: "text-amber-500 bg-amber-500/10 font-bold",
+      hoverColor: "hover:bg-amber-500/10 hover:text-amber-500",
+      iconColor: "text-amber-500",
+      badgeCount: unreadCount,
     },
     {
-      label: "Profile",
-      href: user ? `/@${user.username}` : "/profile",
-      icon: User,
+      label: "Settings",
+      href: "/settings",
+      icon: Settings,
       color: "primary",
+      activeColor: "text-primary bg-primary/10 font-bold",
+      hoverColor: "hover:bg-primary/10 hover:text-primary",
+      iconColor: "text-primary",
     },
-    { label: "Settings", href: "/settings", icon: Settings, color: "primary" },
   ];
 
   const isActive = (href: string) => {
@@ -223,7 +226,7 @@ export default function MobileHeader() {
 
             {/* User Profile Card in Drawer */}
             {user ? (
-              <div className="p-4 border-b border-border/60 bg-muted/20">
+              <div className="p-4 border-b border-border/60 bg-muted/20 space-y-3">
                 <Link
                   href={`/@${user.username}`}
                   onClick={() => setDrawerOpen(false)}
@@ -247,6 +250,18 @@ export default function MobileHeader() {
                     </p>
                   </div>
                 </Link>
+
+                <Button
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    setArticleEditorOpen(true);
+                  }}
+                  variant="outline"
+                  className="w-full h-9 rounded-full border-border/80 text-xs font-semibold gap-1.5"
+                >
+                  <BookOpen className="size-3.5 text-primary" />
+                  <span>Write Article</span>
+                </Button>
               </div>
             ) : (
               <div className="p-4 border-b border-border/60 space-y-2">
@@ -328,6 +343,11 @@ export default function MobileHeader() {
           </div>
         </div>
       )}
+
+      <ArticleEditorDialog
+        open={articleEditorOpen}
+        onOpenChange={setArticleEditorOpen}
+      />
     </>
   );
 }
