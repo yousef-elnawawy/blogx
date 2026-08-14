@@ -178,9 +178,6 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
               <ArrowLeft className="size-5 transition-transform group-hover:-translate-x-0.5" />
             </button>
             <div className="flex items-center gap-2.5">
-              <div className="size-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center shadow-xs">
-                <User className="size-4" />
-              </div>
               <div>
                 <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight">
                   Account & Profile

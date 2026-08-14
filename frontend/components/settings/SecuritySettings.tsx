@@ -164,9 +164,6 @@ export default function SecuritySettings({ onBack }: SecuritySettingsProps) {
               <ArrowLeft className="size-5 transition-transform group-hover:-translate-x-0.5" />
             </button>
             <div className="flex items-center gap-2.5">
-              <div className="size-8 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center shadow-xs">
-                <Shield className="size-4" />
-              </div>
               <div>
                 <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight">
                   Privacy & Security
