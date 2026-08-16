@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Bookmark, Share2, ArrowLeft, Send, Loader2, Lock, Repeat2, BarChart3, ChevronDown, ChevronUp } from "lucide-react";
+import { Heart, MessageSquare, Bookmark, Share2, ArrowLeft, Send, Loader2, Lock, Repeat2, BarChart3, ChevronDown, ChevronUp, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { cn } from "@/lib/utils";
+import { cn, getAvatarGradient, getInitials } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
 import PostImageGrid from "@/components/post/PostImageGrid";
@@ -16,6 +16,23 @@ import ShareDialog from "@/components/post/ShareDialog";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import VideoEmbed from "@/components/post/VideoEmbed";
 import LinkPreviewCard from "@/components/post/LinkPreviewCard";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import { toast } from "sonner";
 
 interface Author {
@@ -57,53 +74,75 @@ function formatCount(n: number) {
   return String(n);
 }
 
-function getInitials(name: string) {
-  if (!name) return "U";
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
 function renderContent(text: string, validMentions?: string[]) {
   if (!text) return null;
-  const parts = text.split(/(@[\w.]+|#[\p{L}\p{N}_]+)/gu);
+  const regex = /(https?:\/\/[^\s]+|www\.[^\s]+|@[\w.]+|#[\p{L}\p{N}_]+)/gu;
+  const parts = text.split(regex);
+
   return parts.map((part, i) => {
-    if (part.startsWith("#")) {
+    if (!part) return null;
+
+    if (part.startsWith("#") && part.length > 1) {
       const tag = part.slice(1);
       return (
         <Link
           key={i}
           href={`/hashtag/${encodeURIComponent(tag)}`}
-          className="text-amber-600 dark:text-amber-400 font-semibold hover:underline"
+          className="hashtag-link"
         >
           {part}
         </Link>
       );
     }
-    if (part.startsWith("@")) {
+
+    if (part.startsWith("@") && part.length > 1) {
       const username = part.slice(1);
       const isValid = validMentions
         ? validMentions.some((m) => m.toLowerCase() === username.toLowerCase())
         : true;
 
       if (!isValid) {
-        return <span key={i} className="text-foreground/80">{part}</span>;
+        return <span key={i}>{part}</span>;
       }
 
       return (
         <Link
           key={i}
           href={`/@${username}`}
-          className="text-sky-600 dark:text-sky-400 font-semibold hover:underline"
+          className="mention-link"
         >
           {part}
         </Link>
       );
     }
+
+    if (/^(https?:\/\/|www\.)/i.test(part)) {
+      let cleanUrl = part;
+      let trailing = "";
+      const matchTrailing = cleanUrl.match(/[.,!?:;)]+$/);
+      if (matchTrailing) {
+        trailing = matchTrailing[0];
+        cleanUrl = cleanUrl.slice(0, -trailing.length);
+      }
+
+      const safeHref = cleanUrl.startsWith("http") ? cleanUrl : `https://${cleanUrl}`;
+
+      return (
+        <span key={i} className="inline">
+          <a
+            href={safeHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="url-link"
+          >
+            {cleanUrl}
+          </a>
+          {trailing}
+        </span>
+      );
+    }
+
     return <span key={i}>{part}</span>;
   });
 }
@@ -131,6 +170,28 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const isOwner = Boolean(
+    user && post && (user.username === post.author.username || (post.author.id && user.id === post.author.id))
+  );
+
+  const handleDeletePost = async () => {
+    if (!post || deleting) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/api/posts/${post.id}`);
+      toast.success("Post deleted successfully");
+      router.push("/");
+    } catch {
+      toast.error("Failed to delete post");
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
 
   useEffect(() => {
     setLoading(true);
@@ -447,28 +508,65 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
 
       {/* Main Post */}
       <div className="p-4 sm:p-5 border-b border-border/60">
-        {/* Author info */}
-        <div className="flex items-start gap-3">
-          <Link href={`/@${post.author.username}`}>
-            <Avatar className="size-10 sm:size-12 ring-2 ring-border/40">
-              <AvatarImage src={post.author.avatar ?? undefined} alt={post.author.name} />
-              <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
-                {getInitials(post.author.name)}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-          <div>
-            <Link
-              href={`/@${post.author.username}`}
-              className="text-[15px] font-bold text-foreground hover:underline flex items-center gap-1"
-            >
-              <span>{post.author.name}</span>
-              {Boolean(post.author.verified) && <VerifiedBadge size="md" />}
+        {/* Author info & Owner Dropdown */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <Link href={`/@${post.author.username}`}>
+              <Avatar className="size-10 sm:size-12 ring-2 ring-border/40">
+                <AvatarImage src={post.author.avatar ?? undefined} alt={post.author.name} />
+                <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
+                  {getInitials(post.author.name)}
+                </AvatarFallback>
+              </Avatar>
             </Link>
-            <p className="text-sm text-muted-foreground">
-              @{post.author.username}
-            </p>
+            <div>
+              <Link
+                href={`/@${post.author.username}`}
+                className="text-[15px] font-bold text-foreground hover:underline flex items-center gap-1"
+              >
+                <span>{post.author.name}</span>
+                {Boolean(post.author.verified) && <VerifiedBadge size="md" />}
+              </Link>
+              <p className="text-sm text-muted-foreground">
+                @{post.author.username}
+              </p>
+            </div>
           </div>
+
+          {/* Owner Dropdown */}
+          {isOwner && (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="size-7 sm:size-7.5 p-0 rounded-full text-muted-foreground/70 hover:text-foreground hover:bg-muted/80 active:scale-95 transition-all cursor-pointer"
+                    title="More options"
+                  >
+                    <MoreHorizontal className="size-4" />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent align="end" className="w-40 sm:w-44 p-1">
+                <DropdownMenuItem
+                  onClick={() => setEditDialogOpen(true)}
+                  className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
+                >
+                  <Pencil className="size-3.5 text-muted-foreground" />
+                  <span>Edit</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setDeleteDialogOpen(true)}
+                  className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
+                >
+                  <Trash2 className="size-3.5" />
+                  <span>Delete</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
 
         {/* Post Content */}
@@ -527,8 +625,8 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
               className={cn(
                 "h-9 px-3 gap-2 rounded-full transition-colors",
                 post.is_liked
-                  ? "text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                  : "text-[#78716C] hover:text-red-500 hover:bg-red-500/10"
+                  ? "text-brand-like hover:text-brand-like hover:bg-brand-like-subtle"
+                  : "text-[#78716C] hover:text-brand-like hover:bg-brand-like-subtle"
               )}
             >
               <Heart className={cn("size-5", post.is_liked && "fill-current")} />
@@ -544,8 +642,8 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                 className={cn(
                   "h-9 px-2 rounded-full transition-colors",
                   post.is_bookmarked
-                    ? "text-violet-500 hover:text-violet-600 hover:bg-violet-500/10"
-                    : "text-[#78716C] hover:text-violet-500 hover:bg-violet-500/10"
+                    ? "text-brand-bookmark hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
+                    : "text-[#78716C] hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
                 )}
               >
                 <Bookmark className={cn("size-5", post.is_bookmarked && "fill-current")} />
@@ -788,6 +886,48 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         onOpenChange={setShareDialogOpen}
         post={post}
       />
+
+      {/* Edit Dialog */}
+      {post && (
+        <PostEditorDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          postToEdit={{ id: post.id, content: post.content, images: post.images }}
+          onPostUpdated={(updatedPost) => {
+            setPost((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    content: updatedPost.content,
+                    images: updatedPost.images || [],
+                  }
+                : null
+            );
+          }}
+        />
+      )}
+
+      {/* Delete Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete post?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This post will be permanently deleted from your profile and feed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={handleDeletePost}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

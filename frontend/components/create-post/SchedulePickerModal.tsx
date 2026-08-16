@@ -62,12 +62,12 @@ export default function SchedulePickerPanel({
   };
 
   return (
-    <div className="shrink-0 mx-3 sm:mx-6 mb-3 p-4 rounded-2xl bg-card border border-amber-500/30 shadow-lg animate-in fade-in slide-in-from-bottom-3 duration-200">
+    <div className="shrink-0 mx-3 sm:mx-6 mb-3 p-3.5 rounded-xl bg-card/95 backdrop-blur-xl border border-amber-500/30 shadow-lg shadow-black/5 dark:shadow-black/40 animate-in fade-in slide-in-from-bottom-2 duration-150">
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-border/60">
+      <div className="flex items-center justify-between pb-2.5 border-b border-border/50">
         <div className="flex items-center gap-2">
-          <Calendar className="size-4 text-amber-500" />
-          <span className="text-xs sm:text-sm font-bold text-foreground">
+          <Calendar className="size-3.5 text-amber-500" />
+          <span className="text-xs sm:text-[13px] font-bold text-foreground">
             Schedule Publishing Date & Time
           </span>
         </div>
@@ -76,22 +76,22 @@ export default function SchedulePickerPanel({
           onClick={onClose}
           className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
         >
-          <X className="size-4" />
+          <X className="size-3.5" />
         </button>
       </div>
 
       {/* Quick Presets */}
-      <div className="py-3 space-y-2">
-        <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+      <div className="py-2.5 space-y-1.5">
+        <Label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
           Quick Presets
         </Label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-1.5">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => applyPreset(addHours(new Date(), 2))}
-            className="text-xs rounded-xl h-8 hover:border-amber-500/50 hover:bg-amber-500/5"
+            className="text-xs rounded-lg h-7.5 hover:border-amber-500/50 hover:bg-amber-500/5"
           >
             In 2 hours
           </Button>
@@ -103,7 +103,7 @@ export default function SchedulePickerPanel({
               const tmrw = addDays(new Date(), 1);
               applyPreset(setMinutes(setHours(tmrw, 9), 0));
             }}
-            className="text-xs rounded-xl h-8 hover:border-amber-500/50 hover:bg-amber-500/5"
+            className="text-xs rounded-lg h-7.5 hover:border-amber-500/50 hover:bg-amber-500/5"
           >
             Tomorrow 9 AM
           </Button>
@@ -115,7 +115,7 @@ export default function SchedulePickerPanel({
               const tmrw = addDays(new Date(), 1);
               applyPreset(setMinutes(setHours(tmrw, 18), 0));
             }}
-            className="text-xs rounded-xl h-8 hover:border-amber-500/50 hover:bg-amber-500/5"
+            className="text-xs rounded-lg h-7.5 hover:border-amber-500/50 hover:bg-amber-500/5"
           >
             Tomorrow 6 PM
           </Button>
@@ -123,7 +123,7 @@ export default function SchedulePickerPanel({
       </div>
 
       {/* Custom Datetime Input */}
-      <div className="space-y-1.5 pb-3">
+      <div className="space-y-1.5 pb-2.5">
         <Label htmlFor="schedule-time-input" className="text-[11px] font-semibold text-foreground">
           Custom Date & Time
         </Label>
@@ -133,19 +133,19 @@ export default function SchedulePickerPanel({
           value={dateValue}
           min={format(new Date(), "yyyy-MM-dd'T'HH:mm")}
           onChange={(e) => setDateValue(e.target.value)}
-          className="rounded-xl text-xs sm:text-sm h-9 bg-background"
+          className="rounded-lg text-xs sm:text-[13px] h-8 bg-background"
         />
       </div>
 
       {/* Action Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-border/60">
+      <div className="flex items-center justify-between pt-2 border-t border-border/50">
         {scheduledAt ? (
           <Button
             type="button"
             variant="ghost"
             size="sm"
             onClick={handleClear}
-            className="text-xs text-destructive hover:bg-destructive/10 rounded-full h-8 px-3"
+            className="text-xs text-destructive hover:bg-destructive/10 rounded-full h-7.5 px-3"
           >
             <X className="size-3.5 mr-1" />
             Remove Schedule
@@ -160,7 +160,7 @@ export default function SchedulePickerPanel({
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="rounded-full text-xs h-8 px-4"
+            className="rounded-full text-xs h-7.5 px-3.5"
           >
             Cancel
           </Button>
@@ -168,7 +168,7 @@ export default function SchedulePickerPanel({
             type="button"
             size="sm"
             onClick={handleConfirm}
-            className="rounded-full text-xs font-bold h-8 px-5 bg-amber-500 text-white hover:bg-amber-600 shadow-sm"
+            className="rounded-full text-xs font-bold h-7.5 px-4 bg-amber-500 text-white hover:bg-amber-600 shadow-xs"
           >
             <Check className="size-3.5 mr-1" />
             Set Schedule

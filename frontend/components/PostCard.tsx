@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, Bookmark, Share2, MoreHorizontal, Pencil, Trash2, Loader2, Repeat2, BarChart3, Pin } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { cn, getAvatarUrl } from "@/lib/utils";
+import { cn, getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,40 +65,35 @@ function formatCount(num: number): string {
   return String(num);
 }
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
 function renderHighlighted(text: string, validMentions?: string[]) {
-  const parts = text.split(/(@[\w.]+|#[\p{L}\p{N}_]+)/gu);
+  const regex = /(https?:\/\/[^\s]+|www\.[^\s]+|@[\w.]+|#[\p{L}\p{N}_]+)/gu;
+  const parts = text.split(regex);
+
   return parts.map((part, i) => {
-    if (part.startsWith("#")) {
-      const tag = part.slice(1); // strip '#'
+    if (!part) return null;
+
+    if (part.startsWith("#") && part.length > 1) {
+      const tag = part.slice(1);
       return (
         <Link
           key={i}
           href={`/hashtag/${encodeURIComponent(tag)}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-amber-600 dark:text-amber-400 font-semibold hover:underline relative z-10"
+          className="hashtag-link relative z-10"
         >
           {part}
         </Link>
       );
     }
-    if (part.startsWith("@")) {
+
+    if (part.startsWith("@") && part.length > 1) {
       const username = part.slice(1);
       const isValid = validMentions
         ? validMentions.some((m) => m.toLowerCase() === username.toLowerCase())
         : true;
 
       if (!isValid) {
-        return <span key={i} className="text-foreground/80">{part}</span>;
+        return <span key={i}>{part}</span>;
       }
 
       return (
@@ -106,12 +101,40 @@ function renderHighlighted(text: string, validMentions?: string[]) {
           key={i}
           href={`/@${username}`}
           onClick={(e) => e.stopPropagation()}
-          className="text-sky-600 dark:text-sky-400 font-semibold hover:underline relative z-10"
+          className="mention-link relative z-10"
         >
           {part}
         </Link>
       );
     }
+
+    if (/^(https?:\/\/|www\.)/i.test(part)) {
+      let cleanUrl = part;
+      let trailing = "";
+      const matchTrailing = cleanUrl.match(/[.,!?:;)]+$/);
+      if (matchTrailing) {
+        trailing = matchTrailing[0];
+        cleanUrl = cleanUrl.slice(0, -trailing.length);
+      }
+
+      const safeHref = cleanUrl.startsWith("http") ? cleanUrl : `https://${cleanUrl}`;
+
+      return (
+        <span key={i} className="inline">
+          <a
+            href={safeHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="url-link relative z-10"
+          >
+            {cleanUrl}
+          </a>
+          {trailing}
+        </span>
+      );
+    }
+
     return <span key={i}>{part}</span>;
   });
 }
@@ -306,7 +329,7 @@ export default function PostCard({
       <article
         ref={articleRef}
         onClick={handleCardClick}
-        className="relative border-b border-border/60 hover:bg-muted/20 transition-colors duration-150 cursor-pointer group"
+        className="relative border-b border-border hover:bg-muted/25 dark:hover:bg-muted/15 transition-colors duration-150 cursor-pointer group"
       >
         <div className="p-4 sm:p-5">
           {/* Pinned Post Badge */}
@@ -326,7 +349,7 @@ export default function PostCard({
             >
               <Avatar className="size-10 ring-2 ring-border/40">
                 <AvatarImage src={avatarSrc} alt={author.name} />
-                <AvatarFallback className="bg-muted text-muted-foreground text-xs">
+                <AvatarFallback className={`text-xs font-bold ${getAvatarGradient(author.username || author.name)}`}>
                   {getInitials(author.name)}
                 </AvatarFallback>
               </Avatar>
@@ -399,8 +422,8 @@ export default function PostCard({
                     className={cn(
                       "h-8 px-2 gap-1.5 text-xs font-medium rounded-full transition-colors",
                       liked
-                        ? "text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                        : "text-[#78716C] hover:text-red-500 hover:bg-red-500/10"
+                        ? "text-brand-like hover:text-brand-like hover:bg-brand-like-subtle"
+                        : "text-[#78716C] hover:text-brand-like hover:bg-brand-like-subtle"
                     )}
                   >
                     <Heart className={cn("size-[16px]", liked && "fill-current")} />
@@ -412,7 +435,7 @@ export default function PostCard({
                     variant="ghost"
                     size="sm"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-amber-600 hover:bg-amber-500/10 rounded-full transition-colors"
+                    className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
                   >
                     <BarChart3 className="size-[16px]" />
                     <span>{formatCount(viewCount)}</span>
@@ -429,8 +452,8 @@ export default function PostCard({
                     className={cn(
                       "h-8 px-2 rounded-full transition-colors",
                       bookmarked
-                        ? "text-violet-500 hover:text-violet-600 hover:bg-violet-500/10"
-                        : "text-[#78716C] hover:text-violet-500 hover:bg-violet-500/10"
+                        ? "text-brand-bookmark hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
+                        : "text-[#78716C] hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
                     )}
                   >
                     <Bookmark className={cn("size-[16px]", bookmarked && "fill-current")} />
@@ -461,33 +484,34 @@ export default function PostCard({
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
+                        className="size-7 sm:size-7.5 p-0 rounded-full text-muted-foreground/70 hover:text-foreground hover:bg-muted/80 active:scale-95 transition-all cursor-pointer"
+                        title="More options"
                       >
-                        <MoreHorizontal className="h-4 w-4" />
+                        <MoreHorizontal className="size-4" />
                       </Button>
                     }
                   />
-                  <DropdownMenuContent align="end" className="w-44 p-1 rounded-xl">
+                  <DropdownMenuContent align="end" className="w-40 sm:w-44 p-1">
                     <DropdownMenuItem
                       onClick={handleTogglePin}
-                      className="cursor-pointer gap-2.5 px-3 py-2 text-sm font-medium"
+                      className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
                     >
-                      <Pin className="h-4 w-4 text-amber-500" />
+                      <Pin className="size-3.5 text-amber-500" />
                       <span>{isPinned ? "Unpin from profile" : "Pin to profile"}</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => setEditDialogOpen(true)}
-                      className="cursor-pointer gap-2.5 px-3 py-2 text-sm font-medium"
+                      className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Pencil className="size-3.5 text-muted-foreground" />
                       <span>Edit</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
                       onClick={() => setDeleteDialogOpen(true)}
-                      className="cursor-pointer gap-2.5 px-3 py-2 text-sm font-medium text-destructive focus:text-destructive"
+                      className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="size-3.5" />
                       <span>Delete</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

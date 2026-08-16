@@ -10,6 +10,7 @@ export interface User {
   cover: string | null;
   website: string | null;
   location: string | null;
+  social_links?: Record<string, string> | Array<{ platform: string; url: string }> | null;
   verified: boolean;
   is_admin?: boolean;
   has_2fa: boolean;
@@ -53,6 +54,9 @@ export interface UpdateProfileData {
   website?: string;
   avatar?: File;
   cover?: File;
+  remove_avatar?: boolean;
+  remove_cover?: boolean;
+  social_links?: any;
 }
 
 export interface ChangePasswordData {
@@ -135,8 +139,12 @@ export async function updateProfile(data: UpdateProfileData) {
     if (value !== undefined && value !== null) {
       if (value instanceof File) {
         formData.append(key, value);
+      } else if (typeof value === "object") {
+        formData.append(key, JSON.stringify(value));
+      } else if (typeof value === "boolean") {
+        formData.append(key, value ? "1" : "0");
       } else {
-        formData.append(key, value);
+        formData.append(key, String(value));
       }
     }
   });

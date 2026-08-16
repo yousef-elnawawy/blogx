@@ -40,11 +40,12 @@ import ArticleCard, { ArticleItem } from "@/components/article/ArticleCard";
 import ArticleEditorDialog, { ArticleEditorInitialData } from "@/components/article/ArticleEditorDialog";
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import api from "@/lib/api";
-import { getAvatarUrl } from "@/lib/utils";
+import { cn, getAvatarUrl, getAvatarGradient, getDefaultBannerGradient, getInitials, detectSocialPlatform } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import ProfileShareDialog from "@/components/profile/ProfileShareDialog";
+import SocialIcon from "@/components/ui/SocialIcon";
 
 interface ProfileUser {
   id: number;
@@ -54,6 +55,7 @@ interface ProfileUser {
   avatar: string | null;
   cover: string | null;
   website: string | null;
+  social_links?: any;
   location: string | null;
   verified: boolean;
   created_at: string | null;
@@ -71,16 +73,6 @@ interface UserListItem {
   bio: string | null;
   verified?: boolean;
   is_following: boolean;
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 function ProfileSkeleton() {
@@ -439,7 +431,10 @@ function UserProfileContent() {
       </div>
 
       {/* Cover image / gradient header */}
-      <div className="h-32 sm:h-48 w-full bg-gradient-to-r from-primary/30 via-amber-500/20 to-violet-500/30 relative overflow-hidden">
+      <div className={cn(
+        "h-32 sm:h-48 w-full relative overflow-hidden",
+        profileUser.cover ? "bg-muted" : getDefaultBannerGradient(profileUser.username || profileUser.name)
+      )}>
         {profileUser.cover && (
           <img
             src={getAvatarUrl(profileUser.cover)}
@@ -459,8 +454,8 @@ function UserProfileContent() {
               alt={profileUser.name}
               className="object-cover"
             />
-            <AvatarFallback className="bg-muted text-xl sm:text-2xl font-bold text-muted-foreground">
-              {profileUser.name.slice(0, 2).toUpperCase()}
+            <AvatarFallback className={`text-xl sm:text-2xl font-bold ${getAvatarGradient(profileUser.username || profileUser.name)}`}>
+              {getInitials(profileUser.name)}
             </AvatarFallback>
           </Avatar>
 
@@ -478,8 +473,8 @@ function UserProfileContent() {
             {isOwnProfile ? (
               <Button
                 variant="outline"
-                className="rounded-full text-sm font-semibold h-9 px-4"
-                onClick={() => router.push("/settings")}
+                className="rounded-full text-sm font-semibold h-9 px-4 cursor-pointer hover:border-primary/50 transition-colors"
+                onClick={() => router.push("/settings?tab=account")}
               >
                 Edit Profile
               </Button>
@@ -515,6 +510,73 @@ function UserProfileContent() {
             {profileUser.bio}
           </p>
         )}
+
+        {/* Social Media Links */}
+        {(() => {
+          const raw = profileUser.social_links;
+          const links: string[] = [];
+          if (Array.isArray(raw)) {
+            raw.forEach((item: any) => {
+              if (typeof item === "string" && item.trim()) links.push(item);
+              else if (item && typeof item === "object" && typeof item.url === "string") links.push(item.url);
+            });
+          } else if (raw && typeof raw === "object") {
+            Object.values(raw).forEach((val: any) => {
+              if (typeof val === "string" && val.trim()) links.push(val);
+            });
+          }
+
+          if (links.length === 0) return null;
+
+          return (
+            <div className="mb-3 flex items-center flex-wrap gap-2">
+              {links.map((linkUrl, i) => {
+                const info = detectSocialPlatform(linkUrl);
+                const isKnownPlatform = info.key !== "website";
+
+                if (isKnownPlatform) {
+                  return (
+                    <a
+                      key={i}
+                      href={info.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cn(
+                        "size-8 sm:size-8.5 rounded-full border flex items-center justify-center transition-all hover:scale-110 shadow-2xs active:scale-95 cursor-pointer shrink-0",
+                        info.bgColor,
+                        info.color
+                      )}
+                      title={info.name}
+                      aria-label={info.name}
+                    >
+                      <SocialIcon name={info.iconName} className="size-4" />
+                    </a>
+                  );
+                }
+
+                // Unknown / Generic website: long pill with website name
+                return (
+                  <a
+                    key={i}
+                    href={info.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn(
+                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all hover:scale-105 shadow-2xs active:scale-95 cursor-pointer",
+                      info.bgColor,
+                      info.color
+                    )}
+                    title={info.url}
+                    aria-label={info.name}
+                  >
+                    <SocialIcon name="Globe" className="size-3.5" />
+                    <span className="truncate max-w-[170px]">{info.name}</span>
+                  </a>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* Meta Info */}
         <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
@@ -568,7 +630,7 @@ function UserProfileContent() {
       </div>
 
       {/* Profile Tabs */}
-      <div className="border-b border-border/60">
+      <div className="border-b border-border">
         <div className="flex overflow-x-auto no-scrollbar">
           {profileTabs.map((tab) => (
             <button

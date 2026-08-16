@@ -102,8 +102,8 @@ export default function HashtagPage({
           </Link>
 
           <div className="flex items-center gap-3 min-w-0">
-            <div className="grid place-items-center size-10 rounded-2xl bg-primary/10 shrink-0">
-              <Hash className="size-5 text-primary" />
+            <div className="grid place-items-center size-10 rounded-2xl bg-brand-hashtag-subtle shrink-0">
+              <Hash className="size-5 text-brand-hashtag" />
             </div>
             <div className="min-w-0">
               <h1 className="text-lg font-bold text-foreground truncate">
@@ -111,7 +111,7 @@ export default function HashtagPage({
               </h1>
               {hashtagInfo && total > 0 && (
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <TrendingUp className="size-3" />
+                  <TrendingUp className="size-3 text-brand-hashtag" />
                   {formatCount(total)} posts
                 </p>
               )}
@@ -134,7 +134,7 @@ export default function HashtagPage({
             <p className="text-base font-semibold">No posts yet</p>
             <p className="text-sm mt-1">
               Be the first to post with{" "}
-              <span className="text-primary font-semibold">#{decodedTag}</span>
+              <span className="hashtag-link font-semibold">#{decodedTag}</span>
             </p>
           </div>
         </div>

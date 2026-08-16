@@ -24,6 +24,8 @@ import api from "@/lib/api";
 import { PostCardProps } from "@/components/PostCard";
 import { getAvatarUrl } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
+import SchedulePickerPanel from "./SchedulePickerModal";
+import { useRouter } from "next/navigation";
 
 export interface PostToEdit {
   id: string | number;
@@ -91,12 +93,15 @@ export default function PostEditorDialog({
   onPostUpdated,
 }: PostEditorDialogProps) {
   const { user } = useAuth();
+  const router = useRouter();
   const editorRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [editorElement, setEditorElement] = useState<HTMLDivElement | null>(null);
   const [contentLength, setContentLength] = useState(0);
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
+  const [schedulePanelOpen, setSchedulePanelOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<"published" | "draft" | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
@@ -533,6 +538,20 @@ export default function PostEditorDialog({
     handleInput();
   };
 
+  const insertMention = () => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    document.execCommand("insertText", false, "@");
+    handleInput();
+  };
+
+  const insertEmoji = (emoji: string) => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    document.execCommand("insertText", false, emoji);
+    handleInput();
+  };
+
   const handlePost = async (status: "published" | "draft" = "published") => {
     if (!editorRef.current) return;
     const content = extractPlainText(editorRef.current).trim();
@@ -549,6 +568,10 @@ export default function PostEditorDialog({
       const formData = new FormData();
       formData.append("content", content);
       formData.append("status", status);
+
+      if (scheduledAt) {
+        formData.append("scheduled_at", scheduledAt);
+      }
 
       images.forEach((entry) => {
         if (entry.file) {
@@ -718,18 +741,36 @@ export default function PostEditorDialog({
 
         {/* Image previews */}
         {images.length > 0 && (
-          <div className="shrink-0 max-h-[25vh] overflow-y-auto px-4 sm:px-6 mb-2">
+          <div className="shrink-0 max-h-[30vh] overflow-y-auto px-4 sm:px-6 mb-2">
             <ImagePreview images={images} onRemove={removeImage} />
           </div>
         )}
 
+        {/* Schedule Picker Panel */}
+        <SchedulePickerPanel
+          open={schedulePanelOpen}
+          onClose={() => setSchedulePanelOpen(false)}
+          scheduledAt={scheduledAt}
+          onScheduleChange={setScheduledAt}
+        />
+
         {/* Bottom toolbar */}
-        <div className="shrink-0 relative flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-3.5 border-t border-border bg-background">
-          <div className="flex items-center gap-3">
+        <div className="shrink-0 relative flex items-center justify-between px-3 py-2 sm:px-5 sm:py-2.5 border-t border-border bg-background">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Toolbar
               onImageSelect={handleImageSelect}
               onInsertHashtag={insertHashtag}
+              onInsertMention={insertMention}
+              onInsertEmoji={insertEmoji}
+              onOpenSchedule={() => setSchedulePanelOpen(!schedulePanelOpen)}
+              onOpenArticleEditor={() => {
+                onOpenChange(false);
+                router.push("/articles");
+              }}
               imageCount={images.length}
+              scheduledAt={scheduledAt}
+              contentLength={contentLength}
+              maxContentLength={1000}
             />
           </div>
 
@@ -740,7 +781,7 @@ export default function PostEditorDialog({
               onClick={() => handlePost("draft")}
               disabled={!canPost}
               size="sm"
-              className="h-8 sm:h-9 rounded-full px-3 sm:px-4 text-xs font-semibold"
+              className="h-8 rounded-full px-3 sm:px-3.5 text-xs font-semibold"
             >
               {submitting && submittingAction === "draft" ? (
                 <Loader2 className="size-3.5 animate-spin mr-1" />
@@ -752,12 +793,14 @@ export default function PostEditorDialog({
               onClick={() => handlePost("published")}
               disabled={!canPost}
               size="sm"
-              className="h-8 sm:h-9 rounded-full px-5 sm:px-6 text-sm bg-primary text-primary-foreground hover:bg-primary/90 min-w-[72px] cursor-pointer font-bold shadow-sm"
+              className="h-8 rounded-full px-4.5 sm:px-5 text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90 min-w-[68px] cursor-pointer font-bold shadow-xs hover:shadow-sm transition-all"
             >
               {submitting && submittingAction === "published" ? (
-                <Loader2 className="size-4 animate-spin" />
+                <Loader2 className="size-3.5 animate-spin" />
               ) : postToEdit ? (
                 "Publish"
+              ) : scheduledAt ? (
+                "Schedule"
               ) : (
                 "Post"
               )}

@@ -206,7 +206,7 @@ export default function ArticlesPage() {
       {/* Sticky Header */}
       <div className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/70 px-4 sm:px-6 py-3.5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <BookOpen className="size-5 text-primary" />
+          <BookOpen className="size-5 text-brand-article" />
           <h1 className="text-xl font-extrabold text-foreground tracking-tight">Articles</h1>
         </div>
 

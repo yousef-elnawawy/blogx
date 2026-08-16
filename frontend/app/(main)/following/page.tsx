@@ -142,7 +142,7 @@ export default function FollowingPage() {
             </button>
             <div>
               <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight flex items-center gap-2">
-                <UserCheck className="size-4 text-primary" strokeWidth={2.5} />
+                <UserCheck className="size-4 text-brand-following" strokeWidth={2.5} />
                 <span>Following</span>
               </h1>
               <p className="text-[11px] text-muted-foreground">

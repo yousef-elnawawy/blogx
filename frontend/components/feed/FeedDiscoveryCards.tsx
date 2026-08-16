@@ -80,7 +80,7 @@ export function SuggestedUsersFeedCard() {
 
   if (loading) {
     return (
-      <div className="py-4 border-b border-border/60 bg-muted/10">
+      <div className="py-4 border-b border-border bg-muted/10">
         <div className="flex items-center justify-between px-4 sm:px-5 mb-3">
           <div className="h-4 w-28 rounded-full bg-muted/80 animate-pulse" />
           <div className="h-4 w-12 rounded-full bg-muted/50 animate-pulse" />
@@ -89,7 +89,7 @@ export function SuggestedUsersFeedCard() {
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="w-44 sm:w-48 shrink-0 p-4 rounded-xl border border-border/60 bg-background flex flex-col items-center space-y-2.5"
+              className="w-44 sm:w-48 shrink-0 p-4 rounded-xl border border-border bg-background flex flex-col items-center space-y-2.5"
             >
               <div className="size-16 rounded-full bg-muted/80 animate-pulse" />
               <div className="h-3.5 w-24 rounded-full bg-muted/80 animate-pulse" />
@@ -105,7 +105,7 @@ export function SuggestedUsersFeedCard() {
   if (users.length === 0) return null;
 
   return (
-    <div className="py-4 border-b border-border/60 bg-muted/10 animate-in fade-in-50 duration-300">
+    <div className="py-4 border-b border-border bg-muted/10 animate-in fade-in-50 duration-300">
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-5 mb-3">
         <div className="flex items-center gap-2">
@@ -220,7 +220,7 @@ export function FeaturedArticleFeedCard() {
 
   if (loading) {
     return (
-      <div className="border-b border-border/60 p-4 sm:p-5 space-y-3">
+      <div className="border-b border-border p-4 sm:p-5 space-y-3">
         <div className="flex items-center justify-between">
           <div className="h-4 w-32 rounded-full bg-muted/80 animate-pulse" />
           <div className="h-3 w-16 rounded-full bg-muted/50 animate-pulse" />
@@ -235,7 +235,7 @@ export function FeaturedArticleFeedCard() {
   if (!article) return null;
 
   return (
-    <article className="border-b border-border/60 p-4 sm:p-5 hover:bg-muted/10 transition-colors group animate-in fade-in-50 duration-300">
+    <article className="border-b border-border p-4 sm:p-5 hover:bg-muted/15 transition-colors group animate-in fade-in-50 duration-300">
       {/* Top Badge */}
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500">
@@ -381,7 +381,7 @@ export function SuggestedCommunitiesFeedCard() {
   };
 
   return (
-    <div className="py-4 border-b border-border/60 bg-muted/10 animate-in fade-in-50 duration-300">
+    <div className="py-4 border-b border-border bg-muted/10 animate-in fade-in-50 duration-300">
       {/* Header */}
       <div className="flex items-center justify-between px-4 sm:px-5 mb-3">
         <div className="flex items-center gap-2">
@@ -497,7 +497,7 @@ export function TrendingTopicsFeedCard() {
 
   if (loading) {
     return (
-      <div className="py-3 px-4 sm:px-5 border-b border-border/60 bg-muted/5 flex items-center gap-2 overflow-hidden">
+      <div className="py-3 px-4 sm:px-5 border-b border-border bg-muted/5 flex items-center gap-2 overflow-hidden">
         <div className="h-4 w-24 rounded-full bg-muted/80 animate-pulse shrink-0 mr-2" />
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className="h-7 w-20 rounded-full bg-muted/60 animate-pulse shrink-0" />
@@ -509,9 +509,9 @@ export function TrendingTopicsFeedCard() {
   if (trending.length === 0) return null;
 
   return (
-    <div className="py-3.5 px-4 sm:px-5 border-b border-border/60 bg-muted/5 animate-in fade-in-50 duration-300">
+    <div className="py-3.5 px-4 sm:px-5 border-b border-border bg-muted/5 animate-in fade-in-50 duration-300">
       <div className="flex items-center gap-2 mb-2.5">
-        <Flame className="size-4 text-amber-500" />
+        <Flame className="size-4 text-brand-hashtag" />
         <h3 className="text-sm font-bold text-foreground">
           Trending Topics
         </h3>
@@ -522,10 +522,10 @@ export function TrendingTopicsFeedCard() {
           <Link
             key={item.tag}
             href={`/hashtag/${encodeURIComponent(item.tag)}`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/70 bg-background hover:border-amber-500/50 hover:bg-amber-500/5 transition-all text-xs font-semibold text-foreground shrink-0 shadow-2xs group"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/70 bg-background hover:border-brand-hashtag/40 hover:bg-brand-hashtag-subtle/50 transition-all text-xs font-semibold text-foreground shrink-0 shadow-2xs group"
           >
-            <Hash className="size-3.5 text-amber-500 group-hover:scale-110 transition-transform" />
-            <span className="truncate">{item.tag}</span>
+            <Hash className="size-3.5 text-brand-hashtag group-hover:scale-110 transition-transform" />
+            <span className="truncate">#{item.tag}</span>
             {item.usage_count > 0 && (
               <span className="text-[10px] text-muted-foreground font-normal">
                 ({formatCount(item.usage_count)})

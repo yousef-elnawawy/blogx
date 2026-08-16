@@ -21,10 +21,23 @@ import {
   Mail,
   AtSign,
   FileText,
+  Trash2,
+  Plus,
+  Share2,
+  Globe,
+  X,
 } from "lucide-react";
-import { cn, getAvatarUrl } from "@/lib/utils";
+import {
+  cn,
+  getAvatarUrl,
+  getAvatarGradient,
+  getDefaultBannerGradient,
+  getInitials,
+  detectSocialPlatform,
+} from "@/lib/utils";
 import DeleteAccountDialog from "@/components/settings/DeleteAccountDialog";
 import { compressImage } from "@/lib/image-compress";
+import SocialIcon from "@/components/ui/SocialIcon";
 
 interface AccountSettingsProps {
   onBack: () => void;
@@ -47,6 +60,12 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
+  const [removeAvatar, setRemoveAvatar] = useState(false);
+  const [removeCover, setRemoveCover] = useState(false);
+
+  const [socialLinks, setSocialLinks] = useState<string[]>([]);
+  const [newSocialInput, setNewSocialInput] = useState("");
+
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -63,9 +82,29 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
       });
       if (user.avatar) {
         setAvatarPreview(getAvatarUrl(user.avatar) || null);
+      } else {
+        setAvatarPreview(null);
       }
       if (user.cover) {
         setCoverPreview(getAvatarUrl(user.cover) || null);
+      } else {
+        setCoverPreview(null);
+      }
+
+      if (user.social_links) {
+        const raw = user.social_links as any;
+        const links: string[] = [];
+        if (Array.isArray(raw)) {
+          raw.forEach((item: any) => {
+            if (typeof item === "string" && item.trim()) links.push(item);
+            else if (item && typeof item === "object" && typeof item.url === "string") links.push(item.url);
+          });
+        } else if (raw && typeof raw === "object") {
+          Object.values(raw).forEach((val: any) => {
+            if (typeof val === "string" && val.trim()) links.push(val);
+          });
+        }
+        setSocialLinks(links);
       }
     }
   }, [user]);
@@ -88,6 +127,7 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
         toast.error("Avatar image must be under 100MB");
         return;
       }
+      setRemoveAvatar(false);
       try {
         const optimized = await compressImage(file, { maxWidth: 1024, maxHeight: 1024, quality: 0.90 });
         setAvatarFile(optimized);
@@ -110,6 +150,7 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
         toast.error("Cover banner image must be under 100MB");
         return;
       }
+      setRemoveCover(false);
       try {
         const optimized = await compressImage(file, { maxWidth: 2560, maxHeight: 1440, quality: 0.90 });
         setCoverFile(optimized);
@@ -125,13 +166,43 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
     }
   };
 
+  const handleRemoveAvatar = () => {
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setRemoveAvatar(true);
+    toast.info("Avatar reset to default initials. Click Save to apply.");
+  };
+
+  const handleRemoveCover = () => {
+    setCoverFile(null);
+    setCoverPreview(null);
+    setRemoveCover(true);
+    toast.info("Cover reset to default gradient banner. Click Save to apply.");
+  };
+
+  const handleAddSocialLink = () => {
+    const clean = newSocialInput.trim();
+    if (!clean) return;
+    if (socialLinks.includes(clean)) {
+      toast.error("This social link is already added.");
+      return;
+    }
+    setSocialLinks((prev) => [...prev, clean]);
+    setNewSocialInput("");
+    toast.success("Social link added!");
+  };
+
+  const handleRemoveSocialLink = (index: number) => {
+    setSocialLinks((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrors({});
     setIsSaving(true);
 
     try {
-      const updateData: Record<string, string | File> = {};
+      const updateData: Record<string, any> = {};
 
       if (formData.name !== user?.name) updateData.name = formData.name;
       if (formData.username !== user?.username) updateData.username = formData.username;
@@ -141,16 +212,16 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
       if (formData.website !== (user?.website || "")) updateData.website = formData.website;
       if (avatarFile) updateData.avatar = avatarFile;
       if (coverFile) updateData.cover = coverFile;
+      if (removeAvatar) updateData.remove_avatar = true;
+      if (removeCover) updateData.remove_cover = true;
 
-      if (Object.keys(updateData).length === 0) {
-        toast.info("No changes to save");
-        setIsSaving(false);
-        return;
-      }
+      updateData.social_links = socialLinks;
 
       await updateProfile(updateData as Parameters<typeof updateProfile>[0]);
       setAvatarFile(null);
       setCoverFile(null);
+      setRemoveAvatar(false);
+      setRemoveCover(false);
       toast.success("Profile updated successfully!");
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 422) {
@@ -163,6 +234,8 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
       setIsSaving(false);
     }
   };
+
+  const detectedNewPlatform = newSocialInput.trim() ? detectSocialPlatform(newSocialInput) : null;
 
   return (
     <div className="min-h-screen pb-24 divide-y divide-border/60 animate-in fade-in duration-200">
@@ -183,7 +256,7 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
                   Account & Profile
                 </h1>
                 <p className="text-[11px] text-muted-foreground">
-                  Manage your personal identity, avatar, and credentials
+                  Manage your personal identity, avatar, banner, and social links
                 </p>
               </div>
             </div>
@@ -212,7 +285,7 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
         <div className="p-5 sm:p-6 space-y-5">
           {/* Cover Banner Section */}
           <div>
-            <div className="flex items-center justify-between mb-2.5">
+            <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
               <div>
                 <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
                   <ImageIcon className="size-4 text-blue-500" />
@@ -221,19 +294,37 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
                 <p className="text-xs text-muted-foreground">Recommended ratio 3:1 (JPG, PNG, WebP up to 100MB)</p>
               </div>
 
-              <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border/80 bg-background hover:bg-muted text-xs font-semibold text-foreground cursor-pointer transition-colors shadow-2xs">
-                <ImageIcon className="size-3.5 text-primary" />
-                <span>Upload Cover</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleCoverChange}
-                />
-              </label>
+              <div className="flex items-center gap-2">
+                {(coverPreview || user?.cover) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveCover}
+                    className="h-8 rounded-full text-xs text-destructive hover:bg-destructive/10 border-destructive/30 cursor-pointer"
+                  >
+                    <Trash2 className="size-3.5 mr-1" />
+                    Reset to Default
+                  </Button>
+                )}
+
+                <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border/80 bg-background hover:bg-muted text-xs font-semibold text-foreground cursor-pointer transition-colors shadow-2xs h-8">
+                  <ImageIcon className="size-3.5 text-primary" />
+                  <span>Upload Cover</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleCoverChange}
+                  />
+                </label>
+              </div>
             </div>
 
-            <div className="relative h-36 sm:h-48 w-full rounded-2xl bg-gradient-to-r from-blue-500/20 via-indigo-500/20 to-purple-500/20 overflow-hidden border border-border/60 group shadow-inner">
+            <div className={cn(
+              "relative h-36 sm:h-48 w-full rounded-2xl overflow-hidden border border-border/60 group shadow-inner",
+              coverPreview ? "bg-muted" : getDefaultBannerGradient(user?.username || user?.name)
+            )}>
               {coverPreview && (
                 <img
                   src={coverPreview}
@@ -255,10 +346,13 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
           </div>
 
           {/* Avatar Section */}
-          <div className="flex items-center justify-between gap-4 pt-4 border-t border-border/40">
+          <div className="flex items-center justify-between gap-4 pt-4 border-t border-border/40 flex-wrap">
             <div className="flex items-center gap-4">
               <div className="relative group shrink-0">
-                <div className="size-16 sm:size-20 rounded-full border-2 border-border overflow-hidden bg-muted flex items-center justify-center shadow-md ring-4 ring-background">
+                <div className={cn(
+                  "size-16 sm:size-20 rounded-full border-2 border-border overflow-hidden flex items-center justify-center shadow-md ring-4 ring-background",
+                  avatarPreview ? "bg-muted" : getAvatarGradient(user?.username || user?.name)
+                )}>
                   {avatarPreview ? (
                     <img
                       src={avatarPreview}
@@ -266,7 +360,9 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
                       className="size-full object-cover"
                     />
                   ) : (
-                    <Camera className="size-6 text-muted-foreground" />
+                    <span className="text-xl sm:text-2xl font-extrabold text-white">
+                      {getInitials(user?.name)}
+                    </span>
                   )}
                 </div>
                 <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer rounded-full transition-opacity text-white">
@@ -281,23 +377,38 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
               </div>
 
               <div>
-                <h3 className="text-sm font-bold text-foreground">Profile Avatar Circle</h3>
+                <h3 className="text-sm font-bold text-foreground">Profile Avatar</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  JPG, PNG, GIF or WebP (max 100MB)
+                  Dynamic initials avatar used automatically if no photo uploaded
                 </p>
               </div>
             </div>
 
-            <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border/80 bg-background hover:bg-muted text-xs font-semibold text-foreground cursor-pointer transition-colors shadow-2xs">
-              <Camera className="size-3.5 text-primary" />
-              <span>Upload Avatar</span>
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarChange}
-              />
-            </label>
+            <div className="flex items-center gap-2">
+              {(avatarPreview || user?.avatar) && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRemoveAvatar}
+                  className="h-8 rounded-full text-xs text-destructive hover:bg-destructive/10 border-destructive/30 cursor-pointer"
+                >
+                  <Trash2 className="size-3.5 mr-1" />
+                  Reset to Default
+                </Button>
+              )}
+
+              <label className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-border/80 bg-background hover:bg-muted text-xs font-semibold text-foreground cursor-pointer transition-colors shadow-2xs h-8">
+                <Camera className="size-3.5 text-primary" />
+                <span>Upload Avatar</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarChange}
+                />
+              </label>
+            </div>
           </div>
         </div>
 
@@ -331,10 +442,10 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
 
             <div>
               <Label htmlFor="username" className="text-xs font-semibold text-foreground">
-                Username Handle
+                Username (@handle)
               </Label>
               <div className="relative mt-1.5">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-muted-foreground">
                   @
                 </span>
                 <Input
@@ -368,15 +479,15 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
           </div>
         </div>
 
-        {/* Section 3: Profile Details & Bio */}
+        {/* Section 3: Biography & Location */}
         <div className="p-5 sm:p-6 space-y-4">
           <div>
             <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
               <FileText className="size-4 text-blue-500" />
-              Biography & Web Links
+              Biography & Location
             </h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Describe your interests and add external social links
+              Tell the community about yourself
             </p>
           </div>
 
@@ -422,26 +533,116 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
               />
             </div>
           </div>
-
-          <div className="pt-2 flex justify-end">
-            <Button
-              type="submit"
-              disabled={isSaving}
-              className="rounded-full px-6 font-bold bg-primary text-primary-foreground hover:bg-primary/90 text-sm shadow-sm cursor-pointer"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="size-4 animate-spin mr-2" />
-                  Saving...
-                </>
-              ) : (
-                "Save Changes"
-              )}
-            </Button>
-          </div>
         </div>
 
-        {/* Section 4: Danger Zone */}
+        {/* Section 4: Social Media Links (Point 12) */}
+        <div className="p-5 sm:p-6 space-y-4">
+          <div>
+            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+              <Share2 className="size-4 text-primary" />
+              Social Media Accounts
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Add your external social profiles (Facebook, Instagram, X, YouTube, GitHub, LinkedIn, etc.)
+            </p>
+          </div>
+
+          {/* Add Social Link Input */}
+          <div className="space-y-2">
+            <div className="flex gap-2 items-center">
+              <div className="relative flex-1">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center">
+                  {detectedNewPlatform ? (
+                    <SocialIcon name={detectedNewPlatform.iconName} className={cn("size-4", detectedNewPlatform.color)} />
+                  ) : (
+                    <LinkIcon className="size-4 text-muted-foreground" />
+                  )}
+                </div>
+                <Input
+                  placeholder="Paste URL (e.g. instagram.com/myname, github.com/user, x.com/...)"
+                  value={newSocialInput}
+                  onChange={(e) => setNewSocialInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddSocialLink();
+                    }
+                  }}
+                  className="pl-9 rounded-xl text-sm"
+                />
+              </div>
+
+              <Button
+                type="button"
+                onClick={handleAddSocialLink}
+                disabled={!newSocialInput.trim()}
+                className="rounded-xl px-4 h-9 font-bold bg-primary text-primary-foreground hover:bg-primary/90 text-xs shadow-2xs cursor-pointer"
+              >
+                <Plus className="size-4 mr-1" />
+                Add Link
+              </Button>
+            </div>
+
+            {detectedNewPlatform && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground pl-1">
+                <span>Detected platform:</span>
+                <span className={cn("font-bold", detectedNewPlatform.color)}>
+                  {detectedNewPlatform.name}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Saved Social Links List */}
+          {socialLinks.length > 0 ? (
+            <div className="space-y-2 pt-1">
+              {socialLinks.map((linkUrl, idx) => {
+                const platformInfo = detectSocialPlatform(linkUrl);
+                return (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between p-2.5 rounded-xl border border-border/70 bg-card hover:bg-muted/50 transition-colors shadow-2xs"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-2">
+                      <div className={cn("size-8 rounded-lg flex items-center justify-center shrink-0", platformInfo.bgColor)}>
+                        <SocialIcon name={platformInfo.iconName} className={cn("size-4", platformInfo.color)} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={cn("text-xs font-bold leading-tight", platformInfo.color)}>
+                          {platformInfo.name}
+                        </p>
+                        <a
+                          href={platformInfo.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-muted-foreground hover:underline truncate block"
+                        >
+                          {platformInfo.url}
+                        </a>
+                      </div>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleRemoveSocialLink(idx)}
+                      className="size-8 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 cursor-pointer"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl border border-dashed border-border/70 text-center text-xs text-muted-foreground bg-muted/20">
+              No social accounts added yet. Paste a link above to display it on your profile.
+            </div>
+          )}
+        </div>
+
+        {/* Section 5: Danger Zone */}
         <div className="p-5 sm:p-6 space-y-3 bg-destructive/5 border-t border-destructive/20">
           <h3 className="text-sm font-bold text-destructive flex items-center gap-1.5">
             <AlertTriangle className="size-4" />

@@ -51,6 +51,7 @@ class ProfileController extends Controller
             'bio'             => $user->bio,
             'location'        => $user->location,
             'website'         => $user->website,
+            'social_links'    => $user->social_links ?? [],
             'verified'        => $user->verified,
             'created_at'      => $user->created_at ? $user->created_at->toIso8601String() : null,
             'posts_count'     => Post::where('user_id', $user->id)->count(),

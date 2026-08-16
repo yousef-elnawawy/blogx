@@ -41,38 +41,72 @@ function getInitials(name: string) {
 }
 
 function renderMentionContent(text: string, validMentions?: string[]) {
-  const parts = text.split(/(@[\w.]+|#[\p{L}\p{N}_]+)/gu);
+  const regex = /(https?:\/\/[^\s]+|www\.[^\s]+|@[\w.]+|#[\p{L}\p{N}_]+)/gu;
+  const parts = text.split(regex);
   return parts.map((part, i) => {
-    if (part.startsWith("#")) {
+    if (!part) return null;
+
+    if (part.startsWith("#") && part.length > 1) {
+      const tag = part.slice(1);
       return (
-        <span
+        <Link
           key={i}
-          className="text-primary font-semibold hover:underline"
+          href={`/hashtag/${encodeURIComponent(tag)}`}
+          className="hashtag-link"
         >
           {part}
-        </span>
+        </Link>
       );
     }
-    if (part.startsWith("@")) {
+
+    if (part.startsWith("@") && part.length > 1) {
       const username = part.slice(1);
       const isValid = validMentions
         ? validMentions.some((m) => m.toLowerCase() === username.toLowerCase())
         : true;
 
       if (!isValid) {
-        return <span key={i} className="text-foreground/80">{part}</span>;
+        return <span key={i}>{part}</span>;
       }
 
       return (
         <Link
           key={i}
           href={`/@${username}`}
-          className="text-sky-600 dark:text-sky-400 font-semibold hover:underline"
+          className="mention-link"
         >
           {part}
         </Link>
       );
     }
+
+    if (/^(https?:\/\/|www\.)/i.test(part)) {
+      let cleanUrl = part;
+      let trailing = "";
+      const matchTrailing = cleanUrl.match(/[.,!?:;)]+$/);
+      if (matchTrailing) {
+        trailing = matchTrailing[0];
+        cleanUrl = cleanUrl.slice(0, -trailing.length);
+      }
+
+      const safeHref = cleanUrl.startsWith("http") ? cleanUrl : `https://${cleanUrl}`;
+
+      return (
+        <span key={i} className="inline">
+          <a
+            href={safeHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="url-link"
+          >
+            {cleanUrl}
+          </a>
+          {trailing}
+        </span>
+      );
+    }
+
     return <span key={i}>{part}</span>;
   });
 }
@@ -152,19 +186,14 @@ export default function MentionsPage() {
             >
               <ArrowLeft className="size-5" />
             </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <div className="grid place-items-center size-7 rounded-lg bg-sky-500/10 text-sky-500">
+            <div className="flex items-center gap-2">
+                <div className="grid place-items-center size-7 rounded-lg bg-brand-mention-subtle text-brand-mention">
                   <AtSign className="size-4" strokeWidth={2.5} />
                 </div>
                 <h1 className="text-lg font-bold text-foreground leading-tight">
                   Mentions
                 </h1>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Posts and comments that tagged your username
-              </p>
-            </div>
           </div>
         </div>
       </div>
@@ -178,32 +207,34 @@ export default function MentionsPage() {
           <MentionCardSkeleton />
         </div>
       ) : !user ? (
-        /* Guest state */
-        <div className="py-20 text-center px-4">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
-            <Lock className="size-8 text-muted-foreground" />
+        <div className="p-8 sm:p-12 text-center">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-muted text-muted-foreground mb-4">
+            <Lock className="size-6" />
           </div>
-          <h2 className="text-xl font-bold text-foreground mb-2">
-            Log in to view mentions
+          <h2 className="text-lg font-bold text-foreground mb-1">
+            Sign in to view your mentions
           </h2>
-          <p className="text-muted-foreground mb-6 max-w-sm mx-auto text-sm">
-            See when other users mention your username across BlogX posts and discussions.
+          <p className="text-xs text-muted-foreground mb-6 max-w-sm mx-auto">
+            Stay on top of conversations where other users have mentioned or tagged you.
           </p>
-          <Link href="/login">
-            <Button className="rounded-full px-6 font-bold">Log in to BlogX</Button>
-          </Link>
+          <Button
+            onClick={() => router.push("/login")}
+            className="rounded-full px-6 bg-primary text-primary-foreground"
+          >
+            Sign In
+          </Button>
         </div>
       ) : posts.length === 0 ? (
-        /* Empty state */
-        <div className="py-20 text-center px-4">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-sky-500/10 text-sky-500">
+        /* Empty State */
+        <div className="p-8 sm:p-16 text-center">
+          <div className="mx-auto flex size-16 items-center justify-center rounded-2xl bg-brand-mention-subtle text-brand-mention mb-4">
             <AtSign className="size-8" strokeWidth={2} />
           </div>
           <h2 className="text-xl font-bold text-foreground mb-2">
             No mentions yet
           </h2>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto text-sm leading-relaxed">
-            When someone mentions you with <span className="font-semibold text-sky-500">@{user.username}</span> in their posts or comments, it will appear here.
+            When someone mentions you with <span className="font-semibold text-brand-mention">@{user.username}</span> in their posts or comments, it will appear here.
           </p>
           <Button
             variant="outline"

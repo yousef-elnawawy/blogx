@@ -61,9 +61,9 @@ function getTypeBadge(type: string): BadgeInfo {
     case "like_post":
     case "like_comment":
       return {
-        icon: <Heart className="size-3 fill-red-500 text-red-500" />,
-        bg: "bg-red-500",
-        ring: "ring-red-200 dark:ring-red-900",
+        icon: <Heart className="size-3 fill-white text-white" />,
+        bg: "bg-brand-like",
+        ring: "ring-brand-like-subtle",
       };
     case "share_post":
       return {
@@ -74,8 +74,8 @@ function getTypeBadge(type: string): BadgeInfo {
     case "follow":
       return {
         icon: <UserPlus className="size-3 text-white" />,
-        bg: "bg-amber-500",
-        ring: "ring-amber-200 dark:ring-amber-900",
+        bg: "bg-brand-following",
+        ring: "ring-brand-following-subtle",
       };
     case "comment":
     case "comment_reply":
@@ -87,8 +87,8 @@ function getTypeBadge(type: string): BadgeInfo {
     case "mention":
       return {
         icon: <AtSign className="size-3 text-white" />,
-        bg: "bg-blue-500",
-        ring: "ring-blue-200 dark:ring-blue-900",
+        bg: "bg-brand-mention",
+        ring: "ring-brand-mention-subtle",
       };
     case "view_milestone":
     case "milestone_post":
@@ -125,9 +125,9 @@ const FILTER_TABS = [
     key: "likes",
     label: "Likes",
     icon: <Heart className="size-3.5 fill-current" />,
-    color: "text-red-500",
-    activeColor: "bg-red-500 text-white",
-    hoverColor: "hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/40",
+    color: "text-brand-like",
+    activeColor: "bg-brand-like text-white",
+    hoverColor: "hover:bg-brand-like-subtle hover:text-brand-like",
   },
   {
     key: "comments",
@@ -135,23 +135,23 @@ const FILTER_TABS = [
     icon: <MessageSquare className="size-3.5" />,
     color: "text-teal-500",
     activeColor: "bg-teal-500 text-white",
-    hoverColor: "hover:bg-teal-50 hover:text-teal-500 dark:hover:bg-teal-950/40",
+    hoverColor: "hover:bg-teal-500/10 hover:text-teal-500",
   },
   {
     key: "follows",
     label: "Follows",
     icon: <UserPlus className="size-3.5" />,
-    color: "text-amber-500",
-    activeColor: "bg-amber-500 text-white",
-    hoverColor: "hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-950/40",
+    color: "text-brand-following",
+    activeColor: "bg-brand-following text-white",
+    hoverColor: "hover:bg-brand-following-subtle hover:text-brand-following",
   },
   {
     key: "mentions",
     label: "Mentions",
     icon: <AtSign className="size-3.5" />,
-    color: "text-blue-500",
-    activeColor: "bg-blue-500 text-white",
-    hoverColor: "hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-950/40",
+    color: "text-brand-mention",
+    activeColor: "bg-brand-mention text-white",
+    hoverColor: "hover:bg-brand-mention-subtle hover:text-brand-mention",
   },
   {
     key: "shares",
@@ -159,7 +159,7 @@ const FILTER_TABS = [
     icon: <Repeat2 className="size-3.5" />,
     color: "text-cyan-500",
     activeColor: "bg-cyan-500 text-white",
-    hoverColor: "hover:bg-cyan-50 hover:text-cyan-500 dark:hover:bg-cyan-950/40",
+    hoverColor: "hover:bg-cyan-500/10 hover:text-cyan-500",
   },
   {
     key: "milestone",
@@ -167,7 +167,7 @@ const FILTER_TABS = [
     icon: <Trophy className="size-3.5" />,
     color: "text-amber-500",
     activeColor: "bg-amber-500 text-white",
-    hoverColor: "hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-950/40",
+    hoverColor: "hover:bg-amber-500/10 hover:text-amber-500",
   },
 ];
 
@@ -358,7 +358,7 @@ export default function NotificationsPage() {
             <button
               type="button"
               onClick={() => router.push("/settings?tab=notifications")}
-              className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              className="size-7 sm:size-7.5 rounded-full flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-muted/80 active:scale-95 transition-all cursor-pointer"
               title="Notification Settings"
             >
               <Settings className="size-4" />
@@ -366,37 +366,39 @@ export default function NotificationsPage() {
 
             <DropdownMenu>
               <DropdownMenuTrigger
-                className="size-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className="size-7 sm:size-7.5 rounded-full flex items-center justify-center text-muted-foreground/70 hover:text-foreground hover:bg-muted/80 active:scale-95 transition-all cursor-pointer"
+                title="More options"
               >
                 <MoreHorizontal className="size-4" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 rounded-2xl p-1">
+              <DropdownMenuContent align="end" className="w-44 sm:w-48 p-1">
                 <DropdownMenuItem
                   onClick={() => router.push("/settings?tab=notifications")}
-                  className="gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer"
+                  className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
                 >
-                  <Settings className="size-4" />
-                  Notification settings
+                  <Settings className="size-3.5 text-muted-foreground" />
+                  <span>Notification settings</span>
                 </DropdownMenuItem>
-                <DropdownMenuSeparator className="my-1" />
                 {unreadCount > 0 && (
                   <>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={markAllAsRead}
-                      className="gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-primary focus:text-primary focus:bg-primary/10"
+                      className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer text-primary focus:text-primary focus:bg-primary/10"
                     >
-                      <CheckCheck className="size-4" />
-                      Mark all as read
+                      <CheckCheck className="size-3.5" />
+                      <span>Mark all as read</span>
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator className="my-1" />
                   </>
                 )}
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
+                  variant="destructive"
                   onClick={clearAll}
-                  className="gap-2.5 px-3 py-2 rounded-xl text-sm font-medium cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+                  className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
                 >
-                  <Trash2 className="size-4" />
-                  Clear all notifications
+                  <Trash2 className="size-3.5" />
+                  <span>Clear all notifications</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

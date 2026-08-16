@@ -110,7 +110,7 @@ export default function RightSidebar() {
         {/* Trending Hashtags */}
         <div className="rounded-3xl border border-border bg-card overflow-hidden shadow-sm">
           <div className="flex items-start gap-3 px-4 pt-4">
-            <div className="grid place-items-center size-11 rounded-2xl bg-primary/10 text-primary">
+            <div className="grid place-items-center size-11 rounded-2xl bg-brand-hashtag-subtle text-brand-hashtag">
               <TrendingUp className="size-5" />
             </div>
             <div className="space-y-1">
@@ -136,11 +136,11 @@ export default function RightSidebar() {
                   key={item.tag}
                   href={`/hashtag/${encodeURIComponent(item.tag)}`}
                   className={`flex items-center gap-3 px-4 py-3.5 transition-colors ${
-                    index === 0 ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/50"
+                    index === 0 ? "bg-brand-hashtag-subtle/30 hover:bg-brand-hashtag-subtle/50" : "hover:bg-muted/50"
                   }`}
                 >
                   <div className="grid place-items-center size-9 rounded-xl bg-muted/70 shrink-0">
-                    <Hash className="size-4 text-primary" />
+                    <Hash className="size-4 text-brand-hashtag" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-foreground truncate">
@@ -153,7 +153,7 @@ export default function RightSidebar() {
                     </p>
                   </div>
                   {index === 0 && (
-                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-primary">
+                    <span className="rounded-full bg-brand-hashtag-subtle px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-brand-hashtag">
                       Top
                     </span>
                   )}

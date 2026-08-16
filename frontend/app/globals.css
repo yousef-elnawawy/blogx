@@ -46,9 +46,44 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* Brand & Interactive Color Tokens */
+  --color-brand-mention: var(--brand-mention);
+  --color-brand-mention-subtle: var(--brand-mention-subtle);
+  --color-brand-like: var(--brand-like);
+  --color-brand-like-subtle: var(--brand-like-subtle);
+  --color-brand-bookmark: var(--brand-bookmark);
+  --color-brand-bookmark-subtle: var(--brand-bookmark-subtle);
+  --color-brand-article: var(--brand-article);
+  --color-brand-article-subtle: var(--brand-article-subtle);
+  --color-brand-explore: var(--brand-explore);
+  --color-brand-explore-subtle: var(--brand-explore-subtle);
+  --color-brand-notification: var(--brand-notification);
+  --color-brand-notification-subtle: var(--brand-notification-subtle);
+  --color-brand-following: var(--brand-following);
+  --color-brand-following-subtle: var(--brand-following-subtle);
+  --color-brand-hashtag: var(--brand-hashtag);
+  --color-brand-hashtag-subtle: var(--brand-hashtag-subtle);
 }
 
 :root {
+  /* ─── Unified Brand & Interactive Entity Colors (Light Mode) ─── */
+  --brand-mention: #0284c7;
+  --brand-mention-subtle: rgba(2, 132, 199, 0.12);
+  --brand-like: #e11d48;
+  --brand-like-subtle: rgba(225, 29, 72, 0.12);
+  --brand-bookmark: #9333ea;
+  --brand-bookmark-subtle: rgba(147, 51, 234, 0.12);
+  --brand-article: #6366f1;
+  --brand-article-subtle: rgba(99, 102, 241, 0.12);
+  --brand-explore: #059669;
+  --brand-explore-subtle: rgba(5, 150, 105, 0.12);
+  --brand-notification: #ea580c;
+  --brand-notification-subtle: rgba(234, 88, 12, 0.12);
+  --brand-following: #0d9488;
+  --brand-following-subtle: rgba(13, 148, 136, 0.12);
+  --brand-hashtag: #d97706;
+  --brand-hashtag-subtle: rgba(217, 119, 6, 0.12);
   /* surface / on-surface */
   --background: #f7f2eb;
   --foreground: oklch(22.26% 0.0193 66.57);
@@ -101,9 +136,52 @@
   --sidebar-ring: oklch(76.97% 0.1645 70.61);
 
   --radius: 1rem;
+
+  /* ─── Text Selection Hierarchy Tokens (Light Mode) ─── */
+  /* Standard body & paragraph text: Warm refined Amber/Honey wash */
+  --selection-bg: oklch(91.5% 0.082 72.5);
+  --selection-fg: oklch(18% 0.035 65);
+
+  /* Headings & large titles: Bold, punchy primary Amber with crisp white text */
+  --selection-heading-bg: oklch(48.43% 0.1056 68.99);
+  --selection-heading-fg: oklch(100% 0 89.88);
+
+  /* Small text, metadata, badges, captions: Delicate Slate-Blue tint */
+  --selection-muted-bg: oklch(89.5% 0.038 258);
+  --selection-muted-fg: oklch(24% 0.045 260);
+
+  /* Code & monospace: Crisp tech Slate-Cyan tint */
+  --selection-code-bg: oklch(87.5% 0.065 215);
+  --selection-code-fg: oklch(18% 0.05 215);
+
+  /* Links & interactive: Warm vibrant amber accent */
+  --selection-link-bg: oklch(84.5% 0.12 68);
+  --selection-link-fg: oklch(20% 0.06 65);
+
+  /* Quotes & emphasized text: Rich golden highlight */
+  --selection-quote-bg: oklch(87% 0.105 70);
+  --selection-quote-fg: oklch(20% 0.04 65);
 }
 
 .dark {
+  /* ─── Unified Brand & Interactive Entity Colors (Dark Mode) ─── */
+  --brand-mention: #38bdf8;
+  --brand-mention-subtle: rgba(56, 189, 248, 0.15);
+  --brand-like: #fb7185;
+  --brand-like-subtle: rgba(251, 113, 133, 0.15);
+  --brand-bookmark: #c084fc;
+  --brand-bookmark-subtle: rgba(192, 132, 252, 0.15);
+  --brand-article: #818cf8;
+  --brand-article-subtle: rgba(129, 140, 248, 0.15);
+  --brand-explore: #34d399;
+  --brand-explore-subtle: rgba(52, 211, 153, 0.15);
+  --brand-notification: #fb923c;
+  --brand-notification-subtle: rgba(251, 146, 60, 0.15);
+  --brand-following: #2dd4bf;
+  --brand-following-subtle: rgba(45, 212, 191, 0.15);
+  --brand-hashtag: #fbbf24;
+  --brand-hashtag-subtle: rgba(251, 191, 36, 0.15);
+
   --background: oklch(18.5% 0.012 65);
   --foreground: oklch(96.5% 0.015 65);
 
@@ -146,6 +224,31 @@
   --sidebar-accent-foreground: oklch(96.5% 0.015 65);
   --sidebar-border: oklch(29% 0.015 65);
   --sidebar-ring: oklch(73.5% 0.165 68.5);
+
+  /* ─── Text Selection Hierarchy Tokens (Dark Mode) ─── */
+  /* Standard body & paragraph text: Luminous warm amber highlight */
+  --selection-bg: oklch(48% 0.135 68.5 / 0.65);
+  --selection-fg: oklch(98% 0.015 65);
+
+  /* Headings & large titles: Brilliant Amber Gold with rich dark contrast */
+  --selection-heading-bg: oklch(73.5% 0.165 68.5);
+  --selection-heading-fg: oklch(16% 0.025 65);
+
+  /* Small text, metadata, badges, captions: Soft Slate mist */
+  --selection-muted-bg: oklch(42% 0.05 260 / 0.75);
+  --selection-muted-fg: oklch(94% 0.02 260);
+
+  /* Code & monospace: Deep Cyan Slate with clear contrast */
+  --selection-code-bg: oklch(40% 0.08 215 / 0.85);
+  --selection-code-fg: oklch(96% 0.03 215);
+
+  /* Links & interactive: Glowing Amber */
+  --selection-link-bg: oklch(64% 0.155 68.5);
+  --selection-link-fg: #ffffff;
+
+  /* Quotes & emphasized text: Rich golden dark-mode glow */
+  --selection-quote-bg: oklch(52% 0.145 68.5 / 0.8);
+  --selection-quote-fg: oklch(99% 0.01 65);
 }
 
 @layer base {
@@ -164,7 +267,7 @@
 
 :root {
   --right-sidebar-width: 0px;
-  --left-sidebar-width: 275px;
+  --left-sidebar-width: 224px;
   --trending-sidebar-width: 0px;
 }
 
@@ -176,12 +279,12 @@
   width: 100%;
 }
 
-/* Center column - comfortably wider feed (max 720px) */
+/* Center column - comfortably wider feed (expanded up to 800px) */
 .blogx-center {
   flex: 1;
   min-width: 0;
   width: 100%;
-  max-width: 720px;
+  max-width: 800px;
   margin-left: 0;
   margin-right: 0;
 }
@@ -190,27 +293,38 @@
 @media (min-width: 1024px) and (max-width: 1279px) {
   :root {
     --right-sidebar-width: 0px;
-    --left-sidebar-width: 260px;
+    --left-sidebar-width: 220px;
     --trending-sidebar-width: 0px;
   }
   .blogx-center {
     margin-left: var(--left-sidebar-width);
     margin-right: 0;
-    max-width: 720px;
+    max-width: 780px;
   }
 }
 
-/* xl: Full layout with left sidebar + trending hashtags sidebar on right */
+/* xl: Full layout with compact left sidebar + trending hashtags sidebar on right */
 @media (min-width: 1280px) {
   :root {
     --right-sidebar-width: 0px;
-    --left-sidebar-width: 275px;
-    --trending-sidebar-width: 290px;
+    --left-sidebar-width: 224px;
+    --trending-sidebar-width: 280px;
   }
   .blogx-center {
     margin-left: var(--left-sidebar-width);
     margin-right: var(--trending-sidebar-width);
-    max-width: 720px;
+    max-width: 800px;
+  }
+}
+
+/* 2xl: Extra wide screens */
+@media (min-width: 1536px) {
+  :root {
+    --left-sidebar-width: 232px;
+    --trending-sidebar-width: 290px;
+  }
+  .blogx-center {
+    max-width: 820px;
   }
 }
 
@@ -225,7 +339,7 @@
   .blogx-center {
     margin-left: auto;
     margin-right: auto;
-    max-width: 720px;
+    max-width: 760px;
     padding-bottom: 4.5rem; /* space for bottom bar */
   }
 }
@@ -264,4 +378,353 @@ a, button {
   transition-property: color, background-color, border-color, box-shadow, transform, opacity;
   transition-duration: 150ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─── Dynamic Text Selection System ─── */
+
+/* 1. Global / Body Selection (paragraphs, lists, general content) */
+::selection {
+  background-color: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+::-moz-selection {
+  background-color: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+/* 2. Large Text & Headings (h1-h6, big titles, hero text) */
+h1::selection,
+h2::selection,
+h3::selection,
+h4::selection,
+h5::selection,
+h6::selection,
+.font-heading::selection,
+[class*="text-4xl"]::selection,
+[class*="text-3xl"]::selection,
+[class*="text-2xl"]::selection,
+[class*="text-xl"]::selection,
+[class*="text-5xl"]::selection,
+[class*="text-6xl"]::selection,
+[class*="text-7xl"]::selection,
+[class*="text-8xl"]::selection,
+[class*="text-9xl"]::selection,
+h1 *::selection,
+h2 *::selection,
+h3 *::selection,
+h4 *::selection,
+h5 *::selection,
+h6 *::selection {
+  background-color: var(--selection-heading-bg);
+  color: var(--selection-heading-fg);
+}
+
+h1::-moz-selection,
+h2::-moz-selection,
+h3::-moz-selection,
+h4::-moz-selection,
+h5::-moz-selection,
+h6::-moz-selection,
+.font-heading::-moz-selection,
+[class*="text-4xl"]::-moz-selection,
+[class*="text-3xl"]::-moz-selection,
+[class*="text-2xl"]::-moz-selection,
+[class*="text-xl"]::-moz-selection,
+[class*="text-5xl"]::-moz-selection,
+[class*="text-6xl"]::-moz-selection,
+[class*="text-7xl"]::-moz-selection,
+[class*="text-8xl"]::-moz-selection,
+[class*="text-9xl"]::-moz-selection,
+h1 *::-moz-selection,
+h2 *::-moz-selection,
+h3 *::-moz-selection,
+h4 *::-moz-selection,
+h5 *::-moz-selection,
+h6 *::-moz-selection {
+  background-color: var(--selection-heading-bg);
+  color: var(--selection-heading-fg);
+}
+
+/* 3. Small Text & Muted Metadata (small, captions, dates, subtext, badges) */
+small::selection,
+sub::selection,
+sup::selection,
+time::selection,
+figcaption::selection,
+[class*="text-xs"]::selection,
+[class*="text-sm"]::selection,
+[class*="text-muted-foreground"]::selection,
+[class*="text-slate-500"]::selection,
+[class*="text-slate-400"]::selection,
+[class*="text-gray-500"]::selection,
+[class*="text-gray-400"]::selection,
+[class*="badge"]::selection,
+small *::selection,
+figcaption *::selection {
+  background-color: var(--selection-muted-bg);
+  color: var(--selection-muted-fg);
+}
+
+small::-moz-selection,
+sub::-moz-selection,
+sup::-moz-selection,
+time::-moz-selection,
+figcaption::-moz-selection,
+[class*="text-xs"]::-moz-selection,
+[class*="text-sm"]::-moz-selection,
+[class*="text-muted-foreground"]::-moz-selection,
+[class*="text-slate-500"]::-moz-selection,
+[class*="text-slate-400"]::-moz-selection,
+[class*="text-gray-500"]::-moz-selection,
+[class*="text-gray-400"]::-moz-selection,
+[class*="badge"]::-moz-selection,
+small *::-moz-selection,
+figcaption *::-moz-selection {
+  background-color: var(--selection-muted-bg);
+  color: var(--selection-muted-fg);
+}
+
+/* 4. Code & Monospace Blocks */
+code::selection,
+pre::selection,
+kbd::selection,
+samp::selection,
+pre code::selection,
+[class*="font-mono"]::selection {
+  background-color: var(--selection-code-bg);
+  color: var(--selection-code-fg);
+}
+
+code::-moz-selection,
+pre::-moz-selection,
+kbd::-moz-selection,
+samp::-moz-selection,
+pre code::-moz-selection,
+[class*="font-mono"]::-moz-selection {
+  background-color: var(--selection-code-bg);
+  color: var(--selection-code-fg);
+}
+
+/* 5. Links, Buttons & Interactive elements */
+a::selection,
+a *::selection,
+button::selection,
+button *::selection {
+  background-color: var(--selection-link-bg);
+  color: var(--selection-link-fg);
+}
+
+a::-moz-selection,
+a *::-moz-selection,
+button::-moz-selection,
+button *::-moz-selection {
+  background-color: var(--selection-link-bg);
+  color: var(--selection-link-fg);
+}
+
+/* 6. Quotes & Emphasized Highlights */
+blockquote::selection,
+blockquote *::selection,
+mark::selection,
+strong::selection,
+b::selection,
+em::selection {
+  background-color: var(--selection-quote-bg);
+  color: var(--selection-quote-fg);
+}
+
+blockquote::-moz-selection,
+blockquote *::-moz-selection,
+mark::-moz-selection,
+strong::-moz-selection,
+b::-moz-selection,
+em::-moz-selection {
+  background-color: var(--selection-quote-bg);
+  color: var(--selection-quote-fg);
+}
+
+/* 7. Input fields and Textareas */
+input::selection,
+textarea::selection {
+  background-color: var(--selection-heading-bg);
+  color: var(--selection-heading-fg);
+}
+
+input::-moz-selection,
+textarea::-moz-selection {
+  background-color: var(--selection-heading-bg);
+  color: var(--selection-heading-fg);
+}
+
+/* ─── Global Brand Entity Classes ─── */
+.mention-link {
+  color: var(--brand-mention);
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+.mention-link:hover {
+  text-decoration: underline;
+  filter: brightness(1.1);
+}
+
+.hashtag-link {
+  color: var(--brand-hashtag);
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+.hashtag-link:hover {
+  text-decoration: underline;
+  filter: brightness(1.1);
+}
+
+.url-link {
+  color: var(--primary);
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  transition: all 0.15s ease;
+}
+.url-link:hover {
+  filter: brightness(1.15);
+  text-decoration-thickness: 2px;
+}
+
+.badge-notification-red {
+  background-color: #ef4444 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* ─── Permanent Navigation Entity Classes ─── */
+.nav-item-feed {
+  color: var(--brand-hashtag);
+}
+.nav-item-feed-active {
+  background-color: var(--brand-hashtag-subtle);
+  color: var(--brand-hashtag);
+  font-weight: 700;
+}
+.nav-item-feed-hover:hover {
+  background-color: var(--brand-hashtag-subtle);
+  color: var(--brand-hashtag);
+}
+
+.nav-item-articles {
+  color: var(--brand-article);
+}
+.nav-item-articles-active {
+  background-color: var(--brand-article-subtle);
+  color: var(--brand-article);
+  font-weight: 700;
+}
+.nav-item-articles-hover:hover {
+  background-color: var(--brand-article-subtle);
+  color: var(--brand-article);
+}
+
+.nav-item-explore {
+  color: var(--brand-explore);
+}
+.nav-item-explore-active {
+  background-color: var(--brand-explore-subtle);
+  color: var(--brand-explore);
+  font-weight: 700;
+}
+.nav-item-explore-hover:hover {
+  background-color: var(--brand-explore-subtle);
+  color: var(--brand-explore);
+}
+
+.nav-item-notifications {
+  color: var(--brand-notification);
+}
+.nav-item-notifications-active {
+  background-color: var(--brand-notification-subtle);
+  color: var(--brand-notification);
+  font-weight: 700;
+}
+.nav-item-notifications-hover:hover {
+  background-color: var(--brand-notification-subtle);
+  color: var(--brand-notification);
+}
+
+.nav-item-mentions {
+  color: var(--brand-mention);
+}
+.nav-item-mentions-active {
+  background-color: var(--brand-mention-subtle);
+  color: var(--brand-mention);
+  font-weight: 700;
+}
+.nav-item-mentions-hover:hover {
+  background-color: var(--brand-mention-subtle);
+  color: var(--brand-mention);
+}
+
+.nav-item-following {
+  color: var(--brand-following);
+}
+.nav-item-following-active {
+  background-color: var(--brand-following-subtle);
+  color: var(--brand-following);
+  font-weight: 700;
+}
+.nav-item-following-hover:hover {
+  background-color: var(--brand-following-subtle);
+  color: var(--brand-following);
+}
+
+.nav-item-likes {
+  color: var(--brand-like);
+}
+.nav-item-likes-active {
+  background-color: var(--brand-like-subtle);
+  color: var(--brand-like);
+  font-weight: 700;
+}
+.nav-item-likes-hover:hover {
+  background-color: var(--brand-like-subtle);
+  color: var(--brand-like);
+}
+
+.nav-item-bookmarks {
+  color: var(--brand-bookmark);
+}
+.nav-item-bookmarks-active {
+  background-color: var(--brand-bookmark-subtle);
+  color: var(--brand-bookmark);
+  font-weight: 700;
+}
+.nav-item-bookmarks-hover:hover {
+  background-color: var(--brand-bookmark-subtle);
+  color: var(--brand-bookmark);
+}
+
+.nav-item-profile {
+  color: var(--primary);
+}
+.nav-item-profile-active {
+  background-color: var(--brand-hashtag-subtle);
+  color: var(--primary);
+  font-weight: 700;
+}
+.nav-item-profile-hover:hover {
+  background-color: var(--brand-hashtag-subtle);
+  color: var(--primary);
+}
+
+.nav-item-settings {
+  color: var(--muted-foreground);
+}
+.nav-item-settings-active {
+  background-color: var(--muted);
+  color: var(--foreground);
+  font-weight: 700;
+}
+.nav-item-settings-hover:hover {
+  background-color: var(--muted);
+  color: var(--foreground);
 }

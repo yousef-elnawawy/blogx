@@ -26,22 +26,12 @@ import {
 import ArticleEditorDialog from "@/components/article/ArticleEditorDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { cn, getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useTheme } from "next-themes";
-import { getAvatarUrl } from "@/lib/utils";
 import { toast } from "sonner";
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
 
 export default function MobileHeader() {
   const pathname = usePathname();
@@ -72,50 +62,99 @@ export default function MobileHeader() {
 
   const navLinks = [
     {
-      label: "My Drafts",
-      href: user ? `/@${user.username}?tab=Drafts` : "/login",
-      icon: FileText,
-      color: "violet",
-      activeColor: "text-violet-500 bg-violet-500/10 font-bold",
-      hoverColor: "hover:bg-violet-500/10 hover:text-violet-500",
-      iconColor: "text-violet-500",
+      label: "Feed",
+      href: "/",
+      icon: Home,
+      colorClass: "nav-item-feed",
+      activeClass: "nav-item-feed-active",
+      hoverClass: "nav-item-feed-hover",
+      iconActiveClass: "nav-item-feed stroke-[2.5]",
     },
     {
-      label: "Following",
-      href: "/following",
-      icon: UserCheck,
-      color: "primary",
-      activeColor: "text-primary bg-primary/10 font-bold",
-      hoverColor: "hover:bg-primary/10 hover:text-primary",
-      iconColor: "text-primary",
+      label: "Articles",
+      href: "/articles",
+      icon: BookOpen,
+      colorClass: "nav-item-articles",
+      activeClass: "nav-item-articles-active",
+      hoverClass: "nav-item-articles-hover",
+      iconActiveClass: "nav-item-articles stroke-[2.5]",
     },
     {
-      label: "Likes",
-      href: "/likes",
-      icon: Heart,
-      color: "red",
-      activeColor: "text-red-500 bg-red-500/10 font-bold",
-      hoverColor: "hover:bg-red-500/10 hover:text-red-500",
-      iconColor: "text-red-500",
+      label: "Explore",
+      href: "/search",
+      icon: Search,
+      colorClass: "nav-item-explore",
+      activeClass: "nav-item-explore-active",
+      hoverClass: "nav-item-explore-hover",
+      iconActiveClass: "nav-item-explore stroke-[2.5]",
     },
     {
       label: "Notifications",
       href: "/notifications",
       icon: Bell,
-      color: "amber",
-      activeColor: "text-amber-500 bg-amber-500/10 font-bold",
-      hoverColor: "hover:bg-amber-500/10 hover:text-amber-500",
-      iconColor: "text-amber-500",
+      colorClass: "nav-item-notifications",
+      activeClass: "nav-item-notifications-active",
+      hoverClass: "nav-item-notifications-hover",
+      iconActiveClass: "nav-item-notifications stroke-[2.5]",
       badgeCount: unreadCount,
     },
+    {
+      label: "Mentions",
+      href: "/mentions",
+      icon: AtSign,
+      colorClass: "nav-item-mentions",
+      activeClass: "nav-item-mentions-active",
+      hoverClass: "nav-item-mentions-hover",
+      iconActiveClass: "nav-item-mentions stroke-[2.5]",
+    },
+    {
+      label: "Following",
+      href: "/following",
+      icon: UserCheck,
+      colorClass: "nav-item-following",
+      activeClass: "nav-item-following-active",
+      hoverClass: "nav-item-following-hover",
+      iconActiveClass: "nav-item-following stroke-[2.5]",
+    },
+    {
+      label: "Likes",
+      href: "/likes",
+      icon: Heart,
+      colorClass: "nav-item-likes",
+      activeClass: "nav-item-likes-active",
+      hoverClass: "nav-item-likes-hover",
+      iconActiveClass: "nav-item-likes fill-current stroke-[2.5]",
+    },
+    {
+      label: "Bookmarks",
+      href: "/bookmarks",
+      icon: Bookmark,
+      colorClass: "nav-item-bookmarks",
+      activeClass: "nav-item-bookmarks-active",
+      hoverClass: "nav-item-bookmarks-hover",
+      iconActiveClass: "nav-item-bookmarks fill-current stroke-[2.5]",
+    },
+    ...(user
+      ? [
+          {
+            label: "My Drafts",
+            href: `/@${user.username}?tab=Drafts`,
+            icon: FileText,
+            colorClass: "nav-item-articles",
+            activeClass: "nav-item-articles-active",
+            hoverClass: "nav-item-articles-hover",
+            iconActiveClass: "nav-item-articles stroke-[2.5]",
+          },
+        ]
+      : []),
     {
       label: "Settings",
       href: "/settings",
       icon: Settings,
-      color: "primary",
-      activeColor: "text-primary bg-primary/10 font-bold",
-      hoverColor: "hover:bg-primary/10 hover:text-primary",
-      iconColor: "text-primary",
+      colorClass: "nav-item-settings",
+      activeClass: "nav-item-settings-active",
+      hoverClass: "nav-item-settings-hover",
+      iconActiveClass: "nav-item-settings stroke-[2.5]",
     },
   ];
 
@@ -145,7 +184,7 @@ export default function MobileHeader() {
           {user ? (
             <Avatar className="size-8 ring-2 ring-primary/20">
               <AvatarImage src={avatarUrl} alt={user.name} />
-              <AvatarFallback className="bg-muted text-[10px] font-bold">
+              <AvatarFallback className={`text-[10px] font-bold ${getAvatarGradient(user.username || user.name)}`}>
                 {getInitials(user.name)}
               </AvatarFallback>
             </Avatar>
@@ -172,7 +211,7 @@ export default function MobileHeader() {
             >
               <Bell className="size-4" />
               {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 size-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
@@ -234,7 +273,7 @@ export default function MobileHeader() {
                 >
                   <Avatar className="size-11 ring-2 ring-primary/20">
                     <AvatarImage src={avatarUrl} alt={user.name} />
-                    <AvatarFallback className="bg-muted text-xs font-bold">
+                    <AvatarFallback className={`text-xs font-bold ${getAvatarGradient(user.username || user.name)}`}>
                       {getInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>
@@ -292,11 +331,6 @@ export default function MobileHeader() {
               {navLinks.map((item) => {
                 const active = isActive(item.href);
                 const Icon = item.icon;
-                const activeClass =
-                  item.activeColor || "bg-primary/10 text-primary font-bold";
-                const hoverClass =
-                  item.hoverColor || "hover:bg-muted hover:text-foreground";
-                const iconColor = item.iconColor || "text-primary";
 
                 return (
                   <Link
@@ -305,20 +339,20 @@ export default function MobileHeader() {
                     onClick={() => setDrawerOpen(false)}
                     className={`flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-colors ${
                       active
-                        ? activeClass
-                        : `text-foreground/80 ${hoverClass}`
+                        ? item.activeClass
+                        : `text-foreground/80 ${item.hoverClass}`
                     }`}
                   >
                     <div className="flex items-center gap-3.5">
                       <Icon
-                        className={`size-5 ${active ? iconColor : ""}`}
+                        className={`size-5 ${active ? item.iconActiveClass : item.colorClass}`}
                         strokeWidth={active ? 2.5 : 2}
                       />
                       <span>{item.label}</span>
                     </div>
 
                     {Boolean(item.badgeCount && item.badgeCount > 0) && (
-                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-primary text-primary-foreground">
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500 text-white">
                         {item.badgeCount}
                       </span>
                     )}

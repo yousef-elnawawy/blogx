@@ -382,139 +382,139 @@ export default function ArticleEditorDialog({
           ) : (
             <div className="space-y-2">
               {/* Formatting Toolbar */}
-              <div className="flex items-center gap-0.5 p-1 rounded-xl bg-muted/40 border border-border/50 flex-wrap">
+              <div className="flex items-center gap-0.5 p-1 sm:p-1.5 rounded-xl bg-muted/30 dark:bg-card/40 backdrop-blur-md border border-border/60 shadow-xs flex-wrap">
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("# ", "", "Heading 1")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Heading 1"
                 >
-                  <Heading1 className="size-4" />
+                  <Heading1 className="size-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("## ", "", "Heading 2")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Heading 2"
                 >
-                  <Heading2 className="size-4" />
+                  <Heading2 className="size-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("### ", "", "Heading 3")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Heading 3"
                 >
-                  <Heading3 className="size-4" />
+                  <Heading3 className="size-3.5" />
                 </Button>
-                <div className="w-px h-4 bg-border/60 mx-1" />
+                <div className="w-px h-3.5 bg-border/60 mx-1 shrink-0" />
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("**", "**", "bold text")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Bold"
                 >
-                  <Bold className="size-4" />
+                  <Bold className="size-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("*", "*", "italic text")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Italic"
                 >
-                  <Italic className="size-4" />
+                  <Italic className="size-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("~~", "~~", "strikethrough")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Strikethrough"
                 >
-                  <Strikethrough className="size-4" />
+                  <Strikethrough className="size-3.5" />
                 </Button>
-                <div className="w-px h-4 bg-border/60 mx-1" />
+                <div className="w-px h-3.5 bg-border/60 mx-1 shrink-0" />
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("> ", "", "quote text")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Quote"
                 >
-                  <Quote className="size-4" />
+                  <Quote className="size-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("- ", "", "list item")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Bullet List"
                 >
-                  <List className="size-4" />
+                  <List className="size-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("1. ", "", "list item")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Numbered List"
                 >
-                  <ListOrdered className="size-4" />
+                  <ListOrdered className="size-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("```\n", "\n```", "code block")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Code Block"
                 >
-                  <Code className="size-4" />
+                  <Code className="size-3.5" />
                 </Button>
-                <div className="w-px h-4 bg-border/60 mx-1" />
+                <div className="w-px h-3.5 bg-border/60 mx-1 shrink-0" />
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={handleInsertLink}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Insert Link"
                 >
-                  <LinkIcon className="size-4" />
+                  <LinkIcon className="size-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={handleInsertImage}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Insert Image"
                 >
-                  <ImageIcon className="size-4" />
+                  <ImageIcon className="size-3.5" />
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
                   onClick={() => insertFormatting("\n---\n")}
-                  className="size-8 p-0"
+                  className="size-7 sm:size-7.5 p-0 rounded-lg text-muted-foreground hover:text-foreground hover:bg-background/80 dark:hover:bg-muted/80 active:scale-95 transition-all cursor-pointer shadow-none hover:shadow-xs"
                   title="Divider"
                 >
-                  <Minus className="size-4" />
+                  <Minus className="size-3.5" />
                 </Button>
               </div>
 

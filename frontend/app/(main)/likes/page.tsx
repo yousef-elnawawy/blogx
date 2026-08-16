@@ -73,7 +73,7 @@ export default function LikedPostsPage() {
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <Heart className="size-5 text-rose-500 fill-rose-500" />
+                <Heart className="size-5 text-brand-like fill-brand-like" />
                 <h1 className="text-lg font-black text-foreground leading-tight">
                   Likes
                 </h1>
@@ -152,7 +152,7 @@ export default function LikedPostsPage() {
         </div>
       ) : totalCount === 0 ? (
         <div className="p-12 text-center space-y-3">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-500">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-brand-like-subtle text-brand-like">
             <Heart className="size-7 fill-current" />
           </div>
           <div>

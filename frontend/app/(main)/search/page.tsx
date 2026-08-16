@@ -126,7 +126,7 @@ function RichPersonCard({
   };
 
   return (
-    <div className="relative border-b border-border/60 hover:bg-muted/20 transition-all group overflow-hidden">
+    <div className="relative border-b border-border hover:bg-muted/20 transition-all group overflow-hidden">
       {/* Background Accent Banner */}
       <div className="h-16 w-full bg-gradient-to-r from-primary/15 via-amber-500/10 to-violet-500/15 relative overflow-hidden">
         {person.cover && (
@@ -552,7 +552,7 @@ function SearchPageContent() {
             <div>
               {/* Top People Section */}
               {people.length > 0 && (
-                <div className="border-b border-border/60">
+                <div className="border-b border-border">
                   <div className="flex items-center justify-between px-4 py-3 bg-muted/20 sm:px-6">
                     <div className="flex items-center gap-2">
                       <Users className="size-4 text-primary" />
@@ -578,7 +578,7 @@ function SearchPageContent() {
 
               {/* Top Hashtags Pills */}
               {hashtags.length > 0 && (
-                <div className="p-4 sm:px-6 border-b border-border/60 bg-muted/10">
+                <div className="p-4 sm:px-6 border-b border-border bg-muted/10">
                   <div className="flex items-center gap-2 mb-3">
                     <Hash className="size-4 text-amber-500" />
                     <h2 className="text-sm font-bold text-foreground">Matching Topics</h2>
@@ -588,7 +588,7 @@ function SearchPageContent() {
                       <Link
                         key={h.tag}
                         href={`/hashtag/${encodeURIComponent(h.tag)}`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border border-border/60 hover:border-primary/50 text-xs font-bold text-foreground hover:text-primary transition-colors shadow-2xs"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-background border border-border/70 hover:border-primary/50 text-xs font-bold text-foreground hover:text-primary transition-colors shadow-2xs"
                       >
                         <span className="text-primary font-bold">#</span>
                         <span>{h.tag}</span>
@@ -606,7 +606,7 @@ function SearchPageContent() {
               {/* Posts Feed */}
               {posts.length > 0 && (
                 <div>
-                  <div className="px-4 py-3 bg-muted/20 border-b border-border/60 sm:px-6 flex items-center gap-2">
+                  <div className="px-4 py-3 bg-muted/20 border-b border-border sm:px-6 flex items-center gap-2">
                     <FileText className="size-4 text-primary" />
                     <h2 className="text-sm font-bold text-foreground">Posts</h2>
                   </div>

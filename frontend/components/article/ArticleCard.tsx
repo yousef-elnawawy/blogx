@@ -14,7 +14,7 @@ import {
   Lock,
   BookOpen,
 } from "lucide-react";
-import { getAvatarUrl, cn } from "@/lib/utils";
+import { getAvatarUrl, getAvatarGradient, getInitials, cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
 export interface ArticleItem {
@@ -49,16 +49,6 @@ interface ArticleCardProps {
   onDeleteDraft?: (id: number) => void;
 }
 
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
 function formatCount(num: number): string {
   if (num >= 1000) return `${(num / 1000).toFixed(1).replace(/\.0$/, "")}k`;
   return String(num);
@@ -71,17 +61,17 @@ export default function ArticleCard({
   onDeleteDraft,
 }: ArticleCardProps) {
   const timeAgo = (() => {
-    const dateStr = article.published_at || article.created_at;
-    if (!dateStr) return "Just now";
     try {
+      const dateStr = article.published_at || article.created_at;
+      if (!dateStr) return "recently";
       return formatDistanceToNow(new Date(dateStr), { addSuffix: true });
     } catch {
-      return "";
+      return "recently";
     }
   })();
 
   return (
-    <article className="border-b border-border/60 hover:bg-muted/20 transition-all p-4 sm:p-5 group">
+    <article className="border-b border-border hover:bg-muted/25 dark:hover:bg-muted/15 transition-all p-4 sm:p-5 group">
       <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
         {/* Left Column: Author + Title + Excerpt + Meta */}
         <div className="flex-1 min-w-0 space-y-2">
@@ -93,7 +83,7 @@ export default function ArticleCard({
             >
               <Avatar className="size-6 ring-1 ring-border/40">
                 <AvatarImage src={getAvatarUrl(article.author.avatar)} alt={article.author.name} />
-                <AvatarFallback className="text-[10px]">
+                <AvatarFallback className={`text-[10px] font-bold ${getAvatarGradient(article.author.username || article.author.name)}`}>
                   {getInitials(article.author.name)}
                 </AvatarFallback>
               </Avatar>

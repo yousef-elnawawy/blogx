@@ -50,7 +50,7 @@ export default function BookmarksPage() {
             </button>
             <div>
               <div className="flex items-center gap-2">
-                <Bookmark className="size-5 text-violet-500 fill-violet-500" />
+                <Bookmark className="size-5 text-brand-bookmark fill-brand-bookmark" />
                 <h1 className="text-lg font-black text-foreground leading-tight">
                   Bookmarks
                 </h1>
@@ -83,7 +83,7 @@ export default function BookmarksPage() {
         </div>
       ) : posts.length === 0 ? (
         <div className="p-12 text-center max-w-sm mx-auto space-y-3">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-violet-500/10 text-violet-500">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-brand-bookmark-subtle text-brand-bookmark">
             <Bookmark className="size-7 fill-current" />
           </div>
           <h2 className="text-base font-bold text-foreground">Save posts for later</h2>

@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <!-- Background subtle gradient -->
+    <radialGradient id="bxGlow" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.25" />
+      <stop offset="100%" stop-color="#B45309" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Main Gold-Amber Gradient Left-to-Right -->
+    <linearGradient id="bxGoldPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE68A" />
+      <stop offset="35%" stop-color="#F59E0B" />
+      <stop offset="70%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#92400E" />
+    </linearGradient>
+
+    <!-- High-Contrast Accent Gradient -->
+    <linearGradient id="bxGoldAccent" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FEF3C7" />
+      <stop offset="40%" stop-color="#FBBF24" />
+      <stop offset="80%" stop-color="#B45309" />
+      <stop offset="100%" stop-color="#78350F" />
+    </linearGradient>
+
+    <!-- Deep Metallic Shading Gradient -->
+    <linearGradient id="bxDarkMetallic" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#451A03" />
+      <stop offset="50%" stop-color="#1C1917" />
+      <stop offset="100%" stop-color="#292524" />
+    </linearGradient>
+
+    <!-- Drop Shadow Filter -->
+    <filter id="bxShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#78350F" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- Ambient Glow -->
+  <circle cx="50" cy="50" r="46" fill="url(#bxGlow)" />
+
+  <!-- Outer Rounded Shield / Rounded Hex Container -->
+  <rect x="6" y="6" width="88" height="88" rx="24" fill="url(#bxDarkMetallic)" stroke="url(#bxGoldPrimary)" stroke-width="2.5" filter="url(#bxShadow)" />
+
+  <!-- Inner subtle border glow -->
+  <rect x="8.5" y="8.5" width="83" height="83" rx="21.5" fill="none" stroke="rgba(254, 243, 199, 0.15)" stroke-width="1" />
+
+  <!-- Central Dynamic "X" & Quill Nib Hybrid Geometry -->
+  <g id="brand-mark" filter="url(#bxShadow)">
+    <!-- Primary Forward Slash of X (Stylized Quill Blade) -->
+    <path
+      d="M26 24 C26 24, 40 32, 50 50 C60 68, 74 76, 74 76 L66 76 C66 76, 54 66, 46 50 C38 34, 26 24, 26 24 Z"
+      fill="url(#bxGoldPrimary)"
+    />
+
+    <!-- Secondary Backslash of X (Intersecting Diamond Nib) -->
+    <path
+      d="M74 24 C74 24, 60 32, 50 50 C40 68, 26 76, 26 76 L34 76 C34 76, 46 66, 54 50 C62 34, 74 24, 74 24 Z"
+      fill="url(#bxGoldAccent)"
+    />
+
+    <!-- Central Diamond Core Spark / Fountain Nib Heart -->
+    <polygon points="50,38 58,50 50,62 42,50" fill="#FFFBEB" opacity="0.95" />
+
+    <!-- Top Left Nib Point Accent -->
+    <polygon points="26,24 33,25 28,32" fill="#FDE68A" />
+
+    <!-- Top Right Nib Point Accent -->
+    <polygon points="74,24 67,25 72,32" fill="#FEF3C7" />
+
+    <!-- Central Vertical Slit (Pen Nib Slit) -->
+    <line x1="50" y1="44" x2="50" y2="56" stroke="#78350F" stroke-width="1.8" stroke-linecap="round" />
+  </g>
+</svg>

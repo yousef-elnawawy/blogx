@@ -85,6 +85,63 @@ function formatCount(num: number): string {
   return String(num);
 }
 
+function formatInlineText(line: string): React.ReactNode {
+  const regex = /(\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s]+|www\.[^\s]+)/gu;
+  const parts = line.split(regex);
+
+  return parts.map((part, i) => {
+    if (!part) return null;
+
+    const mdMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
+    if (mdMatch) {
+      const label = mdMatch[1];
+      let href = mdMatch[2].trim();
+      if (!href.startsWith("http://") && !href.startsWith("https://")) {
+        href = `https://${href}`;
+      }
+      return (
+        <a
+          key={i}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="url-link font-semibold"
+        >
+          {label}
+        </a>
+      );
+    }
+
+    if (/^(https?:\/\/|www\.)/i.test(part)) {
+      let cleanUrl = part;
+      let trailing = "";
+      const matchTrailing = cleanUrl.match(/[.,!?:;)]+$/);
+      if (matchTrailing) {
+        trailing = matchTrailing[0];
+        cleanUrl = cleanUrl.slice(0, -trailing.length);
+      }
+
+      const safeHref = cleanUrl.startsWith("http") ? cleanUrl : `https://${cleanUrl}`;
+
+      return (
+        <span key={i} className="inline">
+          <a
+            href={safeHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="url-link"
+          >
+            {cleanUrl}
+          </a>
+          {trailing}
+        </span>
+      );
+    }
+
+    return <span key={i}>{part}</span>;
+  });
+}
+
 // Simple Markdown / HTML renderer for rich article text
 function renderArticleContent(text: string) {
   if (!text) return null;
@@ -122,8 +179,8 @@ function renderArticleContent(text: string) {
     // Headings
     if (line.startsWith("### ")) {
       elements.push(
-        <h3 key={index} className="text-lg font-bold text-foreground mt-6 mb-2">
-          {line.replace(/^###\s+/, "")}
+        <h3 key={index} className="text-lg sm:text-xl font-bold text-foreground mt-6 mb-2">
+          {formatInlineText(line.replace(/^###\s+/, ""))}
         </h3>
       );
       return;
@@ -131,7 +188,7 @@ function renderArticleContent(text: string) {
     if (line.startsWith("## ")) {
       elements.push(
         <h2 key={index} className="text-xl sm:text-2xl font-bold text-foreground mt-7 mb-2.5">
-          {line.replace(/^##\s+/, "")}
+          {formatInlineText(line.replace(/^##\s+/, ""))}
         </h2>
       );
       return;
@@ -139,7 +196,7 @@ function renderArticleContent(text: string) {
     if (line.startsWith("# ")) {
       elements.push(
         <h1 key={index} className="text-2xl sm:text-3xl font-extrabold text-foreground mt-8 mb-3">
-          {line.replace(/^#\s+/, "")}
+          {formatInlineText(line.replace(/^#\s+/, ""))}
         </h1>
       );
       return;
@@ -152,7 +209,7 @@ function renderArticleContent(text: string) {
           key={index}
           className="border-l-4 border-primary pl-4 py-1.5 my-3 italic text-muted-foreground bg-primary/5 rounded-r-lg"
         >
-          {line.replace(/^>\s+/, "")}
+          {formatInlineText(line.replace(/^>\s+/, ""))}
         </blockquote>
       );
       return;
@@ -190,7 +247,7 @@ function renderArticleContent(text: string) {
     if (line.match(/^[-*]\s+/)) {
       elements.push(
         <li key={index} className="ml-5 list-disc text-[15px] leading-relaxed text-foreground/90 my-1">
-          {line.replace(/^[-*]\s+/, "")}
+          {formatInlineText(line.replace(/^[-*]\s+/, ""))}
         </li>
       );
       return;
@@ -205,7 +262,7 @@ function renderArticleContent(text: string) {
     // Paragraph
     elements.push(
       <p key={index} className="text-[16px] leading-[1.75] text-foreground/90 my-2 font-normal">
-        {line}
+        {formatInlineText(line)}
       </p>
     );
   });
@@ -388,25 +445,31 @@ export default function ArticleDetailPage() {
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={
-                  <Button variant="ghost" size="sm" className="size-8 p-0 rounded-full">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="size-7 sm:size-7.5 p-0 rounded-full text-muted-foreground/70 hover:text-foreground hover:bg-muted/80 active:scale-95 transition-all cursor-pointer"
+                    title="More options"
+                  >
                     <MoreHorizontal className="size-4" />
                   </Button>
                 }
               />
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-40 p-1">
                 <DropdownMenuItem
                   onClick={() => setEditDialogOpen(true)}
-                  className="cursor-pointer gap-2"
+                  className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
                 >
-                  <Pencil className="size-4" />
-                  Edit Article
+                  <Pencil className="size-3.5 text-muted-foreground" />
+                  <span>Edit Article</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
+                  variant="destructive"
                   onClick={() => setDeleteDialogOpen(true)}
-                  className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+                  className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
                 >
-                  <Trash2 className="size-4" />
-                  Delete Article
+                  <Trash2 className="size-3.5" />
+                  <span>Delete Article</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

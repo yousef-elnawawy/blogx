@@ -47,7 +47,7 @@ const CATEGORY_TAGS = [
 
 function FeedSkeleton() {
   return (
-    <div className="divide-y divide-border/60 animate-in fade-in-50 duration-300">
+    <div className="divide-y divide-border animate-in fade-in-50 duration-300">
       {/* Post Skeleton 1 */}
       <div className="p-4 sm:p-5 space-y-3">
         <div className="flex items-center gap-3">
@@ -240,7 +240,7 @@ export default function Home() {
       </div>
 
       {/* Create Post Area */}
-      <div className="border-b border-border/60">
+      <div className="border-b border-border">
         <CreatePost />
       </div>
 

@@ -102,16 +102,16 @@ function getNotificationIcon(type: string) {
   switch (type) {
     case "like_post":
     case "like_comment":
-      return <Heart className="size-3.5 fill-current text-red-500" />;
+      return <Heart className="size-3.5 fill-current text-brand-like" />;
     case "share_post":
       return <Repeat2 className="size-3.5 text-cyan-500" />;
     case "follow":
-      return <UserPlus className="size-3.5 text-amber-500" />;
+      return <UserPlus className="size-3.5 text-brand-following" />;
     case "comment":
     case "comment_reply":
       return <MessageSquare className="size-3.5 text-teal-500" />;
     case "mention":
-      return <AtSign className="size-3.5 text-blue-500" />;
+      return <AtSign className="size-3.5 text-brand-mention" />;
     case "view_milestone":
       return <Eye className="size-3.5 text-amber-500" />;
     case "milestone_post":
@@ -119,7 +119,7 @@ function getNotificationIcon(type: string) {
     case "milestone_followers":
       return <Sparkles className="size-3.5 text-amber-500" />;
     default:
-      return <Bell className="size-3.5 text-primary" />;
+      return <Bell className="size-3.5 text-brand-notification" />;
   }
 }
 

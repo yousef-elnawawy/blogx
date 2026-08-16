@@ -3,24 +3,15 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Image as ImageIcon, Hash, Sparkles } from "lucide-react";
+import { Image as ImageIcon, Hash, AtSign, Smile, BookOpen } from "lucide-react";
 import PostEditorDialog from "./PostEditorDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { PostCardProps } from "@/components/PostCard";
-import { getAvatarUrl } from "@/lib/utils";
+import { getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
+import Link from "next/link";
 
 interface CreatePostProps {
   onPostCreated?: (post: PostCardProps) => void;
-}
-
-function getInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .map((p) => p[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
 }
 
 export default function CreatePost({ onPostCreated }: CreatePostProps) {
@@ -30,14 +21,15 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
   if (!user) return null;
 
   const avatarSrc = getAvatarUrl(user.avatar);
+  const avatarGradient = getAvatarGradient(user.username || user.name);
 
   return (
     <>
-      <div className="p-4 sm:p-5 border-b border-border/60">
+      <div className="p-4 sm:p-5 border-b border-border bg-card/40">
         <div className="flex gap-3 items-start">
-          <Avatar className="size-10 shrink-0">
+          <Avatar className="size-10 shrink-0 ring-1 ring-border shadow-xs">
             <AvatarImage src={avatarSrc} alt={user.name} />
-            <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+            <AvatarFallback className={`text-xs font-bold ${avatarGradient}`}>
               {getInitials(user.name)}
             </AvatarFallback>
           </Avatar>
@@ -46,43 +38,58 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
             {/* Clickable prompt input area */}
             <div
               onClick={() => setOpen(true)}
-              className="text-[15px] sm:text-base text-muted-foreground/80 hover:text-foreground cursor-text py-2 min-h-[44px] transition-colors"
+              className="text-[15px] sm:text-base text-muted-foreground/80 hover:text-foreground cursor-text py-2 min-h-[44px] transition-colors select-none"
             >
               What is happening?!
             </div>
 
-            {/* Action Toolbar - X Style */}
-            <div className="flex items-center justify-between pt-3 border-t border-border/40 mt-2">
-              <div className="flex items-center gap-1 text-primary">
+            {/* Action Toolbar */}
+            <div className="flex items-center justify-between pt-2.5 border-t border-border/40 mt-1.5">
+              <div className="flex items-center gap-0.5 sm:gap-1">
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="p-2 rounded-full hover:bg-primary/10 transition-colors"
-                  title="Media"
+                  className="size-8 rounded-full flex items-center justify-center text-primary hover:bg-primary/10 active:scale-95 transition-all cursor-pointer"
+                  title="Add Photos / Media"
                 >
-                  <ImageIcon className="size-5" />
+                  <ImageIcon className="size-[17px]" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="p-2 rounded-full hover:bg-primary/10 transition-colors"
-                  title="Hashtag"
+                  className="size-8 rounded-full flex items-center justify-center text-brand-hashtag hover:bg-brand-hashtag-subtle active:scale-95 transition-all cursor-pointer"
+                  title="Hashtags (#)"
                 >
-                  <Hash className="size-5" />
+                  <Hash className="size-[17px]" />
                 </button>
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="p-2 rounded-full hover:bg-primary/10 transition-colors"
-                  title="Inspire"
+                  className="size-8 rounded-full flex items-center justify-center text-brand-mention hover:bg-brand-mention-subtle active:scale-95 transition-all cursor-pointer"
+                  title="Mention (@)"
                 >
-                  <Sparkles className="size-5" />
+                  <AtSign className="size-[17px]" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(true)}
+                  className="size-8 rounded-full flex items-center justify-center text-amber-500 hover:bg-amber-500/10 active:scale-95 transition-all cursor-pointer"
+                  title="Emoji"
+                >
+                  <Smile className="size-[17px]" />
+                </button>
+                <Link
+                  href="/articles"
+                  className="size-8 rounded-full hidden sm:flex items-center justify-center text-brand-article hover:bg-brand-article-subtle active:scale-95 transition-all cursor-pointer"
+                  title="Write Long Article"
+                >
+                  <BookOpen className="size-[17px]" />
+                </Link>
               </div>
 
               <Button
                 onClick={() => setOpen(true)}
-                className="rounded-full px-5 h-9 text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all"
+                className="rounded-full px-4 sm:px-5 h-8 text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all cursor-pointer shadow-xs hover:shadow-sm"
               >
                 Post
               </Button>

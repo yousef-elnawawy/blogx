@@ -356,16 +356,54 @@ class AuthController extends Controller
             'website' => ['nullable', 'string', 'max:255'],
             'avatar' => ['nullable', 'image', 'max:102400'], // Up to 100MB
             'cover' => ['nullable', 'image', 'max:102400'], // Up to 100MB
+            'remove_avatar' => ['nullable', 'boolean'],
+            'remove_cover' => ['nullable', 'boolean'],
+            'social_links' => ['nullable'],
         ]);
 
-        if ($request->hasFile('avatar')) {
+        // Handle Avatar removal or upload
+        if ($request->boolean('remove_avatar')) {
+            if ($user->avatar && str_contains($user->avatar, '/storage/')) {
+                $oldPath = str_replace('/storage/', '', $user->avatar);
+                Storage::disk('public')->delete($oldPath);
+            }
+            $validated['avatar'] = null;
+        } elseif ($request->hasFile('avatar')) {
+            if ($user->avatar && str_contains($user->avatar, '/storage/')) {
+                $oldPath = str_replace('/storage/', '', $user->avatar);
+                Storage::disk('public')->delete($oldPath);
+            }
             $path = $request->file('avatar')->store('avatars', 'public');
             $validated['avatar'] = '/storage/' . $path;
         }
 
-        if ($request->hasFile('cover')) {
+        // Handle Cover removal or upload
+        if ($request->boolean('remove_cover')) {
+            if ($user->cover && str_contains($user->cover, '/storage/')) {
+                $oldPath = str_replace('/storage/', '', $user->cover);
+                Storage::disk('public')->delete($oldPath);
+            }
+            $validated['cover'] = null;
+        } elseif ($request->hasFile('cover')) {
+            if ($user->cover && str_contains($user->cover, '/storage/')) {
+                $oldPath = str_replace('/storage/', '', $user->cover);
+                Storage::disk('public')->delete($oldPath);
+            }
             $path = $request->file('cover')->store('covers', 'public');
             $validated['cover'] = '/storage/' . $path;
+        }
+
+        // Handle social links array or json string
+        if ($request->has('social_links')) {
+            $rawSocial = $request->input('social_links');
+            if (is_string($rawSocial)) {
+                $decoded = json_decode($rawSocial, true);
+                $validated['social_links'] = is_array($decoded) ? $decoded : [];
+            } elseif (is_array($rawSocial)) {
+                $validated['social_links'] = $rawSocial;
+            } else {
+                $validated['social_links'] = [];
+            }
         }
 
         if (isset($validated['username'])) {
@@ -379,6 +417,8 @@ class AuthController extends Controller
                 $validated['email_verified_at'] = null;
             }
         }
+
+        unset($validated['remove_avatar'], $validated['remove_cover']);
 
         $user->update($validated);
 
