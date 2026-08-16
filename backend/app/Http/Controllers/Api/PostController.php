@@ -780,11 +780,12 @@ class PostController extends Controller
                 return $path;
             })->values(),
             'author' => [
-                'id'       => $post->user->id,
-                'name'     => $post->user->name,
-                'username' => $post->user->username,
-                'avatar'   => $avatarUrl,
-                'verified' => (bool) $post->user->verified,
+                'id'              => $post->user->id,
+                'name'            => $post->user->name,
+                'username'        => $post->user->username,
+                'avatar'          => $avatarUrl,
+                'verified'        => (bool) $post->user->verified,
+                'equipped_badges' => $post->user->equipped_badges ?? [],
             ],
         ];
     }
@@ -811,11 +812,12 @@ class PostController extends Controller
             'is_liked'    => $user ? $comment->isLikedBy($user) : false,
             'mentions'    => $validCommentMentions,
             'author' => [
-                'id'       => $comment->user->id,
-                'name'     => $comment->user->name,
-                'username' => $comment->user->username,
-                'avatar'   => $avatarUrl,
-                'verified' => (bool) $comment->user->verified,
+                'id'              => $comment->user->id,
+                'name'            => $comment->user->name,
+                'username'        => $comment->user->username,
+                'avatar'          => $avatarUrl,
+                'verified'        => (bool) $comment->user->verified,
+                'equipped_badges' => $comment->user->equipped_badges ?? [],
             ],
             'replies' => $comment->replies ? $comment->replies->map(function ($reply) use ($user) {
                 return $this->formatComment($reply, $user);

@@ -328,6 +328,23 @@ class NotificationService
         ]);
     }
 
+    /**
+     * Account verification granted notification.
+     */
+    public static function sendVerificationGrantedNotification(User $user, ?User $admin = null): void
+    {
+        self::createAndBroadcast([
+            'user_id'  => $user->id,
+            'actor_id' => $admin?->id,
+            'type'     => 'account_verified',
+            'title'    => 'Account Verified! 🎉',
+            'message'  => "Congratulations! Your BlogX account has been officially verified. You can now equip exclusive badges and customize your creator perks.",
+            'data'     => [
+                'action_url' => '/settings?tab=verification',
+            ],
+        ]);
+    }
+
     // ─── Utility helpers ─────────────────────────────────────────────────────
 
     private static function truncate(?string $text, int $limit = 80): string

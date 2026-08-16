@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ArticleController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordResetController;
@@ -51,14 +53,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/2fa/recovery-codes', [TwoFactorController::class, 'getRecoveryCodes']);
     Route::post('/2fa/recovery-codes', [TwoFactorController::class, 'regenerateRecoveryCodes']);
 
-    // Verification Requests (User)
+    // Verification Requests & Badges (User)
     Route::post('/verification/request', [VerificationController::class, 'submitRequest']);
     Route::get('/verification/status', [VerificationController::class, 'getStatus']);
+    Route::get('/badges', [BadgeController::class, 'index']);
+    Route::post('/user/badges', [BadgeController::class, 'update']);
 
-    // Admin Verification Review (Admin only)
+    // Admin Panel Management (Admin only)
     Route::get('/admin/verification-requests', [VerificationController::class, 'adminList']);
     Route::post('/admin/verification-requests/{id}/approve', [VerificationController::class, 'adminApprove']);
     Route::post('/admin/verification-requests/{id}/reject', [VerificationController::class, 'adminReject']);
+    Route::get('/admin/users', [AdminController::class, 'indexUsers']);
+    Route::post('/admin/users/{id}/toggle-verify', [AdminController::class, 'toggleVerification']);
+    Route::delete('/admin/users/{id}', [AdminController::class, 'deleteUser']);
 
     // Broadcasting Authentication (Sanctum)
     Broadcast::routes(['middleware' => ['auth:sanctum']]);

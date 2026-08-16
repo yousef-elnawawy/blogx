@@ -24,7 +24,6 @@ import api from "@/lib/api";
 import { PostCardProps } from "@/components/PostCard";
 import { getAvatarUrl } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
-import SchedulePickerPanel from "./SchedulePickerModal";
 import { useRouter } from "next/navigation";
 
 export interface PostToEdit {
@@ -100,8 +99,6 @@ export default function PostEditorDialog({
   const [contentLength, setContentLength] = useState(0);
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
-  const [scheduledAt, setScheduledAt] = useState<string | null>(null);
-  const [schedulePanelOpen, setSchedulePanelOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<"published" | "draft" | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
@@ -569,10 +566,6 @@ export default function PostEditorDialog({
       formData.append("content", content);
       formData.append("status", status);
 
-      if (scheduledAt) {
-        formData.append("scheduled_at", scheduledAt);
-      }
-
       images.forEach((entry) => {
         if (entry.file) {
           formData.append("images[]", entry.file);
@@ -746,14 +739,6 @@ export default function PostEditorDialog({
           </div>
         )}
 
-        {/* Schedule Picker Panel */}
-        <SchedulePickerPanel
-          open={schedulePanelOpen}
-          onClose={() => setSchedulePanelOpen(false)}
-          scheduledAt={scheduledAt}
-          onScheduleChange={setScheduledAt}
-        />
-
         {/* Bottom toolbar */}
         <div className="shrink-0 relative flex items-center justify-between px-3 py-2 sm:px-5 sm:py-2.5 border-t border-border bg-background">
           <div className="flex items-center gap-1 sm:gap-2">
@@ -762,13 +747,11 @@ export default function PostEditorDialog({
               onInsertHashtag={insertHashtag}
               onInsertMention={insertMention}
               onInsertEmoji={insertEmoji}
-              onOpenSchedule={() => setSchedulePanelOpen(!schedulePanelOpen)}
               onOpenArticleEditor={() => {
                 onOpenChange(false);
                 router.push("/articles");
               }}
               imageCount={images.length}
-              scheduledAt={scheduledAt}
               contentLength={contentLength}
               maxContentLength={1000}
             />
@@ -799,8 +782,6 @@ export default function PostEditorDialog({
                 <Loader2 className="size-3.5 animate-spin" />
               ) : postToEdit ? (
                 "Publish"
-              ) : scheduledAt ? (
-                "Schedule"
               ) : (
                 "Post"
               )}

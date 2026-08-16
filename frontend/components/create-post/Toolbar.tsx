@@ -6,7 +6,6 @@ import {
   Hash,
   AtSign,
   Smile,
-  Calendar,
   BookOpen,
   X,
 } from "lucide-react";
@@ -17,10 +16,8 @@ interface ToolbarProps {
   onInsertHashtag: () => void;
   onInsertMention?: () => void;
   onInsertEmoji?: (emoji: string) => void;
-  onOpenSchedule?: () => void;
   onOpenArticleEditor?: () => void;
   imageCount?: number;
-  scheduledAt?: string | null;
   contentLength?: number;
   maxContentLength?: number;
 }
@@ -37,10 +34,8 @@ export default function Toolbar({
   onInsertHashtag,
   onInsertMention,
   onInsertEmoji,
-  onOpenSchedule,
   onOpenArticleEditor,
   imageCount = 0,
-  scheduledAt = null,
   contentLength = 0,
   maxContentLength = 1000,
 }: ToolbarProps) {
@@ -165,25 +160,7 @@ export default function Toolbar({
         </div>
       )}
 
-      {/* 5. Schedule Post Picker */}
-      {onOpenSchedule && (
-        <button
-          type="button"
-          aria-label="Schedule post"
-          onClick={onOpenSchedule}
-          className={cn(
-            "size-8 rounded-full flex items-center justify-center active:scale-95 transition-all cursor-pointer",
-            scheduledAt
-              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/80"
-          )}
-          title={scheduledAt ? "Post is scheduled" : "Schedule Post"}
-        >
-          <Calendar className="size-[17px]" />
-        </button>
-      )}
-
-      {/* 6. Long Article Shortcut */}
+      {/* Long Article Shortcut */}
       {onOpenArticleEditor && (
         <button
           type="button"

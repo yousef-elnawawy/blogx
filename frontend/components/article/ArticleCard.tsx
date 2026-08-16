@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
+import UserBadges from "@/components/ui/UserBadges";
 import {
   Clock,
   Heart,
@@ -39,6 +40,7 @@ export interface ArticleItem {
     avatar: string | null;
     bio?: string | null;
     verified?: boolean;
+    equipped_badges?: string[] | null;
   };
 }
 
@@ -89,6 +91,7 @@ export default function ArticleCard({
               </Avatar>
               <span className="font-bold text-foreground">{article.author.name}</span>
               {article.author.verified && <VerifiedBadge size="sm" />}
+              <UserBadges equippedBadges={article.author.equipped_badges} size="xs" />
             </Link>
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">{timeAgo}</span>

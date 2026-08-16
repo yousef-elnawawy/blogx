@@ -134,6 +134,11 @@ class VerificationController extends Controller
             'verified' => true,
         ]);
 
+        \App\Services\NotificationService::sendVerificationGrantedNotification(
+            $verificationRequest->user,
+            $admin
+        );
+
         return response()->json([
             'message' => "Account @{$verificationRequest->user->username} has been verified successfully.",
             'request' => $this->formatRequest($verificationRequest->fresh(['user', 'reviewer'])),

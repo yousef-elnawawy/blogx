@@ -31,6 +31,7 @@ import {
 import PostImageGrid from "@/components/post/PostImageGrid";
 import ImageLightbox from "@/components/post/ImageLightbox";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
+import UserBadges from "@/components/ui/UserBadges";
 import VideoEmbed from "@/components/post/VideoEmbed";
 import LinkPreviewCard from "@/components/post/LinkPreviewCard";
 import api from "@/lib/api";
@@ -43,6 +44,7 @@ export interface PostCardProps {
     username: string;
     avatar: string | null;
     verified?: boolean;
+    equipped_badges?: string[] | null;
   };
   content: string;
   images?: string[];
@@ -364,6 +366,7 @@ export default function PostCard({
                 >
                   <span>{author.name}</span>
                   {Boolean(author.verified) && <VerifiedBadge size="sm" />}
+                  <UserBadges equippedBadges={author.equipped_badges} size="xs" />
                 </Link>
                 <span className="text-sm text-muted-foreground">
                   @{author.username}

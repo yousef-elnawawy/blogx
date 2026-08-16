@@ -25,6 +25,7 @@ import ArticleEditorDialog from "@/components/article/ArticleEditorDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
+import UserBadges from "@/components/ui/UserBadges";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -217,17 +218,15 @@ export default function LeftSidebar() {
       <li key={item.href}>
         <Link
           href={getNavHref(item)}
-          className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-[13.5px] transition-all duration-150 ${
-            active
+          className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-[13.5px] transition-all duration-150 ${active
               ? item.activeClass
               : `text-foreground/80 ${item.hoverClass}`
-          }`}
+            }`}
         >
           <div className="relative shrink-0">
             <Icon
-              className={`size-[19px] transition-transform duration-150 group-hover:scale-110 ${
-                active ? item.iconActiveClass : item.colorClass
-              }`}
+              className={`size-[19px] transition-transform duration-150 group-hover:scale-110 ${active ? item.iconActiveClass : item.colorClass
+                }`}
               strokeWidth={active ? 2.5 : 2}
             />
             {isNotifications && unreadCount > 0 && (
@@ -339,6 +338,7 @@ export default function LeftSidebar() {
                       {user.name}
                     </p>
                     {Boolean(user.verified) && <VerifiedBadge size="sm" />}
+                    <UserBadges equippedBadges={user.equipped_badges} size="xs" />
                   </div>
                   <p className="text-[10px] text-muted-foreground truncate">
                     @{user.username}
@@ -348,9 +348,10 @@ export default function LeftSidebar() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" side="top" sideOffset={8} className="w-52 p-1">
               <div className="px-2.5 py-2 border-b border-border/50">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <p className="text-xs font-bold text-foreground truncate">{user.name}</p>
                   {Boolean(user.verified) && <VerifiedBadge size="sm" />}
+                  <UserBadges equippedBadges={user.equipped_badges} size="xs" />
                 </div>
                 <p className="text-[11px] text-muted-foreground truncate mt-0.5">@{user.username}</p>
               </div>

@@ -44,6 +44,7 @@ import { cn, getAvatarUrl, getAvatarGradient, getDefaultBannerGradient, getIniti
 import { toast } from "sonner";
 import Link from "next/link";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
+import UserBadges from "@/components/ui/UserBadges";
 import ProfileShareDialog from "@/components/profile/ProfileShareDialog";
 import SocialIcon from "@/components/ui/SocialIcon";
 
@@ -55,8 +56,9 @@ interface ProfileUser {
   avatar: string | null;
   cover: string | null;
   website: string | null;
-  social_links?: any;
   location: string | null;
+  social_links?: any;
+  equipped_badges?: string[] | null;
   verified: boolean;
   created_at: string | null;
   posts_count?: number;
@@ -72,6 +74,7 @@ interface UserListItem {
   avatar: string | null;
   bio: string | null;
   verified?: boolean;
+  equipped_badges?: string[] | null;
   is_following: boolean;
 }
 
@@ -500,6 +503,7 @@ function UserProfileContent() {
               {profileUser.name}
             </h2>
             {Boolean(profileUser.verified) && <VerifiedBadge size="md" />}
+            <UserBadges equippedBadges={profileUser.equipped_badges} size="sm" />
           </div>
           <p className="text-sm text-muted-foreground font-medium">@{profileUser.username}</p>
         </div>

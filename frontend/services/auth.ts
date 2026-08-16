@@ -11,6 +11,7 @@ export interface User {
   website: string | null;
   location: string | null;
   social_links?: Record<string, string> | Array<{ platform: string; url: string }> | null;
+  equipped_badges?: string[] | null;
   verified: boolean;
   is_admin?: boolean;
   has_2fa: boolean;

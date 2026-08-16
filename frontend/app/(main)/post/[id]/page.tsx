@@ -14,6 +14,7 @@ import PostImageGrid from "@/components/post/PostImageGrid";
 import ImageLightbox from "@/components/post/ImageLightbox";
 import ShareDialog from "@/components/post/ShareDialog";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
+import UserBadges from "@/components/ui/UserBadges";
 import VideoEmbed from "@/components/post/VideoEmbed";
 import LinkPreviewCard from "@/components/post/LinkPreviewCard";
 import {
@@ -41,6 +42,7 @@ interface Author {
   username: string;
   avatar: string | null;
   verified?: boolean;
+  equipped_badges?: string[] | null;
 }
 
 interface CommentItem {
@@ -526,6 +528,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
               >
                 <span>{post.author.name}</span>
                 {Boolean(post.author.verified) && <VerifiedBadge size="md" />}
+                <UserBadges equippedBadges={post.author.equipped_badges} size="sm" />
               </Link>
               <p className="text-sm text-muted-foreground">
                 @{post.author.username}
@@ -728,6 +731,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                     >
                       <span>{comment.author.name}</span>
                       {Boolean(comment.author.verified) && <VerifiedBadge size="sm" />}
+                      <UserBadges equippedBadges={comment.author.equipped_badges} size="xs" />
                     </Link>
                     <span className="text-xs text-muted-foreground">
                       @{comment.author.username}

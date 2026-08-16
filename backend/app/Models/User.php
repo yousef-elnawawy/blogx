@@ -33,6 +33,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'two_factor_confirmed_at',
         'notification_preferences',
         'social_links',
+        'equipped_badges',
     ];
 
     protected $hidden = [
@@ -49,6 +50,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'two_factor_confirmed_at' => 'datetime',
         'notification_preferences' => 'array',
         'social_links' => 'array',
+        'equipped_badges' => 'array',
     ];
 
     protected $appends = [
