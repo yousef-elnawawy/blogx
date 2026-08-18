@@ -8,11 +8,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import PostEditorDialog from "./create-post/PostEditorDialog";
 
 const navItems = [
-  { label: "Feed", href: "/", icon: Home, activeColor: "nav-item-feed font-bold" },
-  { label: "Search", href: "/search", icon: Search, activeColor: "nav-item-explore font-bold" },
-  { label: "Mentions", href: "/mentions", icon: AtSign, activeColor: "nav-item-mentions font-bold" },
-  { label: "Bookmarks", href: "/bookmarks", icon: Bookmark, activeColor: "nav-item-bookmarks font-bold" },
-  { label: "Profile", href: "/profile", icon: User, activeColor: "nav-item-profile font-bold" },
+  { label: "Feed", href: "/", icon: Home, activeColor: "text-primary font-bold" },
+  { label: "Search", href: "/search", icon: Search, activeColor: "text-primary font-bold" },
+  { label: "Mentions", href: "/mentions", icon: AtSign, activeColor: "text-primary font-bold" },
+  { label: "Bookmarks", href: "/bookmarks", icon: Bookmark, activeColor: "text-primary font-bold" },
+  { label: "Profile", href: "/profile", icon: User, activeColor: "text-primary font-bold" },
 ];
 
 export default function MobileBottomBar() {

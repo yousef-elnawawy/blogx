@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
-use App\Http\Controllers\Api\ArticleController;
+use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\EmailVerificationController;
@@ -99,12 +99,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/following', [ProfileController::class, 'myFollowingList']);
     Route::post('/users/{id}/follow', [ProfileController::class, 'toggleFollow']);
 
-    // Articles & Drafts
-    Route::post('/articles', [ArticleController::class, 'store']);
-    Route::post('/articles/{id}', [ArticleController::class, 'update']);
-    Route::delete('/articles/{id}', [ArticleController::class, 'destroy']);
-    Route::post('/articles/{id}/like', [ArticleController::class, 'toggleLike']);
-    Route::get('/drafts', [ArticleController::class, 'myDrafts']);
+    // Blogs & Drafts
+    Route::post('/blogs', [BlogController::class, 'store']);
+    Route::post('/blogs/{id}', [BlogController::class, 'update']);
+    Route::delete('/blogs/{id}', [BlogController::class, 'destroy']);
+    Route::post('/blogs/{id}/like', [BlogController::class, 'toggleLike']);
+    Route::post('/blogs/{id}/bookmark', [BlogController::class, 'toggleBookmark']);
+    Route::get('/drafts', [BlogController::class, 'myDrafts']);
 });
 
 // Public routes — enriched when auth token is present
@@ -117,15 +118,15 @@ Route::post('/posts/views/batch', [PostController::class, 'recordBatchImpression
 Route::get('/profile/{username}', [ProfileController::class, 'show']);
 Route::get('/profile/{username}/followers', [ProfileController::class, 'followersList']);
 Route::get('/profile/{username}/following', [ProfileController::class, 'followingList']);
-Route::get('/profile/{username}/articles', [ArticleController::class, 'userArticles']);
+Route::get('/profile/{username}/blogs', [BlogController::class, 'userBlogs']);
 Route::get('/profile/{username}/media', [ProfileController::class, 'media']);
 Route::get('/profile/{username}/likes', [ProfileController::class, 'likes']);
 Route::get('/users/suggestions', [ProfileController::class, 'suggestions']);
 
-// Articles Public
-Route::get('/articles', [ArticleController::class, 'index']);
-Route::get('/articles/featured', [ArticleController::class, 'featured']);
-Route::get('/articles/{slugOrId}', [ArticleController::class, 'show']);
+// Blogs Public
+Route::get('/blogs', [BlogController::class, 'index']);
+Route::get('/blogs/featured', [BlogController::class, 'featured']);
+Route::get('/blogs/{slugOrId}', [BlogController::class, 'show']);
 
 // Search, Hashtags & Mention suggestions (public)
 Route::get('/search', [SearchController::class, 'search']);

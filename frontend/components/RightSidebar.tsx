@@ -114,7 +114,7 @@ export default function RightSidebar() {
               <TrendingUp className="size-5" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-lg font-bold text-foreground">Trending Hashtags</h2>
+              <h2 className="text-lg font-bold text-foreground font-[family-name:var(--font-fraunces)]">Trending Hashtags</h2>
               <p className="text-sm text-muted-foreground">
                 Discover what people are posting about right now.
               </p>
@@ -176,7 +176,7 @@ export default function RightSidebar() {
         {suggestions.length > 0 && (
           <div className="rounded-2xl border border-border bg-card overflow-hidden">
             <div className="px-4 pt-4 pb-2">
-              <h2 className="text-lg font-bold text-foreground">Who to follow</h2>
+              <h2 className="text-lg font-bold text-foreground font-[family-name:var(--font-fraunces)]">Who to follow</h2>
             </div>
             <div className="divide-y divide-border/50">
               {suggestions.map((person) => {

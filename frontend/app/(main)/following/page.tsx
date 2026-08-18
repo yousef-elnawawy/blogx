@@ -141,7 +141,7 @@ export default function FollowingPage() {
               <ArrowLeft className="size-5" />
             </button>
             <div>
-              <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight flex items-center gap-2 font-[family-name:var(--font-fraunces)]">
                 <UserCheck className="size-4 text-brand-following" strokeWidth={2.5} />
                 <span>Following</span>
               </h1>

@@ -42,6 +42,27 @@ class SearchController extends Controller
             $result['posts'] = $posts->values();
         }
 
+        if (in_array($type, ['all', 'blogs'])) {
+            $blogController = new BlogController();
+            $cleanQ = ltrim($q, '#');
+            $blogs = \App\Models\Blog::published()
+                ->with('user')
+                ->withCount('likes')
+                ->where(function ($w) use ($q, $cleanQ) {
+                    $w->where('title', 'like', "%{$q}%")
+                      ->orWhere('content', 'like', "%{$q}%")
+                      ->orWhere('excerpt', 'like', "%{$q}%")
+                      ->orWhereJsonContains('tags', $cleanQ)
+                      ->orWhereJsonContains('tags', $q);
+                })
+                ->latest('published_at')
+                ->take(20)
+                ->get()
+                ->map(fn($b) => $blogController->formatBlog($b, $user));
+
+            $result['blogs'] = $blogs->values();
+        }
+
         if (in_array($type, ['all', 'people'])) {
             $peopleLimit = ($type === 'all') ? 6 : 30;
             $people = User::where('name', 'like', "%{$q}%")
@@ -116,7 +137,7 @@ class SearchController extends Controller
     }
 
     /**
-     * Return paginated posts for a specific hashtag.
+     * Return paginated posts and blogs for a specific hashtag.
      */
     public function hashtagPosts(Request $request, string $tag)
     {
@@ -124,16 +145,30 @@ class SearchController extends Controller
         $cleanTag = mb_strtolower(ltrim($tag, '#'));
 
         $hashtag = Hashtag::where('tag', $cleanTag)->first();
+        $postController = new PostController();
+        $blogController = new BlogController();
+
+        $blogs = \App\Models\Blog::published()
+            ->with('user')
+            ->withCount('likes')
+            ->where(function ($w) use ($cleanTag) {
+                $w->whereJsonContains('tags', $cleanTag)
+                  ->orWhere('title', 'like', "%#{$cleanTag}%")
+                  ->orWhere('content', 'like', "%#{$cleanTag}%");
+            })
+            ->latest('published_at')
+            ->take(20)
+            ->get()
+            ->map(fn($b) => $blogController->formatBlog($b, $user));
 
         if (!$hashtag) {
             return response()->json([
-                'hashtag'     => ['tag' => $cleanTag, 'usage_count' => 0],
+                'hashtag'     => ['tag' => $cleanTag, 'usage_count' => count($blogs)],
                 'posts'       => [],
-                'total'       => 0,
+                'blogs'       => $blogs,
+                'total'       => count($blogs),
             ]);
         }
-
-        $postController = new PostController();
 
         $posts = $hashtag->posts()
             ->with(['user', 'images'])
@@ -151,6 +186,7 @@ class SearchController extends Controller
                 'usage_count' => $hashtag->usage_count,
             ],
             'posts' => $posts,
+            'blogs' => $blogs,
         ]);
     }
 

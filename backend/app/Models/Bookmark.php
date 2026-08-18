@@ -12,6 +12,7 @@ class Bookmark extends Model
     protected $fillable = [
         'user_id',
         'post_id',
+        'blog_id',
     ];
 
     // Relationships
@@ -23,5 +24,10 @@ class Bookmark extends Model
     public function post()
     {
         return $this->belongsTo(Post::class);
+    }
+
+    public function blog()
+    {
+        return $this->belongsTo(Blog::class);
     }
 }

@@ -60,7 +60,7 @@ function SettingsContent() {
             >
               <ArrowLeft className="size-5" />
             </button>
-            <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight">
+            <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight font-[family-name:var(--font-fraunces)]">
               Settings
             </h1>
           </div>

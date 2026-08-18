@@ -23,7 +23,6 @@ import {
   BookOpen,
   FileText,
 } from "lucide-react";
-import ArticleEditorDialog from "@/components/article/ArticleEditorDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn, getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
@@ -40,7 +39,6 @@ export default function MobileHeader() {
   const { unreadCount } = useNotifications();
   const { setTheme, resolvedTheme } = useTheme();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [articleEditorOpen, setArticleEditorOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -71,8 +69,8 @@ export default function MobileHeader() {
       iconActiveClass: "nav-item-feed stroke-[2.5]",
     },
     {
-      label: "Articles",
-      href: "/articles",
+      label: "Blog",
+      href: "/blogs",
       icon: BookOpen,
       colorClass: "nav-item-articles",
       activeClass: "nav-item-articles-active",
@@ -293,13 +291,13 @@ export default function MobileHeader() {
                 <Button
                   onClick={() => {
                     setDrawerOpen(false);
-                    setArticleEditorOpen(true);
+                    router.push("/blogs/new");
                   }}
                   variant="outline"
-                  className="w-full h-9 rounded-full border-border/80 text-xs font-semibold gap-1.5"
+                  className="w-full h-9 rounded-md border-border/80 text-xs font-semibold gap-1.5"
                 >
                   <BookOpen className="size-3.5 text-primary" />
-                  <span>Write Article</span>
+                  <span>Write Blog</span>
                 </Button>
               </div>
             ) : (
@@ -310,7 +308,7 @@ export default function MobileHeader() {
                     router.push("/login");
                   }}
                   variant="outline"
-                  className="w-full rounded-full text-xs font-bold"
+                  className="w-full rounded-md text-xs font-bold"
                 >
                   Sign In
                 </Button>
@@ -319,7 +317,7 @@ export default function MobileHeader() {
                     setDrawerOpen(false);
                     router.push("/signup");
                   }}
-                  className="w-full rounded-full text-xs font-bold bg-primary text-primary-foreground"
+                  className="w-full rounded-md text-xs font-bold bg-primary text-primary-foreground"
                 >
                   Get Started
                 </Button>
@@ -337,15 +335,15 @@ export default function MobileHeader() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setDrawerOpen(false)}
-                    className={`flex items-center justify-between px-3.5 py-3 rounded-xl text-sm font-medium transition-colors ${
+                    className={`flex items-center justify-between px-3.5 py-2.5 rounded-md text-sm font-medium transition-colors ${
                       active
-                        ? item.activeClass
-                        : `text-foreground/80 ${item.hoverClass}`
+                        ? "bg-primary/10 text-primary font-bold shadow-2xs"
+                        : "text-foreground/80 hover:text-foreground hover:bg-muted/60"
                     }`}
                   >
                     <div className="flex items-center gap-3.5">
                       <Icon
-                        className={`size-5 ${active ? item.iconActiveClass : item.colorClass}`}
+                        className={`size-5 ${active ? "text-primary stroke-[2.5]" : "text-muted-foreground"}`}
                         strokeWidth={active ? 2.5 : 2}
                       />
                       <span>{item.label}</span>
@@ -377,11 +375,6 @@ export default function MobileHeader() {
           </div>
         </div>
       )}
-
-      <ArticleEditorDialog
-        open={articleEditorOpen}
-        onOpenChange={setArticleEditorOpen}
-      />
     </>
   );
 }

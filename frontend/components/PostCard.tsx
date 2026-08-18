@@ -409,7 +409,7 @@ export default function PostCard({
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-teal-500 hover:bg-teal-500/10 rounded-full transition-colors"
+                      className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-teal-500 hover:bg-teal-500/10 rounded-md transition-colors"
                     >
                       <MessageSquare className="size-[16px]" />
                       {comments_count > 0 && <span>{formatCount(comments_count)}</span>}
@@ -423,7 +423,7 @@ export default function PostCard({
                     onClick={handleLike}
                     disabled={false}
                     className={cn(
-                      "h-8 px-2 gap-1.5 text-xs font-medium rounded-full transition-colors",
+                      "h-8 px-2 gap-1.5 text-xs font-medium rounded-md transition-colors",
                       liked
                         ? "text-brand-like hover:text-brand-like hover:bg-brand-like-subtle"
                         : "text-[#78716C] hover:text-brand-like hover:bg-brand-like-subtle"
@@ -438,7 +438,7 @@ export default function PostCard({
                     variant="ghost"
                     size="sm"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
+                    className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
                   >
                     <BarChart3 className="size-[16px]" />
                     <span>{formatCount(viewCount)}</span>
@@ -453,7 +453,7 @@ export default function PostCard({
                     size="sm"
                     onClick={handleBookmark}
                     className={cn(
-                      "h-8 px-2 rounded-full transition-colors",
+                      "h-8 px-2 rounded-md transition-colors",
                       bookmarked
                         ? "text-brand-bookmark hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
                         : "text-[#78716C] hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
@@ -470,7 +470,7 @@ export default function PostCard({
                       e.stopPropagation();
                       setShareDialogOpen(true);
                     }}
-                    className="h-8 px-2 text-[#78716C] hover:text-cyan-500 hover:bg-cyan-500/10 rounded-full transition-colors"
+                    className="h-8 px-2 text-[#78716C] hover:text-cyan-500 hover:bg-cyan-500/10 rounded-md transition-colors"
                   >
                     <Share2 className="size-[16px]" />
                   </Button>

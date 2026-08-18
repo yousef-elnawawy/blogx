@@ -749,7 +749,7 @@ export default function PostEditorDialog({
               onInsertEmoji={insertEmoji}
               onOpenArticleEditor={() => {
                 onOpenChange(false);
-                router.push("/articles");
+                router.push("/blogs/new");
               }}
               imageCount={images.length}
               contentLength={contentLength}
@@ -764,7 +764,7 @@ export default function PostEditorDialog({
               onClick={() => handlePost("draft")}
               disabled={!canPost}
               size="sm"
-              className="h-8 rounded-full px-3 sm:px-3.5 text-xs font-semibold"
+              className="h-8 rounded-md px-3 sm:px-3.5 text-xs font-semibold"
             >
               {submitting && submittingAction === "draft" ? (
                 <Loader2 className="size-3.5 animate-spin mr-1" />
@@ -776,7 +776,7 @@ export default function PostEditorDialog({
               onClick={() => handlePost("published")}
               disabled={!canPost}
               size="sm"
-              className="h-8 rounded-full px-4.5 sm:px-5 text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90 min-w-[68px] cursor-pointer font-bold shadow-xs hover:shadow-sm transition-all"
+              className="h-8 rounded-md px-4.5 sm:px-5 text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90 min-w-[68px] cursor-pointer font-bold shadow-xs hover:shadow-sm transition-all"
             >
               {submitting && submittingAction === "published" ? (
                 <Loader2 className="size-3.5 animate-spin" />

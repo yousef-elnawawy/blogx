@@ -36,8 +36,7 @@ import {
   Trash2,
 } from "lucide-react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
-import ArticleCard, { ArticleItem } from "@/components/article/ArticleCard";
-import ArticleEditorDialog, { ArticleEditorInitialData } from "@/components/article/ArticleEditorDialog";
+import BlogCard, { BlogItem } from "@/components/blog/BlogCard";
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import api from "@/lib/api";
 import { cn, getAvatarUrl, getAvatarGradient, getDefaultBannerGradient, getInitials, detectSocialPlatform } from "@/lib/utils";
@@ -110,12 +109,10 @@ function UserProfileContent() {
 
   const [profileUser, setProfileUser] = useState<ProfileUser | null>(null);
   const [userPosts, setUserPosts] = useState<PostCardProps[]>([]);
-  const [userArticles, setUserArticles] = useState<ArticleItem[]>([]);
+  const [userArticles, setUserArticles] = useState<BlogItem[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
   const [articlesLoaded, setArticlesLoaded] = useState(false);
-
-  // Drafts state (only for profile owner)
-  const [articleDrafts, setArticleDrafts] = useState<ArticleItem[]>([]);
+  const [articleDrafts, setArticleDrafts] = useState<BlogItem[]>([]);
   const [postDrafts, setPostDrafts] = useState<PostCardProps[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [draftsLoaded, setDraftsLoaded] = useState(false);
@@ -127,7 +124,7 @@ function UserProfileContent() {
 
   // Likes state
   const [likedPosts, setLikedPosts] = useState<PostCardProps[]>([]);
-  const [likedArticles, setLikedArticles] = useState<ArticleItem[]>([]);
+  const [likedArticles, setLikedArticles] = useState<BlogItem[]>([]);
   const [likesLoading, setLikesLoading] = useState(false);
   const [likesLoaded, setLikesLoaded] = useState(false);
 
@@ -136,8 +133,6 @@ function UserProfileContent() {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   // Editor states
-  const [articleEditorOpen, setArticleEditorOpen] = useState(false);
-  const [selectedArticleDraft, setSelectedArticleDraft] = useState<ArticleEditorInitialData | null>(null);
   const [postEditorOpen, setPostEditorOpen] = useState(false);
   const [selectedPostDraft, setSelectedPostDraft] = useState<any>(null);
 
@@ -152,8 +147,8 @@ function UserProfileContent() {
     !authLoading && currentUser?.username === username;
 
   const profileTabs = isOwnProfile
-    ? ["Posts", "Articles", "Drafts", "Media", "Likes"]
-    : ["Posts", "Articles", "Media", "Likes"];
+    ? ["Posts", "Blog", "Drafts", "Media", "Likes"]
+    : ["Posts", "Blog", "Media", "Likes"];
 
   // Fetch base profile data
   useEffect(() => {
@@ -200,12 +195,12 @@ function UserProfileContent() {
     };
   }, [username, currentUser?.username]);
 
-  // Fetch articles when Articles tab is active
+  // Fetch blogs when Blog tab is active
   const fetchArticles = useCallback(() => {
     if (!username) return;
     setArticlesLoading(true);
     api
-      .get(`/api/profile/${username}/articles`)
+      .get(`/api/profile/${username}/blogs`)
       .then((res) => {
         setUserArticles(res.data.data ?? []);
         setArticlesLoaded(true);
@@ -215,7 +210,7 @@ function UserProfileContent() {
   }, [username]);
 
   useEffect(() => {
-    if (activeTab === "Articles" && !articlesLoaded) {
+    if (activeTab === "Blog" && !articlesLoaded) {
       fetchArticles();
     }
   }, [activeTab, articlesLoaded, fetchArticles]);
@@ -309,22 +304,13 @@ function UserProfileContent() {
   };
 
   // Draft actions
-  const handleEditArticleDraft = (art: ArticleItem) => {
-    setSelectedArticleDraft({
-      id: art.id,
-      title: art.title,
-      content: art.content,
-      excerpt: art.excerpt,
-      cover_image: art.cover_image,
-      tags: art.tags,
-      status: art.status,
-    });
-    setArticleEditorOpen(true);
+  const handleEditArticleDraft = (blog: BlogItem) => {
+    router.push(`/blogs/${encodeURIComponent(blog.slug)}/edit`);
   };
 
   const handleDeleteArticleDraft = async (id: number) => {
     try {
-      await api.delete(`/api/articles/${id}`);
+      await api.delete(`/api/blogs/${id}`);
       setArticleDrafts((prev) => prev.filter((d) => d.id !== id));
       toast.success("Draft deleted");
     } catch {
@@ -422,7 +408,7 @@ function UserProfileContent() {
         </button>
         <div>
           <div className="flex items-center gap-1">
-            <h1 className="text-base font-bold text-foreground leading-tight">
+            <h1 className="text-base font-bold text-foreground leading-tight font-[family-name:var(--font-fraunces)]">
               {profileUser.name}
             </h1>
             {Boolean(profileUser.verified) && <VerifiedBadge size="sm" />}
@@ -499,7 +485,7 @@ function UserProfileContent() {
         {/* User Names */}
         <div className="mb-3">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h2 className="text-xl font-bold text-foreground">
+            <h2 className="text-xl font-bold text-foreground font-[family-name:var(--font-fraunces)]">
               {profileUser.name}
             </h2>
             {Boolean(profileUser.verified) && <VerifiedBadge size="md" />}
@@ -683,7 +669,7 @@ function UserProfileContent() {
       )}
 
       {/* ── TAB: ARTICLES ── */}
-      {activeTab === "Articles" && (
+      {activeTab === "Blog" && (
         <div>
           {articlesLoading ? (
             <div className="py-16 text-center">
@@ -692,32 +678,29 @@ function UserProfileContent() {
           ) : userArticles.length > 0 ? (
             <div className="divide-y divide-border/60">
               {userArticles.map((art) => (
-                <ArticleCard key={art.id} article={art} />
+                <BlogCard key={art.id} blog={art} />
               ))}
             </div>
           ) : (
             <div className="p-12 text-center max-w-sm mx-auto">
-              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <BookOpen className="size-8" />
               </div>
-              <h3 className="mb-1 text-lg font-bold text-foreground">
-                No articles yet
+              <h3 className="mb-1 text-lg font-bold text-foreground font-[family-name:var(--font-fraunces)]">
+                No blog posts yet
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed mb-4">
                 {isOwnProfile
-                  ? "Write and publish comprehensive long-form articles, guides, or stories."
-                  : `@${profileUser.username} hasn't published any articles yet.`}
+                  ? "Write and publish comprehensive long-form blog posts, guides, or stories."
+                  : `@${profileUser.username} hasn't published any blog posts yet.`}
               </p>
               {isOwnProfile && (
                 <Button
-                  onClick={() => {
-                    setSelectedArticleDraft(null);
-                    setArticleEditorOpen(true);
-                  }}
-                  className="rounded-full text-xs font-bold gap-1.5"
+                  onClick={() => router.push("/blogs/new")}
+                  className="rounded-md text-xs font-bold gap-1.5"
                 >
                   <Plus className="size-4" />
-                  Write an Article
+                  Write a Blog Post
                 </Button>
               )}
             </div>
@@ -772,11 +755,11 @@ function UserProfileContent() {
                     Article Drafts ({articleDrafts.length})
                   </div>
                   {articleDrafts.map((d) => (
-                    <ArticleCard
+                    <BlogCard
                       key={d.id}
-                      article={d}
+                      blog={d}
                       isDraft={true}
-                      onEditDraft={handleEditArticleDraft}
+                      onEditDraft={(b) => router.push(`/blogs/${b.slug}/edit`)}
                       onDeleteDraft={handleDeleteArticleDraft}
                     />
                   ))}
@@ -854,7 +837,7 @@ function UserProfileContent() {
               {userMedia.map((m, idx) => (
                 <Link
                   key={m.id || idx}
-                  href={m.type === "article_cover" ? `/article/${encodeURIComponent(m.article_slug)}` : `/post/${m.post_id}`}
+                  href={m.type === "article_cover" || m.type === "blog_cover" ? `/blog/${encodeURIComponent(m.blog_slug || m.article_slug)}` : `/post/${m.post_id}`}
                   className="aspect-square rounded-xl overflow-hidden border border-border/60 bg-muted relative group shadow-2xs block"
                 >
                   <img
@@ -910,7 +893,7 @@ function UserProfileContent() {
             <div>
               {/* Liked Articles */}
               {likedArticles.map((art) => (
-                <ArticleCard key={`liked_art_${art.id}`} article={art} />
+                <BlogCard key={`liked_art_${art.id}`} blog={art} />
               ))}
 
               {/* Liked Posts */}
@@ -999,16 +982,7 @@ function UserProfileContent() {
         />
       )}
 
-      {/* Article Editor Dialog */}
-      <ArticleEditorDialog
-        open={articleEditorOpen}
-        onOpenChange={setArticleEditorOpen}
-        initialData={selectedArticleDraft}
-        onSaved={() => {
-          fetchArticles();
-          if (isOwnProfile) fetchDrafts();
-        }}
-      />
+
 
       {/* Post Editor Dialog for editing post drafts */}
       <PostEditorDialog

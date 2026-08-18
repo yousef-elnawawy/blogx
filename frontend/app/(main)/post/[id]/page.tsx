@@ -504,7 +504,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
           >
             <ArrowLeft className="size-5" />
           </button>
-          <h1 className="text-xl font-bold text-foreground">Post</h1>
+          <h1 className="text-xl font-bold text-foreground font-[family-name:var(--font-fraunces)]">Post</h1>
         </div>
       </div>
 

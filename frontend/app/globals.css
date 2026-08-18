@@ -135,7 +135,7 @@
   --sidebar-border: oklch(82.75% 0.0393 69.11);
   --sidebar-ring: oklch(76.97% 0.1645 70.61);
 
-  --radius: 1rem;
+  --radius: 0.5rem;
 
   /* ─── Text Selection Hierarchy Tokens (Light Mode) ─── */
   /* Standard body & paragraph text: Warm refined Amber/Honey wash */

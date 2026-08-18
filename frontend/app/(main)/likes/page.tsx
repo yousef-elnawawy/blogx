@@ -2,19 +2,19 @@
 
 import { useEffect, useState } from "react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
-import ArticleCard, { ArticleItem } from "@/components/article/ArticleCard";
+import BlogCard, { BlogItem } from "@/components/blog/BlogCard";
 import { Loader2, Heart, ArrowLeft, BookOpen, Layers } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-type TabType = "all" | "posts" | "articles";
+type TabType = "all" | "posts" | "blogs";
 
 export default function LikedPostsPage() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<PostCardProps[]>([]);
-  const [articles, setArticles] = useState<ArticleItem[]>([]);
+  const [articles, setArticles] = useState<BlogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const router = useRouter();
@@ -54,9 +54,9 @@ export default function LikedPostsPage() {
     return () => window.removeEventListener("post-deleted", handlePostDeleted);
   }, [user?.username]);
 
-  const displayedPosts = activeTab === "articles" ? [] : posts;
-  const displayedArticles = activeTab === "posts" ? [] : articles;
-  const totalCount = displayedPosts.length + displayedArticles.length;
+  const displayedPosts = activeTab === "blogs" ? [] : posts;
+  const displayedBlogs = activeTab === "posts" ? [] : articles;
+  const totalCount = displayedPosts.length + displayedBlogs.length;
 
   return (
     <div className="min-h-screen">
@@ -66,7 +66,7 @@ export default function LikedPostsPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="p-1.5 -ml-1.5 rounded-full hover:bg-muted transition-colors cursor-pointer"
+              className="p-1.5 -ml-1.5 rounded-md hover:bg-muted transition-colors cursor-pointer"
               aria-label="Back"
             >
               <ArrowLeft className="size-5 text-foreground" />
@@ -74,12 +74,12 @@ export default function LikedPostsPage() {
             <div>
               <div className="flex items-center gap-2">
                 <Heart className="size-5 text-brand-like fill-brand-like" />
-                <h1 className="text-lg font-black text-foreground leading-tight">
+                <h1 className="text-lg font-black text-foreground leading-tight font-[family-name:var(--font-fraunces)]">
                   Likes
                 </h1>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Posts and stories you&apos;ve liked
+                Posts and blogs you&apos;ve liked
               </p>
             </div>
           </div>
@@ -117,14 +117,14 @@ export default function LikedPostsPage() {
 
           <button
             type="button"
-            onClick={() => setActiveTab("articles")}
+            onClick={() => setActiveTab("blogs")}
             className={cn(
               "py-3 text-xs sm:text-sm font-bold transition-colors relative cursor-pointer",
-              activeTab === "articles" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+              activeTab === "blogs" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <span>Articles ({articles.length})</span>
-            {activeTab === "articles" && (
+            <span>Blog ({articles.length})</span>
+            {activeTab === "blogs" && (
               <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
             )}
           </button>
@@ -152,21 +152,21 @@ export default function LikedPostsPage() {
         </div>
       ) : totalCount === 0 ? (
         <div className="p-12 text-center space-y-3">
-          <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-brand-like-subtle text-brand-like">
+          <div className="mx-auto flex size-14 items-center justify-center rounded-lg bg-brand-like-subtle text-brand-like">
             <Heart className="size-7 fill-current" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-foreground">No liked {activeTab === "all" ? "content" : activeTab}</h2>
+            <h2 className="text-base font-bold text-foreground font-[family-name:var(--font-fraunces)]">No liked {activeTab === "all" ? "content" : activeTab}</h2>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
-              When you like posts or articles on BlogX, they will show up here.
+              When you like posts or blogs on BlogX, they will show up here.
             </p>
           </div>
         </div>
       ) : (
         <div className="divide-y divide-border/60">
-          {/* Liked Articles */}
-          {displayedArticles.map((art) => (
-            <ArticleCard key={`liked_art_${art.id}`} article={art} />
+          {/* Liked Blogs */}
+          {displayedBlogs.map((art) => (
+            <BlogCard key={`liked_art_${art.id}`} blog={art} />
           ))}
 
           {/* Liked Posts */}

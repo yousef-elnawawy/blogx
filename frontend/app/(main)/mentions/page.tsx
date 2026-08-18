@@ -190,7 +190,7 @@ export default function MentionsPage() {
                 <div className="grid place-items-center size-7 rounded-lg bg-brand-mention-subtle text-brand-mention">
                   <AtSign className="size-4" strokeWidth={2.5} />
                 </div>
-                <h1 className="text-lg font-bold text-foreground leading-tight">
+                <h1 className="text-lg font-bold text-foreground leading-tight font-[family-name:var(--font-fraunces)]">
                   Mentions
                 </h1>
               </div>

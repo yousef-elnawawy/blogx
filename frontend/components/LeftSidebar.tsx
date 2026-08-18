@@ -21,7 +21,6 @@ import {
   FileText,
   Plus,
 } from "lucide-react";
-import ArticleEditorDialog from "@/components/article/ArticleEditorDialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
@@ -71,8 +70,8 @@ const mainNavItems: NavItem[] = [
     iconActiveClass: "nav-item-feed stroke-[2.5]",
   },
   {
-    label: "Articles",
-    href: "/articles",
+    label: "Blog",
+    href: "/blogs",
     icon: BookOpen,
     colorClass: "nav-item-articles",
     activeClass: "nav-item-articles-active",
@@ -169,7 +168,6 @@ export default function LeftSidebar() {
   const { unreadCount } = useNotifications();
   const { setTheme, resolvedTheme } = useTheme();
   const [createPostOpen, setCreatePostOpen] = useState(false);
-  const [articleEditorOpen, setArticleEditorOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -218,14 +216,14 @@ export default function LeftSidebar() {
       <li key={item.href}>
         <Link
           href={getNavHref(item)}
-          className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-[13.5px] transition-all duration-150 ${active
-              ? item.activeClass
-              : `text-foreground/80 ${item.hoverClass}`
+          className={`group flex items-center gap-3 rounded-md px-3 py-2 text-[13.5px] transition-all duration-150 ${active
+              ? "bg-primary/10 text-primary font-bold shadow-2xs"
+              : "text-foreground/80 hover:text-foreground hover:bg-muted/60 font-medium"
             }`}
         >
           <div className="relative shrink-0">
             <Icon
-              className={`size-[19px] transition-transform duration-150 group-hover:scale-110 ${active ? item.iconActiveClass : item.colorClass
+              className={`size-[19px] transition-transform duration-150 group-hover:scale-105 ${active ? "text-primary stroke-[2.5]" : "text-muted-foreground group-hover:text-foreground"
                 }`}
               strokeWidth={active ? 2.5 : 2}
             />
@@ -294,7 +292,7 @@ export default function LeftSidebar() {
           <div className="mt-4 px-1 space-y-1.5">
             <Button
               onClick={() => setCreatePostOpen(true)}
-              className="w-full h-9 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-[13px] font-bold shadow-xs hover:shadow-sm transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full h-9 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 text-xs sm:text-[13px] font-bold shadow-xs hover:shadow-sm transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <PenSquare className="size-3.5" />
               <span>Create Post</span>
@@ -302,11 +300,11 @@ export default function LeftSidebar() {
 
             <Button
               variant="outline"
-              onClick={() => setArticleEditorOpen(true)}
-              className="w-full h-8 rounded-full border-border/70 hover:border-primary/50 text-xs font-semibold text-foreground/80 hover:text-primary hover:bg-muted/50 transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer"
+              onClick={() => router.push("/blogs/new")}
+              className="w-full h-8 rounded-md border-border/70 hover:border-primary/50 text-xs font-semibold text-foreground/80 hover:text-primary hover:bg-muted/50 transition-all duration-150 flex items-center justify-center gap-1.5 cursor-pointer"
             >
               <BookOpen className="size-3.5 text-primary" />
-              <span>Write Article</span>
+              <span>Write Blog</span>
             </Button>
           </div>
         )}
@@ -325,7 +323,7 @@ export default function LeftSidebar() {
         ) : user ? (
           <DropdownMenu>
             <DropdownMenuTrigger className="w-full outline-none">
-              <div className="flex items-center gap-2.5 rounded-xl px-2 py-1.5 hover:bg-muted/70 transition-colors cursor-pointer text-start">
+              <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-muted/70 transition-colors cursor-pointer text-start">
                 <Avatar className="size-8.5 ring-1.5 ring-border/50 shrink-0">
                   <AvatarImage src={avatarUrl} />
                   <AvatarFallback className={`text-[11px] font-bold ${getAvatarGradient(user.username || user.name)}`}>
@@ -429,7 +427,6 @@ export default function LeftSidebar() {
       </div>
 
       <PostEditorDialog open={createPostOpen} onOpenChange={setCreatePostOpen} />
-      <ArticleEditorDialog open={articleEditorOpen} onOpenChange={setArticleEditorOpen} />
 
       <AlertDialog open={logoutDialogOpen} onOpenChange={setLogoutDialogOpen}>
         <AlertDialogContent>

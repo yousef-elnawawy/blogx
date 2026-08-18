@@ -19,10 +19,12 @@ import {
   Sparkles,
   ArrowRight,
   Flame,
+  BookOpen,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import PostCard, { PostCardProps } from "@/components/PostCard";
+import BlogCard, { BlogItem } from "@/components/blog/BlogCard";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import api from "@/lib/api";
 import { getAvatarUrl, cn } from "@/lib/utils";
@@ -52,7 +54,7 @@ interface HashtagResult {
   usage_count: number;
 }
 
-type Tab = "all" | "people" | "posts" | "hashtags";
+type Tab = "all" | "posts" | "blogs" | "people" | "hashtags";
 
 const RECENT_SEARCHES_KEY = "blogx_recent_searches";
 
@@ -342,6 +344,7 @@ function SearchPageContent() {
   const [loading, setLoading] = useState(false);
 
   const [posts, setPosts] = useState<PostCardProps[]>([]);
+  const [blogs, setBlogs] = useState<BlogItem[]>([]);
   const [people, setPeople] = useState<UserResult[]>([]);
   const [hashtags, setHashtags] = useState<HashtagResult[]>([]);
 
@@ -418,6 +421,7 @@ function SearchPageContent() {
     async (q: string, tab: Tab) => {
       if (!q.trim()) {
         setPosts([]);
+        setBlogs([]);
         setPeople([]);
         setHashtags([]);
         return;
@@ -428,6 +432,7 @@ function SearchPageContent() {
           `/api/search?q=${encodeURIComponent(q)}&type=${tab}`
         );
         setPosts(res.data.posts || []);
+        setBlogs(res.data.blogs || []);
         setPeople(res.data.people || []);
         setHashtags(res.data.hashtags || []);
       } catch {
@@ -480,10 +485,11 @@ function SearchPageContent() {
   };
 
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
-    { id: "all", label: "All", icon: <Layers className="size-4" /> },
-    { id: "people", label: "People", icon: <Users className="size-4" /> },
+    { id: "all", label: "Top", icon: <Layers className="size-4" /> },
     { id: "posts", label: "Posts", icon: <FileText className="size-4" /> },
-    { id: "hashtags", label: "Hashtags", icon: <Hash className="size-4" /> },
+    { id: "blogs", label: "Blog", icon: <BookOpen className="size-4" /> },
+    { id: "people", label: "People", icon: <Users className="size-4" /> },
+    { id: "hashtags", label: "Topics", icon: <Hash className="size-4" /> },
   ];
 
   const hasQuery = query.trim() !== "";
@@ -603,6 +609,32 @@ function SearchPageContent() {
                 </div>
               )}
 
+              {/* Top Blogs Section */}
+              {blogs.length > 0 && (
+                <div className="border-b border-border">
+                  <div className="flex items-center justify-between px-4 py-3 bg-muted/20 sm:px-6">
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="size-4 text-primary" />
+                      <h2 className="text-sm font-bold text-foreground">Blog Stories</h2>
+                    </div>
+                    {blogs.length > 2 && (
+                      <button
+                        onClick={() => handleTabChange("blogs")}
+                        className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                      >
+                        View all
+                        <ArrowRight className="size-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    {blogs.slice(0, 3).map((blog) => (
+                      <BlogCard key={blog.id} blog={blog} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Posts Feed */}
               {posts.length > 0 && (
                 <div>
@@ -617,7 +649,7 @@ function SearchPageContent() {
               )}
 
               {/* No results at all */}
-              {people.length === 0 && hashtags.length === 0 && posts.length === 0 && (
+              {people.length === 0 && hashtags.length === 0 && posts.length === 0 && blogs.length === 0 && (
                 <EmptyState
                   title={`No results for "${query}"`}
                   subtitle="Try searching for something else, checking for spelling errors, or browsing trending topics."
@@ -659,6 +691,25 @@ function SearchPageContent() {
                 <EmptyState
                   title={`No posts found for "${query}"`}
                   subtitle="Try searching for different keywords or hashtags."
+                  onReset={handleClear}
+                />
+              )}
+            </div>
+          )}
+
+          {/* TAB: BLOGS */}
+          {activeTab === "blogs" && (
+            <div>
+              {blogs.length > 0 ? (
+                <div className="divide-y divide-border/60">
+                  {blogs.map((blog) => (
+                    <BlogCard key={blog.id} blog={blog} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title={`No blog stories found for "${query}"`}
+                  subtitle="Try searching for different blog topics or keywords."
                   onReset={handleClear}
                 />
               )}

@@ -232,19 +232,31 @@ class PostController extends Controller
     {
         $user = $request->user();
 
-        $posts = Post::whereHas('bookmarks', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
-        })
-        ->with(['user', 'images', 'mentions.user'])
-        ->withCount(['likes', 'comments'])
-        ->latest()
-        ->paginate(15);
+        $postIds = \App\Models\Bookmark::where('user_id', $user->id)->whereNotNull('post_id')->pluck('post_id');
+        $blogIds = \App\Models\Bookmark::where('user_id', $user->id)->whereNotNull('blog_id')->pluck('blog_id');
 
-        $posts->getCollection()->transform(function ($post) use ($user) {
-            return $this->formatPost($post, $user);
-        });
+        $posts = Post::whereIn('id', $postIds)
+            ->with(['user', 'images', 'mentions.user'])
+            ->withCount(['likes', 'comments'])
+            ->latest()
+            ->get()
+            ->map(fn($p) => $this->formatPost($p, $user));
 
-        return response()->json($posts);
+        $blogController = new BlogController();
+        $blogs = \App\Models\Blog::whereIn('id', $blogIds)
+            ->published()
+            ->with('user')
+            ->withCount('likes')
+            ->latest('published_at')
+            ->get()
+            ->map(fn($b) => $blogController->formatBlog($b, $user));
+
+        return response()->json([
+            'data'     => $posts,
+            'posts'    => $posts,
+            'blogs'    => $blogs,
+            'articles' => $blogs,
+        ]);
     }
 
     /**

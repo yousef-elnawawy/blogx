@@ -110,7 +110,7 @@ export function SuggestedUsersFeedCard() {
       <div className="flex items-center justify-between px-4 sm:px-5 mb-3">
         <div className="flex items-center gap-2">
           <UserPlus className="size-4 text-primary" />
-          <h3 className="text-sm font-bold text-foreground">
+          <h3 className="text-sm font-bold text-foreground font-[family-name:var(--font-fraunces)]">
             Who to follow
           </h3>
         </div>
@@ -208,10 +208,11 @@ export function FeaturedArticleFeedCard() {
 
   useEffect(() => {
     api
-      .get("/api/articles/featured")
+      .get("/api/blogs/featured")
       .then((res) => {
-        if (res.data.article) {
-          setArticle(res.data.article);
+        const item = res.data.blog || res.data.article;
+        if (item) {
+          setArticle(item);
         }
       })
       .catch(() => {})
@@ -244,10 +245,10 @@ export function FeaturedArticleFeedCard() {
         </div>
 
         <Link
-          href="/articles"
+          href="/blogs"
           className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
         >
-          <span>All articles</span>
+          <span>All posts</span>
           <ArrowRight className="size-3" />
         </Link>
       </div>
@@ -255,8 +256,8 @@ export function FeaturedArticleFeedCard() {
       {/* Large Cover Image (if available) */}
       {article.cover_image && (
         <Link
-          href={`/article/${encodeURIComponent(article.slug)}`}
-          className="block relative w-full h-48 sm:h-64 rounded-xl overflow-hidden bg-muted mb-3 border border-border/60"
+          href={`/blog/${encodeURIComponent(article.slug)}`}
+          className="block relative w-full h-48 sm:h-64 rounded-lg overflow-hidden bg-muted mb-3 border border-border/60"
         >
           <img
             src={getAvatarUrl(article.cover_image)}
@@ -267,8 +268,8 @@ export function FeaturedArticleFeedCard() {
       )}
 
       {/* Title */}
-      <Link href={`/article/${encodeURIComponent(article.slug)}`} className="block mb-1.5">
-        <h2 className="text-lg sm:text-2xl font-bold text-foreground group-hover:text-primary transition-colors leading-snug">
+      <Link href={`/blog/${encodeURIComponent(article.slug)}`} className="block mb-1.5">
+        <h2 className="text-lg sm:text-2xl font-bold text-foreground group-hover:text-primary transition-colors leading-snug font-[family-name:var(--font-fraunces)]">
           {article.title}
         </h2>
       </Link>
@@ -304,7 +305,7 @@ export function FeaturedArticleFeedCard() {
         </Link>
 
         <Link
-          href={`/article/${encodeURIComponent(article.slug)}`}
+          href={`/blog/${encodeURIComponent(article.slug)}`}
           className="font-bold text-primary hover:underline inline-flex items-center gap-1"
         >
           <span>Read story</span>
@@ -386,7 +387,7 @@ export function SuggestedCommunitiesFeedCard() {
       <div className="flex items-center justify-between px-4 sm:px-5 mb-3">
         <div className="flex items-center gap-2">
           <Compass className="size-4 text-primary" />
-          <h3 className="text-sm font-bold text-foreground">
+          <h3 className="text-sm font-bold text-foreground font-[family-name:var(--font-fraunces)]">
             Communities to explore
           </h3>
         </div>
@@ -422,7 +423,7 @@ export function SuggestedCommunitiesFeedCard() {
           return (
             <div
               key={c.id}
-              className="w-56 sm:w-60 shrink-0 rounded-xl border border-border/70 bg-background overflow-hidden hover:border-primary/50 transition-all flex flex-col justify-between shadow-2xs group"
+              className="w-56 sm:w-60 shrink-0 rounded-lg border border-border/70 bg-background overflow-hidden hover:border-primary/50 transition-all flex flex-col justify-between shadow-2xs group"
             >
               {/* Cover Photo */}
               <div className="relative h-24 w-full overflow-hidden bg-muted">
@@ -454,7 +455,7 @@ export function SuggestedCommunitiesFeedCard() {
                   variant={isJoined ? "outline" : "secondary"}
                   onClick={() => toggleJoin(c.id, c.name)}
                   className={cn(
-                    "w-full h-7.5 text-xs font-bold rounded-full mt-3 transition-all",
+                    "w-full h-7.5 text-xs font-bold rounded-md mt-3 transition-all",
                     isJoined
                       ? "border-border text-foreground hover:bg-destructive/10 hover:text-destructive"
                       : "bg-primary/10 hover:bg-primary/20 text-primary"
@@ -512,7 +513,7 @@ export function TrendingTopicsFeedCard() {
     <div className="py-3.5 px-4 sm:px-5 border-b border-border bg-muted/5 animate-in fade-in-50 duration-300">
       <div className="flex items-center gap-2 mb-2.5">
         <Flame className="size-4 text-brand-hashtag" />
-        <h3 className="text-sm font-bold text-foreground">
+        <h3 className="text-sm font-bold text-foreground font-[family-name:var(--font-fraunces)]">
           Trending Topics
         </h3>
       </div>
@@ -522,7 +523,7 @@ export function TrendingTopicsFeedCard() {
           <Link
             key={item.tag}
             href={`/hashtag/${encodeURIComponent(item.tag)}`}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border/70 bg-background hover:border-brand-hashtag/40 hover:bg-brand-hashtag-subtle/50 transition-all text-xs font-semibold text-foreground shrink-0 shadow-2xs group"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border/70 bg-background hover:border-brand-hashtag/40 hover:bg-brand-hashtag-subtle/50 transition-all text-xs font-semibold text-foreground shrink-0 shadow-2xs group"
           >
             <Hash className="size-3.5 text-brand-hashtag group-hover:scale-110 transition-transform" />
             <span className="truncate">#{item.tag}</span>

@@ -28,6 +28,7 @@ import {
   Trophy,
   FileText,
   Settings,
+  BookOpen,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -60,10 +61,17 @@ function getTypeBadge(type: string): BadgeInfo {
   switch (type) {
     case "like_post":
     case "like_comment":
+    case "like_blog":
       return {
         icon: <Heart className="size-3 fill-white text-white" />,
         bg: "bg-brand-like",
         ring: "ring-brand-like-subtle",
+      };
+    case "new_blog":
+      return {
+        icon: <BookOpen className="size-3 text-white" />,
+        bg: "bg-primary",
+        ring: "ring-primary/20",
       };
     case "share_post":
       return {
@@ -259,7 +267,8 @@ export default function NotificationsPage() {
       return;
     }
 
-    if (notif.data?.post_id) router.push(`/post/${notif.data.post_id}`);
+    if (notif.data?.blog_slug) router.push(`/blog/${encodeURIComponent(notif.data.blog_slug)}`);
+    else if (notif.data?.post_id) router.push(`/post/${notif.data.post_id}`);
     else if (notif.data?.follower_username)
       router.push(`/@${notif.data.follower_username}`);
     else if (notif.actor?.username) router.push(`/@${notif.actor.username}`);
@@ -338,7 +347,7 @@ export default function NotificationsPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-foreground tracking-tight leading-none">
+                <h1 className="text-lg font-black text-foreground tracking-tight leading-none font-[family-name:var(--font-fraunces)]">
                   Notifications
                 </h1>
                 {unreadCount > 0 && (

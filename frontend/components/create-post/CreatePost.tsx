@@ -49,7 +49,7 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="size-8 rounded-full flex items-center justify-center text-primary hover:bg-primary/10 active:scale-95 transition-all cursor-pointer"
+                  className="size-8 rounded-md flex items-center justify-center text-primary hover:bg-primary/10 active:scale-95 transition-all cursor-pointer"
                   title="Add Photos / Media"
                 >
                   <ImageIcon className="size-[17px]" />
@@ -57,7 +57,7 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="size-8 rounded-full flex items-center justify-center text-brand-hashtag hover:bg-brand-hashtag-subtle active:scale-95 transition-all cursor-pointer"
+                  className="size-8 rounded-md flex items-center justify-center text-brand-hashtag hover:bg-brand-hashtag-subtle active:scale-95 transition-all cursor-pointer"
                   title="Hashtags (#)"
                 >
                   <Hash className="size-[17px]" />
@@ -65,7 +65,7 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="size-8 rounded-full flex items-center justify-center text-brand-mention hover:bg-brand-mention-subtle active:scale-95 transition-all cursor-pointer"
+                  className="size-8 rounded-md flex items-center justify-center text-brand-mention hover:bg-brand-mention-subtle active:scale-95 transition-all cursor-pointer"
                   title="Mention (@)"
                 >
                   <AtSign className="size-[17px]" />
@@ -73,15 +73,15 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="size-8 rounded-full flex items-center justify-center text-amber-500 hover:bg-amber-500/10 active:scale-95 transition-all cursor-pointer"
+                  className="size-8 rounded-md flex items-center justify-center text-amber-500 hover:bg-amber-500/10 active:scale-95 transition-all cursor-pointer"
                   title="Emoji"
                 >
                   <Smile className="size-[17px]" />
                 </button>
                 <Link
-                  href="/articles"
-                  className="size-8 rounded-full hidden sm:flex items-center justify-center text-brand-article hover:bg-brand-article-subtle active:scale-95 transition-all cursor-pointer"
-                  title="Write Long Article"
+                  href="/blogs/new"
+                  className="size-8 rounded-md hidden sm:flex items-center justify-center text-brand-article hover:bg-brand-article-subtle active:scale-95 transition-all cursor-pointer"
+                  title="Write Blog Post"
                 >
                   <BookOpen className="size-[17px]" />
                 </Link>
@@ -89,7 +89,7 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
 
               <Button
                 onClick={() => setOpen(true)}
-                className="rounded-full px-4 sm:px-5 h-8 text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all cursor-pointer shadow-xs hover:shadow-sm"
+                className="rounded-md px-4 sm:px-5 h-8 text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all cursor-pointer shadow-xs hover:shadow-sm"
               >
                 Post
               </Button>

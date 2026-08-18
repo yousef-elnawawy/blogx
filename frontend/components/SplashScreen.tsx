@@ -2,14 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Fraunces } from "next/font/google";
-
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  weight: ["600"],
-  style: ["italic"],
-  variable: "--font-fraunces",
-});
 
 export default function SplashScreen() {
   const { loading: authLoading } = useAuth();
@@ -42,7 +34,7 @@ export default function SplashScreen() {
 
   return (
     <div
-      className={`${fraunces.variable} fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background transition-opacity duration-500 ease-in-out ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-background transition-opacity duration-500 ease-in-out ${
         fadingOut ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
     >

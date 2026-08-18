@@ -36,11 +36,11 @@ export default function TrendingHashtagsSidebar() {
       <div className="flex flex-col gap-0 pt-6 pb-6">
         {/* Header */}
         <div className="flex items-center gap-2.5 px-5 pb-3 border-b border-border/50 mb-1">
-          <div className="grid place-items-center size-8 rounded-xl bg-brand-hashtag-subtle">
+          <div className="grid place-items-center size-8 rounded-lg bg-brand-hashtag-subtle">
             <TrendingUp className="size-4 text-brand-hashtag" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-foreground">Trending</h2>
+            <h2 className="text-sm font-bold text-foreground font-[family-name:var(--font-fraunces)]">Trending</h2>
             <p className="text-[11px] text-muted-foreground">Popular hashtags</p>
           </div>
         </div>
@@ -68,7 +68,7 @@ export default function TrendingHashtagsSidebar() {
                   </span>
 
                   {/* Icon */}
-                  <div className="grid place-items-center size-8 rounded-xl bg-muted/60 group-hover:bg-brand-hashtag-subtle transition-colors shrink-0">
+                  <div className="grid place-items-center size-8 rounded-lg bg-muted/60 group-hover:bg-brand-hashtag-subtle transition-colors shrink-0">
                     <Hash className="size-3.5 text-muted-foreground group-hover:text-brand-hashtag transition-colors" />
                   </div>
 
@@ -86,7 +86,7 @@ export default function TrendingHashtagsSidebar() {
 
                   {/* Top badge for #1 */}
                   {index === 0 && (
-                    <span className="shrink-0 text-[9px] font-black uppercase tracking-wider bg-brand-hashtag-subtle text-brand-hashtag px-1.5 py-0.5 rounded-full">
+                    <span className="shrink-0 text-[9px] font-black uppercase tracking-wider bg-brand-hashtag-subtle text-brand-hashtag px-1.5 py-0.5 rounded">
                       HOT
                     </span>
                   )}

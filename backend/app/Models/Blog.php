@@ -5,9 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Article extends Model
+class Blog extends Model
 {
     use HasFactory;
+
+    protected $table = 'blogs';
 
     protected $fillable = [
         'user_id',
@@ -54,10 +56,21 @@ class Article extends Model
         return $this->morphMany(Like::class, 'likeable');
     }
 
+    public function bookmarks()
+    {
+        return $this->hasMany(Bookmark::class);
+    }
+
     // Helpers
     public function isLikedBy(?User $user)
     {
         if (!$user) return false;
         return $this->likes()->where('user_id', $user->id)->exists();
+    }
+
+    public function isBookmarkedBy(?User $user)
+    {
+        if (!$user) return false;
+        return $this->bookmarks()->where('user_id', $user->id)->exists();
     }
 }

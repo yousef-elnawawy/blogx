@@ -29,20 +29,20 @@ export function getInitials(name?: string | null): string {
     .slice(0, 2);
 }
 
-// 12 Curated Harmonious Gradient Themes for Avatars
-const AVATAR_GRADIENTS = [
-  "from-amber-500 to-orange-600 text-white",
-  "from-sky-500 to-blue-600 text-white",
-  "from-indigo-500 to-purple-600 text-white",
-  "from-violet-500 to-fuchsia-600 text-white",
-  "from-emerald-500 to-teal-600 text-white",
-  "from-rose-500 to-pink-600 text-white",
-  "from-teal-500 to-cyan-600 text-white",
-  "from-amber-600 to-yellow-500 text-white",
-  "from-cyan-500 to-blue-500 text-white",
-  "from-fuchsia-500 to-rose-500 text-white",
-  "from-lime-600 to-emerald-600 text-white",
-  "from-blue-600 to-indigo-700 text-white",
+// 12 Curated Solid Color Themes for Avatar Fallbacks
+const AVATAR_COLORS = [
+  "bg-amber-600 text-white",
+  "bg-sky-600 text-white",
+  "bg-indigo-600 text-white",
+  "bg-violet-600 text-white",
+  "bg-emerald-600 text-white",
+  "bg-rose-600 text-white",
+  "bg-teal-600 text-white",
+  "bg-orange-600 text-white",
+  "bg-cyan-600 text-white",
+  "bg-fuchsia-600 text-white",
+  "bg-lime-700 text-white",
+  "bg-blue-700 text-white",
 ];
 
 // Hash function for deterministic color choice
@@ -57,24 +57,24 @@ function stringToHash(str: string): number {
 
 export function getAvatarGradient(seed?: string | null): string {
   const s = seed || "default";
-  const index = stringToHash(s) % AVATAR_GRADIENTS.length;
-  return `bg-gradient-to-br ${AVATAR_GRADIENTS[index]}`;
+  const index = stringToHash(s) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[index];
 }
 
-// Curated Aesthetic Mesh/Gradient Themes for Default Banners
-const BANNER_GRADIENTS = [
-  "from-amber-500/80 via-orange-500/70 to-rose-600/80",
-  "from-sky-500/80 via-indigo-500/70 to-purple-600/80",
-  "from-emerald-500/80 via-teal-500/70 to-cyan-600/80",
-  "from-indigo-600/80 via-purple-600/70 to-pink-500/80",
-  "from-rose-500/80 via-amber-500/70 to-yellow-500/80",
-  "from-violet-600/80 via-blue-600/70 to-teal-500/80",
+// Curated Solid Color Themes for Default Banners
+const BANNER_COLORS = [
+  "bg-amber-700/80",
+  "bg-sky-700/80",
+  "bg-emerald-700/80",
+  "bg-indigo-700/80",
+  "bg-rose-700/80",
+  "bg-violet-700/80",
 ];
 
 export function getDefaultBannerGradient(seed?: string | null): string {
   const s = seed || "default";
-  const index = stringToHash(s) % BANNER_GRADIENTS.length;
-  return `bg-gradient-to-r ${BANNER_GRADIENTS[index]}`;
+  const index = stringToHash(s) % BANNER_COLORS.length;
+  return BANNER_COLORS[index];
 }
 
 export interface SocialPlatformInfo {

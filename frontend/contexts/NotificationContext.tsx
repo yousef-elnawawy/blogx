@@ -135,7 +135,9 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
   const [preferences, setPreferences] = useState<NotificationPreferences>(DEFAULT_PREFERENCES);
   const [loadingPreferences, setLoadingPreferences] = useState<boolean>(false);
   const filterRef = useRef<string>("all");
-  filterRef.current = filter;
+  useEffect(() => {
+    filterRef.current = filter;
+  }, [filter]);
 
   // Mark single notification as read
   const markAsRead = async (id: number) => {

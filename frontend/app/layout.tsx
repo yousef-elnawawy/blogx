@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Fraunces } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
@@ -9,6 +9,13 @@ import SplashScreen from "@/components/SplashScreen";
 
 const inter = Inter({
   subsets: ["latin"],
+});
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["italic", "normal"],
+  variable: "--font-fraunces",
 });
 
 export const metadata: Metadata = {
@@ -24,7 +31,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={inter.className}
+      className={`${inter.className} ${fraunces.variable}`}
       suppressHydrationWarning
     >
       <body className="bg-background text-foreground min-h-screen antialiased">

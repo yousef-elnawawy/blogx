@@ -129,6 +129,52 @@ class NotificationService
     }
 
     /**
+     * Someone liked a blog post.
+     */
+    public static function sendLikeBlogNotification(User $actor, \App\Models\Blog $blog): void
+    {
+        if ($actor->id === $blog->user_id) return;
+
+        if (self::isDuplicate($blog->user_id, 'like_blog', $actor->id, ['blog_id' => $blog->id])) return;
+
+        self::createAndBroadcast([
+            'user_id'  => $blog->user_id,
+            'actor_id' => $actor->id,
+            'type'     => 'like_blog',
+            'title'    => 'Blog Post Liked',
+            'message'  => "{$actor->name} liked your blog post \"{$blog->title}\".",
+            'data'     => [
+                'blog_id'    => $blog->id,
+                'blog_slug'  => $blog->slug,
+                'blog_title' => $blog->title,
+            ],
+        ]);
+    }
+
+    /**
+     * Author published a new blog post. Notify followers.
+     */
+    public static function sendNewBlogNotification(User $author, \App\Models\Blog $blog): void
+    {
+        $followers = $author->followers()->get();
+        foreach ($followers as $follower) {
+            if ($follower->id === $author->id) continue;
+            self::createAndBroadcast([
+                'user_id'  => $follower->id,
+                'actor_id' => $author->id,
+                'type'     => 'new_blog',
+                'title'    => 'New Blog Post',
+                'message'  => "{$author->name} published a new blog post: \"{$blog->title}\".",
+                'data'     => [
+                    'blog_id'    => $blog->id,
+                    'blog_slug'  => $blog->slug,
+                    'blog_title' => $blog->title,
+                ],
+            ]);
+        }
+    }
+
+    /**
      * Someone liked a comment.
      */
     public static function sendLikeCommentNotification(User $actor, $comment, Post $post): void

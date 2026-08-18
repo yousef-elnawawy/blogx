@@ -256,36 +256,37 @@ class ProfileController extends Controller
             ];
         });
 
-        // 2. Article covers
-        $articleCovers = \App\Models\Article::where('user_id', $user->id)
+        // 2. Blog covers
+        $blogCovers = \App\Models\Blog::where('user_id', $user->id)
             ->published()
             ->whereNotNull('cover_image')
             ->where('cover_image', '!=', '')
             ->latest('published_at')
             ->get()
-            ->map(function ($art) {
-                $url = $art->cover_image;
+            ->map(function ($blog) {
+                $url = $blog->cover_image;
                 if ($url && !str_starts_with($url, 'http')) {
                     $url = config('app.url') . '/storage/' . ltrim($url, '/');
                 }
                 return [
-                    'id'           => 'art_cover_' . $art->id,
-                    'type'         => 'article_cover',
+                    'id'           => 'blog_cover_' . $blog->id,
+                    'type'         => 'blog_cover',
                     'url'          => $url,
-                    'article_id'   => $art->id,
-                    'article_slug' => $art->slug,
-                    'title'        => $art->title,
-                    'created_at'   => $art->published_at ? $art->published_at->toIso8601String() : null,
+                    'blog_id'      => $blog->id,
+                    'blog_slug'    => $blog->slug,
+                    'article_slug' => $blog->slug, // backward compatibility
+                    'title'        => $blog->title,
+                    'created_at'   => $blog->published_at ? $blog->published_at->toIso8601String() : null,
                 ];
             });
 
-        $allMedia = $postImages->concat($articleCovers)->sortByDesc('created_at')->values();
+        $allMedia = $postImages->concat($blogCovers)->sortByDesc('created_at')->values();
 
         return response()->json(['media' => $allMedia]);
     }
 
     /**
-     * Get posts and articles liked by this user.
+     * Get posts and blogs liked by this user.
      */
     public function likes(Request $request, string $username)
     {
@@ -309,9 +310,9 @@ class ProfileController extends Controller
             return $formatted;
         });
 
-        // 2. Liked articles
-        $articleController = new ArticleController();
-        $likedArticles = \App\Models\Article::whereHas('likes', function ($q) use ($user) {
+        // 2. Liked blogs
+        $blogController = new BlogController();
+        $likedBlogs = \App\Models\Blog::whereHas('likes', function ($q) use ($user) {
             $q->where('user_id', $user->id);
         })
         ->published()
@@ -319,15 +320,16 @@ class ProfileController extends Controller
         ->withCount('likes')
         ->latest('published_at')
         ->get()
-        ->map(function ($art) use ($authUser, $articleController) {
-            $formatted = $articleController->formatArticle($art, $authUser);
-            $formatted['item_type'] = 'article';
+        ->map(function ($blog) use ($authUser, $blogController) {
+            $formatted = $blogController->formatBlog($blog, $authUser);
+            $formatted['item_type'] = 'blog';
             return $formatted;
         });
 
         return response()->json([
             'posts'    => $likedPosts,
-            'articles' => $likedArticles,
+            'blogs'    => $likedBlogs,
+            'articles' => $likedBlogs,
         ]);
     }
 }
