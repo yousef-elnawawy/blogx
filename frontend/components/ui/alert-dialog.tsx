@@ -148,7 +148,10 @@ function AlertDialogAction({
   return (
     <Button
       data-slot="alert-dialog-action"
-      className={cn(className)}
+      className={cn(
+        "bg-red-600 hover:bg-red-700 text-white font-semibold cursor-pointer shadow-xs transition-colors",
+        className
+      )}
       {...props}
     />
   )
@@ -165,7 +168,13 @@ function AlertDialogCancel({
     <AlertDialogPrimitive.Close
       data-slot="alert-dialog-cancel"
       className={cn(className)}
-      render={<Button variant={variant} size={size} />}
+      render={
+        <Button
+          variant={variant}
+          size={size}
+          className={cn("cursor-pointer font-medium shadow-2xs", className)}
+        />
+      }
       {...props}
     />
   )

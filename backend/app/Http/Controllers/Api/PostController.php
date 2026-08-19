@@ -8,6 +8,7 @@ use App\Models\Post;
 use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 
 class PostController extends Controller
@@ -21,8 +22,22 @@ class PostController extends Controller
         $tab = $request->query('tab', 'for_you');
 
         $query = Post::published()
-            ->with(['user', 'images', 'mentions.user'])
+            ->with(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community'])
             ->withCount(['likes', 'comments']);
+
+        // Only include community posts in general feed if user is a member of that community
+        if ($user) {
+            $joinedCommunityIds = \App\Models\CommunityMember::where('user_id', $user->id)
+                ->where('status', 'approved')
+                ->pluck('community_id');
+
+            $query->where(function ($q) use ($joinedCommunityIds) {
+                $q->whereNull('community_id')
+                  ->orWhereIn('community_id', $joinedCommunityIds);
+            });
+        } else {
+            $query->whereNull('community_id');
+        }
 
         if ($tab === 'following') {
             if ($user) {
@@ -60,6 +75,11 @@ class PostController extends Controller
             'user',
             'images',
             'mentions.user',
+            'repostOf.user',
+            'repostOf.images',
+            'quoteOf.user',
+            'quoteOf.images',
+            'community',
             'comments' => function ($query) {
                 $query->whereNull('parent_id')
                     ->with(['user', 'replies.user', 'likes'])
@@ -333,10 +353,12 @@ class PostController extends Controller
         $validated = $request->validate([
             'content'           => ['required_without:images', 'nullable', 'string', 'max:5000'],
             'images'            => ['nullable', 'array', 'max:10'],
-            'images.*'          => ['image', 'max:102400'], // Up to 100 MB per image
+            'images.*'          => ['image', 'mimes:jpeg,png,jpg,webp,gif', 'max:10240'], // Up to 10 MB per image
             'comments_enabled'  => ['nullable', 'boolean'],
             'scheduled_at'      => ['nullable', 'date'],
             'status'            => ['nullable', 'in:published,draft'],
+            'community_id'      => ['nullable', 'exists:communities,id'],
+            'quote_of_id'       => ['nullable', 'exists:posts,id'],
         ]);
 
         $status = $validated['status'] ?? 'published';
@@ -351,13 +373,27 @@ class PostController extends Controller
             $postStatus = 'published';
         }
 
+        $communityId = $validated['community_id'] ?? null;
+        if ($communityId) {
+            $community = \App\Models\Community::find($communityId);
+            if ($community && !$community->isMember($request->user()) && !$community->isAdmin($request->user())) {
+                return response()->json(['message' => 'You must join this community before posting.'], 403);
+            }
+        }
+
         $post = Post::create([
             'user_id'          => $request->user()->id,
+            'community_id'     => $communityId,
+            'quote_of_id'      => $validated['quote_of_id'] ?? null,
             'content'          => $validated['content'] ?? '',
             'comments_enabled' => $validated['comments_enabled'] ?? true,
             'status'           => $postStatus,
             'scheduled_at'     => $scheduledAt,
         ]);
+
+        if ($communityId) {
+            \App\Models\Community::where('id', $communityId)->increment('posts_count');
+        }
 
         // Upload and store images
         if ($request->hasFile('images')) {
@@ -374,17 +410,135 @@ class PostController extends Controller
         $this->syncHashtags($post, $validated['content'] ?? '');
         $this->syncMentions($post, $validated['content'] ?? '');
 
+        // If quote of another post, send quote notification
+        if (!empty($validated['quote_of_id'])) {
+            $quotedPost = Post::find($validated['quote_of_id']);
+            if ($quotedPost) {
+                NotificationService::sendQuoteNotification($request->user(), $post, $quotedPost);
+            }
+        }
+
         // Check Milestone on publishing posts immediately (if not scheduled for future)
         if (!$isScheduled) {
             NotificationService::checkPostCountMilestone($request->user());
         }
 
-        $post->load(['user', 'images']);
-        $post->loadCount(['likes', 'comments']);
-
+        $post->load(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community']);
         return response()->json([
             'message' => $isScheduled ? 'Post scheduled successfully' : 'Post created successfully',
             'post'    => $this->formatPost($post, $request->user()),
+        ], 201);
+    }
+
+    /**
+     * Toggle repost on a post (authenticated).
+     */
+    public function toggleRepost(Request $request, $id)
+    {
+        $user = $request->user();
+        $targetPost = Post::find($id);
+
+        if (!$targetPost) {
+            return response()->json(['message' => 'Post not found'], 404);
+        }
+
+        // If targetPost is a repost itself, link to the real root original post
+        $originalPostId = $targetPost->repost_of_id ?? $targetPost->id;
+        $originalPost = Post::find($originalPostId);
+
+        if (!$originalPost) {
+            return response()->json(['message' => 'Original post not found'], 404);
+        }
+
+        $existingRepost = Post::where('user_id', $user->id)
+            ->where('repost_of_id', $originalPost->id)
+            ->first();
+
+        if ($existingRepost) {
+            $existingRepost->delete();
+            $isReposted = false;
+        } else {
+            $repost = Post::create([
+                'user_id'          => $user->id,
+                'repost_of_id'     => $originalPost->id,
+                'content'          => '',
+                'status'           => 'published',
+                'comments_enabled' => true,
+            ]);
+            $isReposted = true;
+            NotificationService::sendRepostNotification($user, $originalPost);
+        }
+
+        $repostsCount = Post::where('repost_of_id', $originalPost->id)->count() + Post::where('quote_of_id', $originalPost->id)->count();
+
+        return response()->json([
+            'message'        => $isReposted ? 'Post reposted successfully' : 'Repost removed',
+            'is_reposted'    => $isReposted,
+            'reposts_count'  => $repostsCount,
+        ]);
+    }
+
+    /**
+     * Create a quote post (authenticated).
+     */
+    public function quote(Request $request, $id)
+    {
+        $user = $request->user();
+        $targetPost = Post::find($id);
+
+        if (!$targetPost) {
+            return response()->json(['message' => 'Post not found'], 404);
+        }
+
+        $originalPostId = $targetPost->repost_of_id ?? $targetPost->id;
+        $originalPost = Post::find($originalPostId);
+
+        if (!$originalPost) {
+            return response()->json(['message' => 'Original post not found'], 404);
+        }
+
+        $validated = $request->validate([
+            'content'      => ['required', 'string', 'max:5000'],
+            'images'       => ['nullable', 'array', 'max:10'],
+            'images.*'     => ['image', 'mimes:jpeg,png,jpg,webp,gif', 'max:10240'],
+            'community_id' => ['nullable', 'exists:communities,id'],
+        ]);
+
+        $post = Post::create([
+            'user_id'          => $user->id,
+            'quote_of_id'      => $originalPost->id,
+            'community_id'     => $validated['community_id'] ?? null,
+            'content'          => $validated['content'],
+            'status'           => 'published',
+            'comments_enabled' => true,
+        ]);
+
+        if (!empty($validated['community_id'])) {
+            \App\Models\Community::where('id', $validated['community_id'])->increment('posts_count');
+        }
+
+        if ($request->hasFile('images')) {
+            foreach ($request->file('images') as $order => $file) {
+                $path = $file->store('posts', 'public');
+                $post->images()->create([
+                    'image_path' => $path,
+                    'order'      => $order,
+                ]);
+            }
+        }
+
+        $this->syncHashtags($post, $validated['content'] ?? '');
+        $this->syncMentions($post, $validated['content'] ?? '');
+
+        NotificationService::sendQuoteNotification($user, $post, $originalPost);
+        NotificationService::checkPostCountMilestone($user);
+
+        $post->load(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community']);
+        $post->loadCount(['likes', 'comments']);
+
+        return response()->json([
+            'message' => 'Quote post published successfully',
+            'post'    => $this->formatPost($post, $user),
         ], 201);
     }
 
@@ -438,19 +592,61 @@ class PostController extends Controller
     }
 
     /**
-     * Extract OpenGraph and metadata preview for any given URL.
+     * Extract OpenGraph and metadata preview for any given URL with SSRF protection.
      */
     public function previewLink(Request $request)
     {
+        $ip = $request->ip();
+        $throttleKey = 'link_preview:' . $ip;
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 30)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            return response()->json([
+                'error' => "Too many requests. Please try again in {$seconds} seconds.",
+                'retry_after' => $seconds,
+            ], 429);
+        }
+
+        RateLimiter::hit($throttleKey, 60);
+
         $url = $request->query('url');
         if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
             return response()->json(['error' => 'Invalid URL'], 422);
         }
 
+        $parsed = parse_url($url);
+        $scheme = strtolower($parsed['scheme'] ?? '');
+        $host = strtolower($parsed['host'] ?? '');
+
+        // Only allow http and https schemes
+        if (!in_array($scheme, ['http', 'https'], true) || empty($host)) {
+            return response()->json(['error' => 'Invalid URL scheme or host'], 422);
+        }
+
+        // Block localhost, internal hostnames, and metadata endpoints
+        $blockedHosts = ['localhost', '127.0.0.1', '::1', '0.0.0.0', '169.254.169.254'];
+        if (in_array($host, $blockedHosts, true) || str_ends_with($host, '.internal') || str_ends_with($host, '.local')) {
+            return response()->json(['error' => 'URL target is not accessible'], 422);
+        }
+
+        // Resolve DNS and verify IP address is public
+        $resolvedIps = @gethostbynamel($host);
+        if (!$resolvedIps || empty($resolvedIps)) {
+            return response()->json(['error' => 'Could not resolve host'], 422);
+        }
+
+        foreach ($resolvedIps as $ipAddress) {
+            // Reject private and reserved IP ranges (SSRF defense)
+            if (!filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                return response()->json(['error' => 'Private and reserved addresses are not allowed'], 422);
+            }
+        }
+
         $cacheKey = 'link_preview_' . md5($url);
         $preview = cache()->remember($cacheKey, 86400, function () use ($url) {
             try {
-                $response = \Illuminate\Support\Facades\Http::timeout(5)
+                $response = \Illuminate\Support\Facades\Http::timeout(4)
+                    ->withoutRedirecting() // Do not blindly follow redirects to internal networks
                     ->withHeaders(['User-Agent' => 'Mozilla/5.0 (compatible; BlogXBot/1.0; +http://blogx.com)'])
                     ->get($url);
 
@@ -538,13 +734,18 @@ class PostController extends Controller
         }
 
         if ($post->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return response()->json(['message' => 'Unauthorized: You can only edit your own posts.'], 403);
+        }
+
+        // Pure reposts cannot be edited
+        if ($post->repost_of_id && empty($post->quote_of_id) && empty($post->content)) {
+            return response()->json(['message' => 'Reposts cannot be edited.'], 422);
         }
 
         $validated = $request->validate([
             'content'          => ['nullable', 'string', 'max:5000'],
             'images'           => ['nullable', 'array', 'max:10'],
-            'images.*'         => ['image', 'max:102400'], // Up to 100 MB per image
+            'images.*'         => ['image', 'mimes:jpeg,png,jpg,webp,gif', 'max:10240'], // Up to 10 MB per image
             'removed_images'   => ['nullable', 'array'],
             'removed_images.*' => ['string'],
             'status'           => ['nullable', 'in:published,draft,scheduled'],
@@ -590,7 +791,7 @@ class PostController extends Controller
         $this->syncHashtags($post, $validated['content'] ?? '');
         $this->syncMentions($post, $validated['content'] ?? '');
 
-        $post->load(['user', 'images']);
+        $post->load(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community']);
         $post->loadCount(['likes', 'comments']);
 
         return response()->json([
@@ -600,23 +801,28 @@ class PostController extends Controller
     }
 
     /**
-     * Delete a post (authenticated owner only).
+     * Delete a post (authenticated owner or admin).
      */
     public function destroy(Request $request, $id)
     {
+        $user = $request->user();
         $post = Post::with('images')->find($id);
 
         if (!$post) {
             return response()->json(['message' => 'Post not found'], 404);
         }
 
-        if ($post->user_id !== $request->user()->id) {
+        if ($post->user_id !== $user->id && empty($user->is_admin)) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         foreach ($post->images as $img) {
             Storage::disk('public')->delete($img->image_path);
             $img->delete();
+        }
+
+        if ($post->community_id) {
+            \App\Models\Community::where('id', $post->community_id)->where('posts_count', '>', 0)->decrement('posts_count');
         }
 
         $post->delete();
@@ -758,7 +964,7 @@ class PostController extends Controller
         }
     }
 
-    public function formatPost(Post $post, $user): array
+    public function formatPost(Post $post, $user, bool $includeNested = true): array
     {
         $avatarUrl = $post->user->avatar;
         if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
@@ -770,12 +976,43 @@ class PostController extends Controller
             return $m->user ? strtolower($m->user->username) : null;
         })->filter()->values()->toArray();
 
+        // Repost of (nested)
+        $repostOf = null;
+        if ($includeNested && $post->repost_of_id && $post->repostOf) {
+            $repostOf = $this->formatPost($post->repostOf, $user, false);
+        }
+
+        // Quote of (nested)
+        $quoteOf = null;
+        if ($includeNested && $post->quote_of_id && $post->quoteOf) {
+            $quoteOf = $this->formatPost($post->quoteOf, $user, false);
+        }
+
+        // Community
+        $community = null;
+        if ($post->community_id && $post->community) {
+            $cAvatar = $post->community->avatar;
+            if ($cAvatar && !str_starts_with($cAvatar, 'http')) {
+                $cAvatar = config('app.url') . '/storage/' . ltrim($cAvatar, '/');
+            }
+            $community = [
+                'id'     => $post->community->id,
+                'name'   => $post->community->name,
+                'slug'   => $post->community->slug,
+                'avatar' => $cAvatar,
+                'type'   => $post->community->type,
+            ];
+        }
+
+        $repostsCount = $post->reposts_count ?? ($post->reposts()->count() + $post->quotes()->count());
+
         return [
             'id'              => $post->id,
             'content'         => $post->content,
             'created_at'      => $post->created_at,
             'likes_count'     => $post->likes_count ?? $post->likes()->count(),
             'comments_count'  => $post->comments_count ?? $post->comments()->count(),
+            'reposts_count'   => (int) $repostsCount,
             'views_count'     => (int) ($post->views_count ?? 0),
             'is_edited'       => (bool) $post->is_edited,
             'is_pinned'       => (bool) $post->is_pinned,
@@ -783,6 +1020,13 @@ class PostController extends Controller
             'scheduled_at'    => $post->scheduled_at ? $post->scheduled_at->toIso8601String() : null,
             'is_liked'        => $user ? $post->isLikedBy($user) : false,
             'is_bookmarked'   => $user ? $post->isBookmarkedBy($user) : false,
+            'is_reposted'     => $user ? $post->isRepostedBy($user) : false,
+            'repost_of_id'    => $post->repost_of_id,
+            'quote_of_id'     => $post->quote_of_id,
+            'repost_of'       => $repostOf,
+            'quote_of'        => $quoteOf,
+            'community_id'    => $post->community_id,
+            'community'       => $community,
             'mentions'        => $mentions,
             'images'          => $post->images->map(function ($img) {
                 $path = $img->image_path;

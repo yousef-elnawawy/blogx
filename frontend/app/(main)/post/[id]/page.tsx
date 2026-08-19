@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Heart, MessageSquare, Bookmark, Share2, ArrowLeft, Send, Loader2, Lock, Repeat2, BarChart3, ChevronDown, ChevronUp, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { cn, getAvatarGradient, getInitials } from "@/lib/utils";
+import { cn, getAvatarGradient, getInitials, getAvatarUrl } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
 import PostImageGrid from "@/components/post/PostImageGrid";
@@ -69,6 +69,17 @@ interface PostDetail {
   images: string[];
   author: Author;
   comments: CommentItem[];
+  community_id?: number | null;
+  community?: {
+    id: number;
+    name: string;
+    slug: string;
+    avatar?: string | null;
+    cover?: string | null;
+    type?: string;
+  } | null;
+  repost_of?: any;
+  quote_of?: any;
 }
 
 function formatCount(n: number) {
@@ -513,23 +524,74 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         {/* Author info & Owner Dropdown */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <Link href={`/@${post.author.username}`}>
-              <Avatar className="size-10 sm:size-12 ring-2 ring-border/40">
-                <AvatarImage src={post.author.avatar ?? undefined} alt={post.author.name} />
-                <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
-                  {getInitials(post.author.name)}
-                </AvatarFallback>
-              </Avatar>
-            </Link>
-            <div>
-              <Link
-                href={`/@${post.author.username}`}
-                className="text-[15px] font-bold text-foreground hover:underline flex items-center gap-1"
-              >
-                <span>{post.author.name}</span>
-                {Boolean(post.author.verified) && <VerifiedBadge size="md" />}
-                <UserBadges equippedBadges={post.author.equipped_badges} size="sm" />
+            {post.community ? (
+              /* Facebook Style: Square Squircle Community Avatar with small User Avatar overlaid */
+              <div className="shrink-0 relative z-10 size-11 sm:size-12">
+                <Link
+                  href={`/c/${post.community.slug}`}
+                  title={post.community.name}
+                  className="block size-11 sm:size-12 rounded-xl overflow-hidden ring-2 ring-border/50 bg-muted/60"
+                >
+                  {post.community.avatar ? (
+                    <img
+                      src={getAvatarUrl(post.community.avatar)}
+                      alt={post.community.name}
+                      className="size-full object-cover rounded-xl"
+                    />
+                  ) : (
+                    <div className="size-full flex items-center justify-center font-bold text-sm bg-primary/10 text-primary rounded-xl">
+                      {getInitials(post.community.name)}
+                    </div>
+                  )}
+                </Link>
+
+                {/* Overlaid Author Avatar */}
+                <Link
+                  href={`/@${post.author.username}`}
+                  title={post.author.name}
+                  className="absolute -bottom-1 -right-1 z-20 block size-6 rounded-full ring-2 ring-card overflow-hidden shadow-xs"
+                >
+                  <Avatar className="size-6 rounded-full">
+                    <AvatarImage src={getAvatarUrl(post.author.avatar) ?? undefined} alt={post.author.name} />
+                    <AvatarFallback className="text-[9px] font-bold">
+                      {getInitials(post.author.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+              </div>
+            ) : (
+              <Link href={`/@${post.author.username}`}>
+                <Avatar className="size-10 sm:size-12 ring-2 ring-border/40">
+                  <AvatarImage src={getAvatarUrl(post.author.avatar) ?? undefined} alt={post.author.name} />
+                  <AvatarFallback className="bg-muted text-muted-foreground font-semibold">
+                    {getInitials(post.author.name)}
+                  </AvatarFallback>
+                </Avatar>
               </Link>
+            )}
+
+            <div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <Link
+                  href={`/@${post.author.username}`}
+                  className="text-[15px] font-bold text-foreground hover:underline flex items-center gap-1"
+                >
+                  <span>{post.author.name}</span>
+                  {Boolean(post.author.verified) && <VerifiedBadge size="md" />}
+                  <UserBadges equippedBadges={post.author.equipped_badges} size="sm" />
+                </Link>
+                {post.community && (
+                  <>
+                    <span className="text-xs text-muted-foreground">in</span>
+                    <Link
+                      href={`/c/${post.community.slug}`}
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                      {post.community.name}
+                    </Link>
+                  </>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">
                 @{post.author.username}
               </p>
@@ -923,7 +985,6 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/90"
               disabled={deleting}
               onClick={handleDeletePost}
             >

@@ -122,6 +122,11 @@ function UserProfileContent() {
   const [mediaLoading, setMediaLoading] = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
 
+  // Communities state
+  const [userCommunities, setUserCommunities] = useState<any[]>([]);
+  const [communitiesLoading, setCommunitiesLoading] = useState(false);
+  const [communitiesLoaded, setCommunitiesLoaded] = useState(false);
+
   // Likes state
   const [likedPosts, setLikedPosts] = useState<PostCardProps[]>([]);
   const [likedArticles, setLikedArticles] = useState<BlogItem[]>([]);
@@ -147,8 +152,8 @@ function UserProfileContent() {
     !authLoading && currentUser?.username === username;
 
   const profileTabs = isOwnProfile
-    ? ["Posts", "Blog", "Drafts", "Media", "Likes"]
-    : ["Posts", "Blog", "Media", "Likes"];
+    ? ["Posts", "Blog", "Communities", "Drafts", "Media", "Likes"]
+    : ["Posts", "Blog", "Communities", "Media", "Likes"];
 
   // Fetch base profile data
   useEffect(() => {
@@ -255,6 +260,26 @@ function UserProfileContent() {
       fetchLikes();
     }
   }, [activeTab, likesLoaded, fetchLikes]);
+
+  // Fetch communities when Communities tab is active
+  const fetchCommunities = useCallback(() => {
+    if (!username) return;
+    setCommunitiesLoading(true);
+    api
+      .get(`/api/profile/${username}/communities`)
+      .then((res) => {
+        setUserCommunities(res.data.data ?? []);
+        setCommunitiesLoaded(true);
+      })
+      .catch(() => {})
+      .finally(() => setCommunitiesLoading(false));
+  }, [username]);
+
+  useEffect(() => {
+    if (activeTab === "Communities" && !communitiesLoaded) {
+      fetchCommunities();
+    }
+  }, [activeTab, communitiesLoaded, fetchCommunities]);
 
   // Fetch drafts when Drafts tab is active
   const fetchDrafts = useCallback(() => {
@@ -519,7 +544,7 @@ function UserProfileContent() {
           if (links.length === 0) return null;
 
           return (
-            <div className="mb-3 flex items-center flex-wrap gap-2">
+            <div className="my-3 flex items-center flex-wrap gap-2 sm:gap-2.5">
               {links.map((linkUrl, i) => {
                 const info = detectSocialPlatform(linkUrl);
                 const isKnownPlatform = info.key !== "website";
@@ -532,7 +557,7 @@ function UserProfileContent() {
                       target="_blank"
                       rel="noopener noreferrer"
                       className={cn(
-                        "size-8 sm:size-8.5 rounded-full border flex items-center justify-center transition-all hover:scale-110 shadow-2xs active:scale-95 cursor-pointer shrink-0",
+                        "size-8.5 sm:size-9 rounded-full border flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-2xs active:scale-95 cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                         info.bgColor,
                         info.color
                       )}
@@ -544,7 +569,7 @@ function UserProfileContent() {
                   );
                 }
 
-                // Unknown / Generic website: long pill with website name
+                // Custom / Generic website: sleek compact rounded pill
                 return (
                   <a
                     key={i}
@@ -552,15 +577,15 @@ function UserProfileContent() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className={cn(
-                      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all hover:scale-105 shadow-2xs active:scale-95 cursor-pointer",
+                      "inline-flex items-center gap-1.5 h-8.5 px-3 rounded-full text-xs font-medium border transition-all duration-200 hover:scale-105 shadow-2xs active:scale-95 cursor-pointer shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                       info.bgColor,
                       info.color
                     )}
                     title={info.url}
                     aria-label={info.name}
                   >
-                    <SocialIcon name="Globe" className="size-3.5" />
-                    <span className="truncate max-w-[170px]">{info.name}</span>
+                    <SocialIcon name="Globe" className="size-3.5 shrink-0 opacity-80" />
+                    <span className="truncate max-w-[140px] sm:max-w-[180px]">{info.name}</span>
                   </a>
                 );
               })}
@@ -703,6 +728,59 @@ function UserProfileContent() {
                   Write a Blog Post
                 </Button>
               )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── TAB: COMMUNITIES ── */}
+      {activeTab === "Communities" && (
+        <div className="p-4 sm:p-5">
+          {communitiesLoading ? (
+            <div className="py-16 text-center">
+              <Loader2 className="size-8 animate-spin mx-auto text-primary" />
+            </div>
+          ) : userCommunities.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {userCommunities.map((comm) => (
+                <Link
+                  key={comm.id}
+                  href={`/c/${comm.slug}`}
+                  className="p-3.5 rounded-2xl border border-border/80 bg-card hover:border-primary/40 hover:shadow-xs transition-all flex items-center justify-between gap-3 group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar className="size-11 rounded-xl ring-1 ring-border/50 shrink-0 bg-primary/10">
+                      <AvatarImage src={getAvatarUrl(comm.avatar)} alt={comm.name} />
+                      <AvatarFallback className="text-xs font-bold text-primary">
+                        {getInitials(comm.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                        {comm.name}
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground font-medium">c/{comm.slug}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">
+                        {comm.members_count} members • {comm.posts_count} posts
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="p-12 text-center max-w-sm mx-auto">
+              <div className="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-muted/70 text-muted-foreground">
+                <Users className="size-7" />
+              </div>
+              <h3 className="mb-1 text-base font-bold text-foreground">
+                No communities joined
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {isOwnProfile
+                  ? "Join forums and communities to connect with other writers and members!"
+                  : `@${profileUser.username} hasn't joined any communities yet.`}
+              </p>
             </div>
           )}
         </div>

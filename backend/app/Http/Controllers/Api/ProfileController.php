@@ -16,12 +16,42 @@ class ProfileController extends Controller
     public function show(Request $request, string $username)
     {
         $authUser = $request->user() ?? auth('sanctum')->user();
-        $cleanUsername = ltrim(strtolower(urldecode($username)), '@');
-        $user = User::where('username', $cleanUsername)->firstOrFail();
+        $cleanUsername = trim(ltrim(urldecode($username), '@'));
 
-        $posts = Post::where('user_id', $user->id)
-            ->published()
-            ->with(['user', 'images', 'mentions.user'])
+        $user = User::where('username', $cleanUsername)
+            ->orWhereRaw('LOWER(username) = ?', [strtolower($cleanUsername)])
+            ->first();
+
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $query = Post::where('user_id', $user->id)->published();
+
+        // If viewing someone else's profile, only show public posts or joined community posts
+        if (!$authUser || $authUser->id !== $user->id) {
+            if ($authUser) {
+                $joinedCommunityIds = \App\Models\CommunityMember::where('user_id', $authUser->id)
+                    ->where('status', 'approved')
+                    ->pluck('community_id');
+
+                $publicCommunityIds = \App\Models\Community::where('type', 'public')->pluck('id');
+                $allowedCommunityIds = $joinedCommunityIds->merge($publicCommunityIds)->unique();
+
+                $query->where(function ($q) use ($allowedCommunityIds) {
+                    $q->whereNull('community_id')
+                      ->orWhereIn('community_id', $allowedCommunityIds);
+                });
+            } else {
+                $publicCommunityIds = \App\Models\Community::where('type', 'public')->pluck('id');
+                $query->where(function ($q) use ($publicCommunityIds) {
+                    $q->whereNull('community_id')
+                      ->orWhereIn('community_id', $publicCommunityIds);
+                });
+            }
+        }
+
+        $posts = $query->with(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community'])
             ->withCount(['likes', 'comments'])
             ->orderBy('is_pinned', 'desc')
             ->latest()

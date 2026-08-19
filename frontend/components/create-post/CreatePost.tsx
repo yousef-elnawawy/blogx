@@ -11,10 +11,12 @@ import { getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
 import Link from "next/link";
 
 interface CreatePostProps {
+  communityId?: number | string | null;
+  placeholder?: string;
   onPostCreated?: (post: PostCardProps) => void;
 }
 
-export default function CreatePost({ onPostCreated }: CreatePostProps) {
+export default function CreatePost({ communityId, placeholder, onPostCreated }: CreatePostProps) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
@@ -40,7 +42,7 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
               onClick={() => setOpen(true)}
               className="text-[15px] sm:text-base text-muted-foreground/80 hover:text-foreground cursor-text py-2 min-h-[44px] transition-colors select-none"
             >
-              What is happening?!
+              {placeholder || "What is happening?!"}
             </div>
 
             {/* Action Toolbar */}
@@ -101,6 +103,7 @@ export default function CreatePost({ onPostCreated }: CreatePostProps) {
       <PostEditorDialog
         open={open}
         onOpenChange={setOpen}
+        communityId={communityId}
         onPostCreated={onPostCreated}
       />
     </>

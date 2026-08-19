@@ -26,6 +26,8 @@ import {
   ArrowRight,
   Lock,
   Mail,
+  User,
+  KeyRound,
 } from "lucide-react";
 import axios from "axios";
 
@@ -163,8 +165,9 @@ export function LoginForm({
 
         <FieldGroup className="gap-4">
           <Field className="space-y-1.5">
-            <FieldLabel htmlFor="2fa-code" className="text-foreground text-xs font-semibold">
-              {isRecoveryCode ? "Recovery Code" : "6-Digit Security Code"}
+            <FieldLabel htmlFor="2fa-code" className="text-foreground text-xs font-semibold flex items-center gap-1.5">
+              <KeyRound className="size-3.5 text-muted-foreground" />
+              <span>{isRecoveryCode ? "Recovery Code" : "6-Digit Security Code"}</span>
             </FieldLabel>
             <div className="relative">
               <Input
@@ -274,12 +277,13 @@ export function LoginForm({
         <Field className="space-y-1.5">
           <FieldLabel
             htmlFor="login"
-            className="text-foreground text-xs font-semibold tracking-wide"
+            className="text-foreground text-xs font-semibold tracking-wide flex items-center gap-1.5"
           >
-            Email or Username
+            <User className="size-3.5 text-muted-foreground" />
+            <span>Email or Username</span>
           </FieldLabel>
-          <div className="relative">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+          <div className="relative group">
+            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
             <Input
               id="login"
               type="text"
@@ -309,9 +313,10 @@ export function LoginForm({
           <div className="flex items-center justify-between">
             <FieldLabel
               htmlFor="password"
-              className="text-foreground text-xs font-semibold tracking-wide"
+              className="text-foreground text-xs font-semibold tracking-wide flex items-center gap-1.5"
             >
-              Password
+              <Lock className="size-3.5 text-muted-foreground" />
+              <span>Password</span>
             </FieldLabel>
             <Link
               href="/forgot-password"
@@ -320,8 +325,8 @@ export function LoginForm({
               Forgot password?
             </Link>
           </div>
-          <div className="relative">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+          <div className="relative group">
+            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
             <Input
               id="password"
               type={showPassword ? "text" : "password"}

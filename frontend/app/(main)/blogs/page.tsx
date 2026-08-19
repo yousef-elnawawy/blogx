@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getAvatarUrl, getInitials } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
+import UserBadges from "@/components/ui/UserBadges";
 
 export default function BlogsPage() {
   const router = useRouter();
@@ -201,7 +202,8 @@ export default function BlogsPage() {
                 <span className="font-bold text-foreground group-hover:underline">
                   {featured.author.name}
                 </span>
-                {featured.author.verified && <VerifiedBadge size="sm" />}
+                {Boolean(featured.author.verified) && <VerifiedBadge size="sm" />}
+                <UserBadges equippedBadges={featured.author.equipped_badges} size="xs" />
                 <span className="text-muted-foreground">·</span>
                 <span className="text-muted-foreground inline-flex items-center gap-1">
                   <Clock className="size-3" />

@@ -112,19 +112,19 @@ export default function DeleteAccountDialog({
               </ul>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="-mx-6 -mb-6 mt-4 flex items-center justify-end gap-2 border-t border-border/60 bg-muted/50 p-4 rounded-b-3xl">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => handleClose(false)}
-                className="rounded-full px-5 text-xs border-border"
+                className="rounded-lg px-4 text-xs font-semibold cursor-pointer shadow-2xs"
               >
                 Cancel
               </Button>
               <Button
                 type="button"
                 onClick={() => setStep(2)}
-                className="rounded-full px-5 text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1.5"
+                className="rounded-lg px-4 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white gap-1.5 shadow-xs cursor-pointer"
               >
                 <span>I understand, continue</span>
                 <ArrowRight className="size-3.5" />
@@ -155,7 +155,7 @@ export default function DeleteAccountDialog({
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
@@ -168,7 +168,7 @@ export default function DeleteAccountDialog({
                 id="confirm-check"
                 checked={confirmed}
                 onCheckedChange={(checked) => setConfirmed(Boolean(checked))}
-                className="mt-0.5"
+                className="mt-0.5 cursor-pointer"
               />
               <Label
                 htmlFor="confirm-check"
@@ -178,12 +178,12 @@ export default function DeleteAccountDialog({
               </Label>
             </div>
 
-            <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/60">
+            <div className="-mx-6 -mb-6 mt-4 flex items-center justify-between gap-2 border-t border-border/60 bg-muted/50 p-4 rounded-b-3xl">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => setStep(1)}
-                className="rounded-full text-xs text-muted-foreground hover:text-foreground"
+                className="rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 Back
               </Button>
@@ -192,14 +192,14 @@ export default function DeleteAccountDialog({
                   type="button"
                   variant="outline"
                   onClick={() => handleClose(false)}
-                  className="rounded-full px-4 text-xs border-border"
+                  className="rounded-lg px-4 text-xs font-semibold cursor-pointer shadow-2xs"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={!password.trim() || !confirmed || submitting}
-                  className="rounded-full px-5 text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  className="rounded-lg px-4 text-xs font-semibold bg-red-600 hover:bg-red-700 text-white shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   {submitting ? (
                     <Loader2 className="size-4 animate-spin" />

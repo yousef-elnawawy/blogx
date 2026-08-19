@@ -37,6 +37,7 @@ interface PostEditorDialogProps {
   onOpenChange: (open: boolean) => void;
   initialContent?: string;
   postToEdit?: PostToEdit | null;
+  communityId?: number | string | null;
   onPostCreated?: (post: PostCardProps) => void;
   onPostUpdated?: (post: PostCardProps) => void;
 }
@@ -88,6 +89,7 @@ export default function PostEditorDialog({
   onOpenChange,
   initialContent = "",
   postToEdit = null,
+  communityId = null,
   onPostCreated,
   onPostUpdated,
 }: PostEditorDialogProps) {
@@ -585,6 +587,10 @@ export default function PostEditorDialog({
         onPostUpdated?.(res.data.post);
         window.dispatchEvent(new CustomEvent("post-updated", { detail: res.data.post }));
       } else {
+        if (communityId) {
+          formData.append("community_id", String(communityId));
+        }
+
         const res = await api.post("/api/posts", formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });

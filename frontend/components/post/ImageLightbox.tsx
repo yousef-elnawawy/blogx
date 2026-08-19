@@ -6,14 +6,16 @@ import "yet-another-react-lightbox/styles.css";
 interface ImageLightboxProps {
   images: string[];
   open: boolean;
-  index: number;
+  index?: number;
+  initialIndex?: number;
   onClose: () => void;
 }
 
 export default function ImageLightbox({
   images,
   open,
-  index,
+  index = 0,
+  initialIndex = 0,
   onClose,
 }: ImageLightboxProps) {
   if (!images || images.length === 0) return null;
@@ -24,7 +26,7 @@ export default function ImageLightbox({
     <Lightbox
       open={open}
       close={onClose}
-      index={index}
+      index={index ?? initialIndex}
       slides={slides}
       render={{
         buttonPrev: slides.length <= 1 ? () => null : undefined,

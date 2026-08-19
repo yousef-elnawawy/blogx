@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BadgeController;
+use App\Http\Controllers\Api\CommunityController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordResetController;
@@ -61,6 +62,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Admin Panel Management (Admin only)
     Route::get('/admin/verification-requests', [VerificationController::class, 'adminList']);
+    Route::get('/admin/verification-requests/{id}/document', [VerificationController::class, 'adminDocument']);
     Route::post('/admin/verification-requests/{id}/approve', [VerificationController::class, 'adminApprove']);
     Route::post('/admin/verification-requests/{id}/reject', [VerificationController::class, 'adminReject']);
     Route::get('/admin/users', [AdminController::class, 'indexUsers']);
@@ -88,6 +90,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/posts/{id}/pin', [PostController::class, 'togglePin']);
     Route::get('/posts/scheduled', [PostController::class, 'scheduled']);
     Route::post('/posts/{id}/like', [PostController::class, 'toggleLike']);
+    Route::post('/posts/{id}/repost', [PostController::class, 'toggleRepost']);
+    Route::post('/posts/{id}/quote', [PostController::class, 'quote']);
     Route::post('/posts/{id}/share', [PostController::class, 'recordShare']);
     Route::post('/posts/{id}/comments', [PostController::class, 'storeComment']);
     Route::post('/posts/{id}/comments/{commentId}/like', [PostController::class, 'toggleCommentLike']);
@@ -98,6 +102,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/following/posts', [PostController::class, 'followingFeed']);
     Route::get('/user/following', [ProfileController::class, 'myFollowingList']);
     Route::post('/users/{id}/follow', [ProfileController::class, 'toggleFollow']);
+
+    // Communities (Auth)
+    Route::post('/communities', [CommunityController::class, 'store']);
+    Route::post('/communities/{id}', [CommunityController::class, 'update']);
+    Route::delete('/communities/{id}', [CommunityController::class, 'destroy']);
+    Route::post('/communities/{id}/join', [CommunityController::class, 'join']);
+    Route::post('/communities/{id}/leave', [CommunityController::class, 'leave']);
+    Route::get('/communities/{id}/join-requests', [CommunityController::class, 'joinRequests']);
+    Route::post('/communities/{id}/join-requests/{userId}/approve', [CommunityController::class, 'approveJoinRequest']);
+    Route::post('/communities/{id}/join-requests/{userId}/reject', [CommunityController::class, 'rejectJoinRequest']);
 
     // Blogs & Drafts
     Route::post('/blogs', [BlogController::class, 'store']);
@@ -115,6 +129,14 @@ Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::post('/posts/{id}/share', [PostController::class, 'recordShare']);
 Route::post('/posts/{id}/view', [PostController::class, 'recordImpression']);
 Route::post('/posts/views/batch', [PostController::class, 'recordBatchImpressions']);
+
+// Communities (Public)
+Route::get('/communities', [CommunityController::class, 'index']);
+Route::get('/communities/{slug}', [CommunityController::class, 'show']);
+Route::get('/communities/{id}/members', [CommunityController::class, 'members']);
+Route::get('/communities/{id}/posts', [CommunityController::class, 'posts']);
+Route::get('/profile/{username}/communities', [CommunityController::class, 'userCommunities']);
+
 Route::get('/profile/{username}', [ProfileController::class, 'show']);
 Route::get('/profile/{username}/followers', [ProfileController::class, 'followersList']);
 Route::get('/profile/{username}/following', [ProfileController::class, 'followingList']);

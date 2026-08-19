@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
+import ShareDialog from "@/components/post/ShareDialog";
 import {
   Clock,
   Heart,
@@ -352,27 +353,8 @@ export default function BlogDetailPage() {
     user && blog?.author?.username && user.username === blog.author.username
   );
 
-  const handleShare = async () => {
-    if (typeof window !== "undefined") {
-      if (navigator.share) {
-        try {
-          await navigator.share({
-            title: blog?.title,
-            text: `Read "${blog?.title}" on BlogX`,
-            url: window.location.href,
-          });
-          return;
-        } catch {
-          // ignore abort
-        }
-      }
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        toast.success("Blog link copied to clipboard!");
-      } catch {
-        toast.error("Failed to copy link");
-      }
-    }
+  const handleShare = () => {
+    setShareDialogOpen(true);
   };
 
   const handleLike = async () => {
@@ -403,21 +385,25 @@ export default function BlogDetailPage() {
 
   const handleBookmark = async () => {
     if (!user) {
-      toast.error("Please sign in to save blog posts");
+      toast.error("Please sign in to bookmark blog posts");
       return;
     }
     if (!blog || isBookmarking) return;
 
-    const prevSaved = bookmarked;
-    setBookmarked(!prevSaved);
+    const prevBookmarked = bookmarked;
+    setBookmarked(!prevBookmarked);
     setIsBookmarking(true);
 
     try {
       const res = await api.post(`/api/blogs/${blog.id}/bookmark`);
-      setBookmarked(Boolean(res.data.is_bookmarked));
-      toast.success(res.data.message || (res.data.is_bookmarked ? "Saved to bookmarks" : "Removed from bookmarks"));
+      setBookmarked(res.data.is_bookmarked);
+      toast.success(
+        res.data.is_bookmarked
+          ? "Saved to bookmarks"
+          : "Removed from bookmarks"
+      );
     } catch {
-      setBookmarked(prevSaved);
+      setBookmarked(prevBookmarked);
       toast.error("Failed to update bookmark");
     } finally {
       setIsBookmarking(false);
@@ -430,7 +416,7 @@ export default function BlogDetailPage() {
     try {
       await api.delete(`/api/blogs/${blog.id}`);
       toast.success("Blog post deleted successfully");
-      router.push(user ? `/@${user.username}` : "/blogs");
+      router.push("/blogs");
     } catch {
       toast.error("Failed to delete blog post");
     } finally {
@@ -477,8 +463,6 @@ export default function BlogDetailPage() {
       return "Recently";
     }
   })();
-
-  const postUrl = typeof window !== "undefined" ? window.location.href : "";
 
   return (
     <div className="min-h-screen pb-24 animate-in fade-in duration-200">
@@ -531,7 +515,8 @@ export default function BlogDetailPage() {
             variant="ghost"
             size="sm"
             onClick={handleShare}
-            className="size-8 p-0 rounded-md text-muted-foreground hover:text-foreground"
+            className="size-8 p-0 rounded-md text-muted-foreground hover:text-foreground cursor-pointer"
+            title="Share article"
           >
             <Share2 className="size-4" />
           </Button>
@@ -604,11 +589,12 @@ export default function BlogDetailPage() {
               <AvatarFallback>{getInitials(blog.author.name)}</AvatarFallback>
             </Avatar>
             <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-sm font-bold text-foreground group-hover:underline truncate">
                   {blog.author.name}
                 </span>
-                {blog.author.verified && <VerifiedBadge size="sm" />}
+                {Boolean(blog.author.verified) && <VerifiedBadge size="sm" />}
+                <UserBadges equippedBadges={blog.author.equipped_badges} size="sm" />
               </div>
               <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                 <span>@{blog.author.username}</span>
@@ -635,25 +621,26 @@ export default function BlogDetailPage() {
           </div>
         )}
 
-        {/* Main Formatted Body (Notion-like markdown parser) */}
-        <div className="blog-body leading-relaxed space-y-1">
+        {/* Main Content Render */}
+        <div className="space-y-1 text-foreground/95 text-[15px] sm:text-base leading-relaxed tracking-normal">
           {renderBlogContent(blog.content)}
         </div>
 
-        {/* Footer Interaction Bar */}
-        <div className="flex items-center justify-between py-4 border-t border-border/60 mt-10">
+        {/* Footer actions bar */}
+        <div className="flex items-center justify-between py-4 border-t border-border/60 mt-10 gap-3">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="sm"
               onClick={handleLike}
               className={cn(
-                "rounded-md text-xs font-semibold gap-1.5 h-9 px-4",
-                liked && "border-rose-500/50 text-rose-500 bg-rose-500/10"
+                "rounded-full gap-1.5 text-xs font-semibold h-9 px-4 cursor-pointer",
+                liked && "text-rose-500 border-rose-500/40 bg-rose-500/5 hover:bg-rose-500/10"
               )}
             >
-              <Heart className={cn("size-4", liked && "fill-current text-rose-500")} />
-              <span>{likeCount} {likeCount === 1 ? "Like" : "Likes"}</span>
+              <Heart className={cn("size-4", liked && "fill-current")} />
+              <span>{liked ? "Liked" : "Like"}</span>
+              {likeCount > 0 && <span className="text-muted-foreground ml-1">({formatCount(likeCount)})</span>}
             </Button>
 
             <Button
@@ -661,41 +648,32 @@ export default function BlogDetailPage() {
               size="sm"
               onClick={handleBookmark}
               className={cn(
-                "rounded-md text-xs font-semibold gap-1.5 h-9 px-3",
-                bookmarked && "border-brand-bookmark/50 text-brand-bookmark bg-brand-bookmark-subtle"
+                "rounded-full gap-1.5 text-xs font-semibold h-9 px-4 cursor-pointer",
+                bookmarked && "text-brand-bookmark border-brand-bookmark/40 bg-brand-bookmark-subtle"
               )}
             >
-              <Bookmark className={cn("size-4", bookmarked && "fill-current text-brand-bookmark")} />
+              <Bookmark className={cn("size-4", bookmarked && "fill-current")} />
               <span>{bookmarked ? "Saved" : "Save"}</span>
             </Button>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleShare}
-              className="rounded-md text-xs font-semibold gap-1.5 h-9 px-3 text-muted-foreground hover:text-foreground"
-            >
-              <Share2 className="size-4" />
-              Share
-            </Button>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            {blog.views_count > 0 && (
-              <span className="inline-flex items-center gap-1">
-                <Eye className="size-3.5" />
-                {formatCount(blog.views_count)} views
-              </span>
-            )}
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleShare}
+            className="rounded-full gap-1.5 text-xs font-semibold h-9 px-4 cursor-pointer"
+          >
+            <Share2 className="size-4" />
+            <span>Share</span>
+          </Button>
         </div>
 
-        {/* Author Bio Box */}
-        <div className="mt-8 p-5 rounded-lg bg-muted/30 border border-border/60 flex items-start gap-4">
+        {/* Author Bio Card at Bottom */}
+        <div className="p-5 rounded-2xl border border-border/80 bg-card/60 backdrop-blur-sm mt-8 flex items-start gap-4 shadow-sm">
           <Link href={`/@${blog.author.username}`}>
-            <Avatar className="size-14 ring-2 ring-border/40 shrink-0">
+            <Avatar className="size-12 ring-2 ring-primary/20">
               <AvatarImage src={getAvatarUrl(blog.author.avatar)} alt={blog.author.name} />
-              <AvatarFallback className="text-base font-bold">
+              <AvatarFallback className={`font-bold ${getAvatarGradient(blog.author.username || blog.author.name)}`}>
                 {getInitials(blog.author.name)}
               </AvatarFallback>
             </Avatar>
@@ -703,9 +681,10 @@ export default function BlogDetailPage() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2 flex-wrap mb-1">
               <Link href={`/@${blog.author.username}`} className="hover:underline">
-                <h4 className="text-base font-bold text-foreground flex items-center gap-1.5">
-                  {blog.author.name}
-                  {blog.author.verified && <VerifiedBadge size="sm" />}
+                <h4 className="text-base font-bold text-foreground flex items-center gap-1.5 flex-wrap">
+                  <span>{blog.author.name}</span>
+                  {Boolean(blog.author.verified) && <VerifiedBadge size="sm" />}
+                  <UserBadges equippedBadges={blog.author.equipped_badges} size="sm" />
                 </h4>
               </Link>
               <Link href={`/@${blog.author.username}`}>
@@ -724,32 +703,39 @@ export default function BlogDetailPage() {
         </div>
       </article>
 
-
+      {/* Share Dialog (Same as Post Share) */}
+      {blog && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          post={{
+            id: blog.id,
+            type: "blog",
+            title: blog.title,
+            slug: blog.slug,
+            author: blog.author,
+            content: blog.excerpt || blog.content || blog.title,
+            cover_image: blog.cover_image,
+          }}
+        />
+      )}
 
       {/* Delete Confirmation Alert */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-lg">
+        <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="font-[family-name:var(--font-fraunces)]">Delete blog post?</AlertDialogTitle>
+            <AlertDialogTitle>Delete blog post?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete your blog post &quot;{blog.title}&quot;.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting} className="rounded-md">Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md"
             >
-              {deleting ? (
-                <>
-                  <Loader2 className="size-4 animate-spin mr-1" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
+              {deleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

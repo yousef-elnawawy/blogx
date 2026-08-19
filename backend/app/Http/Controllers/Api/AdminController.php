@@ -147,8 +147,13 @@ class AdminController extends Controller
             // Delete verification documents
             $docs = VerificationRequest::where('user_id', $user->id)->pluck('document_path');
             foreach ($docs as $doc) {
-                if ($doc && Storage::disk('public')->exists($doc)) {
-                    Storage::disk('public')->delete($doc);
+                if ($doc) {
+                    if (Storage::disk('local')->exists($doc)) {
+                        Storage::disk('local')->delete($doc);
+                    }
+                    if (Storage::disk('public')->exists($doc)) {
+                        Storage::disk('public')->delete($doc);
+                    }
                 }
             }
 

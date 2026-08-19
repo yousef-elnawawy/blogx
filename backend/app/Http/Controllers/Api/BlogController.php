@@ -134,7 +134,7 @@ class BlogController extends Controller
             'title'       => ['required', 'string', 'max:255'],
             'content'     => ['required', 'string'],
             'excerpt'     => ['nullable', 'string', 'max:2000'],
-            'cover_image' => ['nullable'],
+            'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'tags'        => ['nullable'],
             'status'      => ['nullable', 'in:published,draft'],
         ]);
@@ -223,7 +223,7 @@ class BlogController extends Controller
             'title'        => ['sometimes', 'required', 'string', 'max:255'],
             'content'      => ['sometimes', 'required', 'string'],
             'excerpt'      => ['nullable', 'string', 'max:2000'],
-            'cover_image'  => ['nullable'],
+            'cover_image'  => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
             'remove_cover' => ['nullable', 'boolean'],
             'tags'         => ['nullable'],
             'status'       => ['nullable', 'in:published,draft'],
@@ -467,7 +467,7 @@ class BlogController extends Controller
                 'avatar'          => $authorAvatar,
                 'bio'             => $blog->user ? $blog->user->bio : null,
                 'verified'        => (bool) ($blog->user ? $blog->user->verified : false),
-                'equipped_badges' => $blog->user ? $blog->user->equipped_badges : null,
+                'equipped_badges' => $blog->user ? ($blog->user->equipped_badges ?? []) : [],
             ],
         ];
     }

@@ -20,6 +20,8 @@ import {
   BookOpen,
   FileText,
   Plus,
+  Users,
+  MessageCircle,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -53,6 +55,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: any;
+  badge?: number;
   colorClass: string;
   activeClass: string;
   hoverClass: string;
@@ -79,6 +82,15 @@ const mainNavItems: NavItem[] = [
     iconActiveClass: "nav-item-articles stroke-[2.5]",
   },
   {
+    label: "Communities",
+    href: "/communities",
+    icon: Users,
+    colorClass: "nav-item-following",
+    activeClass: "nav-item-following-active",
+    hoverClass: "nav-item-following-hover",
+    iconActiveClass: "nav-item-following stroke-[2.5]",
+  },
+  {
     label: "Explore",
     href: "/search",
     icon: Search,
@@ -90,6 +102,15 @@ const mainNavItems: NavItem[] = [
 ];
 
 const activityNavItems: NavItem[] = [
+  {
+    label: "Messages",
+    href: "/messages",
+    icon: MessageCircle,
+    colorClass: "nav-item-mentions",
+    activeClass: "nav-item-mentions-active",
+    hoverClass: "nav-item-mentions-hover",
+    iconActiveClass: "nav-item-mentions stroke-[2.5]",
+  },
   {
     label: "Notifications",
     href: "/notifications",

@@ -112,8 +112,8 @@
   --accent: oklch(96.5% 0.005 240);
   --accent-foreground: oklch(22.26% 0.0193 66.57);
 
-  --destructive: oklch(50.92% 0.1934 27.66);
-  --destructive-foreground: oklch(100% 0 89.88);
+  --destructive: oklch(58.5% 0.235 27.5);
+  --destructive-foreground: #ffffff;
 
   /* outline-variant */
   --border: oklch(82.75% 0.0393 69.11);

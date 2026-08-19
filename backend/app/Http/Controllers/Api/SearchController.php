@@ -7,6 +7,7 @@ use App\Models\Hashtag;
 use App\Models\Post;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 
 class SearchController extends Controller
 {
@@ -15,6 +16,19 @@ class SearchController extends Controller
      */
     public function search(Request $request)
     {
+        $ip = $request->ip();
+        $throttleKey = 'search:' . $ip;
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 60)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
+            return response()->json([
+                'message' => "Too many search requests. Please wait {$seconds} seconds.",
+                'retry_after' => $seconds,
+            ], 429);
+        }
+
+        RateLimiter::hit($throttleKey, 60);
+
         $q    = trim($request->get('q', ''));
         $type = $request->get('type', 'all'); // all | posts | people | hashtags
         $user = $request->user() ?? auth('sanctum')->user();
@@ -65,36 +79,41 @@ class SearchController extends Controller
 
         if (in_array($type, ['all', 'people'])) {
             $peopleLimit = ($type === 'all') ? 6 : 30;
-            $people = User::where('name', 'like', "%{$q}%")
-                ->orWhere('username', 'like', "%{$q}%")
-                ->orWhere('bio', 'like', "%{$q}%")
-                ->take($peopleLimit)
-                ->get()
-                ->map(function ($u) use ($user) {
-                    $avatarUrl = $u->avatar;
-                    if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
-                        $avatarUrl = config('app.url') . $avatarUrl;
-                    }
-                    $coverUrl = $u->cover;
-                    if ($coverUrl && !str_starts_with($coverUrl, 'http')) {
-                        $coverUrl = config('app.url') . $coverUrl;
-                    }
-                    return [
-                        'id'              => $u->id,
-                        'name'            => $u->name,
-                        'username'        => $u->username,
-                        'avatar'          => $avatarUrl,
-                        'cover'           => $coverUrl,
-                        'bio'             => $u->bio,
-                        'location'        => $u->location,
-                        'website'         => $u->website,
-                        'verified'        => (bool) $u->verified,
-                        'followers_count' => $u->followers()->count(),
-                        'following_count' => $u->following()->count(),
-                        'posts_count'     => Post::where('user_id', $u->id)->published()->count(),
-                        'is_following'    => $user ? $user->isFollowing($u) : false,
-                    ];
-                });
+            $people = User::where(function ($query) use ($q) {
+                $query->where('name', 'like', "%{$q}%")
+                    ->orWhere('username', 'like', "%{$q}%")
+                    ->orWhere('bio', 'like', "%{$q}%");
+            })
+            ->withCount(['followers', 'following', 'posts' => function ($p) {
+                $p->published();
+            }])
+            ->take($peopleLimit)
+            ->get()
+            ->map(function ($u) use ($user) {
+                $avatarUrl = $u->avatar;
+                if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
+                    $avatarUrl = config('app.url') . $avatarUrl;
+                }
+                $coverUrl = $u->cover;
+                if ($coverUrl && !str_starts_with($coverUrl, 'http')) {
+                    $coverUrl = config('app.url') . $coverUrl;
+                }
+                return [
+                    'id'              => $u->id,
+                    'name'            => $u->name,
+                    'username'        => $u->username,
+                    'avatar'          => $avatarUrl,
+                    'cover'           => $coverUrl,
+                    'bio'             => $u->bio,
+                    'location'        => $u->location,
+                    'website'         => $u->website,
+                    'verified'        => (bool) $u->verified,
+                    'followers_count' => (int) $u->followers_count,
+                    'following_count' => (int) $u->following_count,
+                    'posts_count'     => (int) $u->posts_count,
+                    'is_following'    => $user ? $user->isFollowing($u) : false,
+                ];
+            });
 
             $result['people'] = $people->values();
         }

@@ -72,11 +72,13 @@ class EmailVerificationController extends Controller
 
         RateLimiter::hit($throttleKey, 60);
 
-        try {
-            $user->sendEmailVerificationNotification();
-        } catch (\Exception $e) {
-            Log::warning('Email verification send failed: ' . $e->getMessage());
-        }
+        defer(function () use ($user) {
+            try {
+                $user->sendEmailVerificationNotification();
+            } catch (\Exception $e) {
+                Log::warning('Email verification send failed: ' . $e->getMessage());
+            }
+        });
 
         return response()->json([
             'message' => 'A fresh verification link has been sent to your email address.',

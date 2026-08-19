@@ -63,20 +63,21 @@ class PasswordResetController extends Controller
             // Log the reset URL for local testing & development
             Log::info("Password Reset Link for {$email}: {$resetUrl}");
 
-            try {
-                // Try sending email if configured
-                Mail::raw("Hello {$user->name},\n\nYou requested a password reset for your BlogX account. Click the link below to set a new password:\n\n{$resetUrl}\n\nThis link will expire in 60 minutes.\n\nIf you did not request this, please ignore this email.", function ($message) use ($user) {
-                    $message->to($user->email)->subject('Reset Your BlogX Password');
-                });
-            } catch (\Exception $e) {
-                Log::warning("Could not send reset email to {$email}: " . $e->getMessage());
-            }
+            defer(function () use ($user, $resetUrl, $email) {
+                try {
+                    // Try sending email if configured
+                    Mail::raw("Hello {$user->name},\n\nYou requested a password reset for your BlogX account. Click the link below to set a new password:\n\n{$resetUrl}\n\nThis link will expire in 60 minutes.\n\nIf you did not request this, please ignore this email.", function ($message) use ($user) {
+                        $message->to($user->email)->subject('Reset Your BlogX Password');
+                    });
+                } catch (\Exception $e) {
+                    Log::warning("Could not send reset email to {$email}: " . $e->getMessage());
+                }
+            });
         }
 
         // Always return a generic success message to prevent user enumeration attacks
         return response()->json([
             'message' => 'If an account exists with that email, we have sent password reset instructions.',
-            'test_reset_url' => config('app.debug') && isset($resetUrl) ? $resetUrl : null,
         ]);
     }
 

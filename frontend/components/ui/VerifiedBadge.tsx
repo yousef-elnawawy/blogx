@@ -2,7 +2,7 @@ import React from "react";
 import { cn } from "@/lib/utils";
 
 interface VerifiedBadgeProps {
-  size?: "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg";
   className?: string;
 }
 
@@ -11,6 +11,7 @@ export default function VerifiedBadge({
   className,
 }: VerifiedBadgeProps) {
   const sizeClasses = {
+    xs: "size-3",
     sm: "size-3.5",
     md: "size-4",
     lg: "size-5",

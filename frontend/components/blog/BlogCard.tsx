@@ -6,11 +6,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
+import ShareDialog from "@/components/post/ShareDialog";
 import {
   Clock,
   Heart,
   Eye,
   Bookmark,
+  Share2,
   Pencil,
   Trash2,
   Lock,
@@ -72,6 +74,7 @@ export default function BlogCard({
   const [isBookmarked, setIsBookmarked] = useState(Boolean(blog.is_bookmarked));
   const [bookmarking, setBookmarking] = useState(false);
   const [liking, setLiking] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const timeAgo = (() => {
     try {
@@ -260,19 +263,35 @@ export default function BlogCard({
                 )}
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={handleBookmark}
-                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
-                  isBookmarked
-                    ? "text-brand-bookmark bg-brand-bookmark-subtle"
-                    : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                }`}
-                title={isBookmarked ? "Remove from bookmarks" : "Save to bookmarks"}
-                aria-label="Bookmark"
-              >
-                <Bookmark className={`size-4 ${isBookmarked ? "fill-brand-bookmark text-brand-bookmark" : ""}`} />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleBookmark}
+                  className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                    isBookmarked
+                      ? "text-brand-bookmark bg-brand-bookmark-subtle"
+                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                  title={isBookmarked ? "Remove from bookmarks" : "Save to bookmarks"}
+                  aria-label="Bookmark"
+                >
+                  <Bookmark className={`size-4 ${isBookmarked ? "fill-brand-bookmark text-brand-bookmark" : ""}`} />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShareOpen(true);
+                  }}
+                  className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  title="Share blog post"
+                  aria-label="Share"
+                >
+                  <Share2 className="size-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -297,6 +316,23 @@ export default function BlogCard({
           </Link>
         )}
       </div>
+
+      {/* Share Dialog */}
+      {!isDraft && (
+        <ShareDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          post={{
+            id: blog.id,
+            type: "blog",
+            title: blog.title,
+            slug: blog.slug,
+            author: blog.author,
+            content: blog.excerpt || blog.content || blog.title,
+            cover_image: blog.cover_image,
+          }}
+        />
+      )}
     </article>
   );
 }

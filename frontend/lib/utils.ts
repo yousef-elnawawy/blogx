@@ -105,7 +105,7 @@ export function detectSocialPlatform(rawUrl: string): SocialPlatformInfo {
       key: "x",
       name: "X (Twitter)",
       color: "text-foreground",
-      bgColor: "bg-foreground/10 hover:bg-foreground/20",
+      bgColor: "bg-foreground/10 hover:bg-foreground/20 border-foreground/20",
       iconName: "X",
       url: clean,
     };
@@ -149,8 +149,19 @@ export function detectSocialPlatform(rawUrl: string): SocialPlatformInfo {
       key: "github",
       name: "GitHub",
       color: "text-foreground",
-      bgColor: "bg-foreground/10 hover:bg-foreground/20",
+      bgColor: "bg-foreground/10 hover:bg-foreground/20 border-foreground/20",
       iconName: "Github",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("stackoverflow.com") || hostname.includes("stackexchange.com")) {
+    return {
+      key: "stackoverflow",
+      name: "Stack Overflow",
+      color: "text-[#F48024]",
+      bgColor: "bg-[#F48024]/10 hover:bg-[#F48024]/20 border-[#F48024]/20",
+      iconName: "Stackoverflow",
       url: clean,
     };
   }
@@ -171,7 +182,7 @@ export function detectSocialPlatform(rawUrl: string): SocialPlatformInfo {
       key: "tiktok",
       name: "TikTok",
       color: "text-foreground",
-      bgColor: "bg-foreground/10 hover:bg-foreground/20",
+      bgColor: "bg-foreground/10 hover:bg-foreground/20 border-foreground/20",
       iconName: "Music",
       url: clean,
     };
@@ -226,8 +237,140 @@ export function detectSocialPlatform(rawUrl: string): SocialPlatformInfo {
       key: "threads",
       name: "Threads",
       color: "text-foreground",
-      bgColor: "bg-foreground/10 hover:bg-foreground/20",
+      bgColor: "bg-foreground/10 hover:bg-foreground/20 border-foreground/20",
       iconName: "AtSign",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("medium.com")) {
+    return {
+      key: "medium",
+      name: "Medium",
+      color: "text-foreground",
+      bgColor: "bg-foreground/10 hover:bg-foreground/20 border-foreground/20",
+      iconName: "Medium",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("dev.to")) {
+    return {
+      key: "devto",
+      name: "Dev.to",
+      color: "text-foreground",
+      bgColor: "bg-foreground/10 hover:bg-foreground/20 border-foreground/20",
+      iconName: "Devto",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("gitlab.com")) {
+    return {
+      key: "gitlab",
+      name: "GitLab",
+      color: "text-[#FC6D26]",
+      bgColor: "bg-[#FC6D26]/10 hover:bg-[#FC6D26]/20 border-[#FC6D26]/20",
+      iconName: "Gitlab",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("dribbble.com")) {
+    return {
+      key: "dribbble",
+      name: "Dribbble",
+      color: "text-[#EA4C89]",
+      bgColor: "bg-[#EA4C89]/10 hover:bg-[#EA4C89]/20 border-[#EA4C89]/20",
+      iconName: "Dribbble",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("behance.net")) {
+    return {
+      key: "behance",
+      name: "Behance",
+      color: "text-[#1769FF]",
+      bgColor: "bg-[#1769FF]/10 hover:bg-[#1769FF]/20 border-[#1769FF]/20",
+      iconName: "Behance",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("pinterest.com") || hostname.includes("pin.it")) {
+    return {
+      key: "pinterest",
+      name: "Pinterest",
+      color: "text-[#E60023]",
+      bgColor: "bg-[#E60023]/10 hover:bg-[#E60023]/20 border-[#E60023]/20",
+      iconName: "Pinterest",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("whatsapp.com") || hostname.includes("wa.me")) {
+    return {
+      key: "whatsapp",
+      name: "WhatsApp",
+      color: "text-[#25D366]",
+      bgColor: "bg-[#25D366]/10 hover:bg-[#25D366]/20 border-[#25D366]/20",
+      iconName: "Whatsapp",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("spotify.com")) {
+    return {
+      key: "spotify",
+      name: "Spotify",
+      color: "text-[#1DB954]",
+      bgColor: "bg-[#1DB954]/10 hover:bg-[#1DB954]/20 border-[#1DB954]/20",
+      iconName: "Spotify",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("codepen.io")) {
+    return {
+      key: "codepen",
+      name: "CodePen",
+      color: "text-foreground",
+      bgColor: "bg-foreground/10 hover:bg-foreground/20 border-foreground/20",
+      iconName: "Codepen",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("kaggle.com")) {
+    return {
+      key: "kaggle",
+      name: "Kaggle",
+      color: "text-[#20BEFF]",
+      bgColor: "bg-[#20BEFF]/10 hover:bg-[#20BEFF]/20 border-[#20BEFF]/20",
+      iconName: "Kaggle",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("leetcode.com")) {
+    return {
+      key: "leetcode",
+      name: "LeetCode",
+      color: "text-[#FFA116]",
+      bgColor: "bg-[#FFA116]/10 hover:bg-[#FFA116]/20 border-[#FFA116]/20",
+      iconName: "Leetcode",
+      url: clean,
+    };
+  }
+
+  if (hostname.includes("substack.com")) {
+    return {
+      key: "substack",
+      name: "Substack",
+      color: "text-[#FF6719]",
+      bgColor: "bg-[#FF6719]/10 hover:bg-[#FF6719]/20 border-[#FF6719]/20",
+      iconName: "Substack",
       url: clean,
     };
   }
@@ -243,8 +386,8 @@ export function detectSocialPlatform(rawUrl: string): SocialPlatformInfo {
   return {
     key: "website",
     name: displayDomain,
-    color: "text-primary",
-    bgColor: "bg-primary/10 hover:bg-primary/20 border-primary/20",
+    color: "text-foreground",
+    bgColor: "bg-muted/80 hover:bg-muted border-border/80",
     iconName: "Globe",
     url: clean,
   };

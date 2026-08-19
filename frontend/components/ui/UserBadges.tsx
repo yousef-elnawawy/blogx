@@ -47,11 +47,24 @@ export default function UserBadges({
   size = "sm",
   className,
 }: UserBadgesProps) {
-  if (!equippedBadges || !Array.isArray(equippedBadges) || equippedBadges.length === 0) {
-    return null;
+  if (!equippedBadges) return null;
+
+  let badgeIds: string[] = [];
+  if (Array.isArray(equippedBadges)) {
+    badgeIds = equippedBadges;
+  } else if (typeof equippedBadges === "string") {
+    try {
+      const parsed = JSON.parse(equippedBadges);
+      if (Array.isArray(parsed)) badgeIds = parsed;
+      else if (parsed) badgeIds = [String(parsed)];
+    } catch {
+      badgeIds = [equippedBadges];
+    }
   }
 
-  const validBadges = equippedBadges
+  if (badgeIds.length === 0) return null;
+
+  const validBadges = badgeIds
     .map((id) => getBadgeDefinition(id))
     .filter((b): b is BadgeDefinition => Boolean(b));
 

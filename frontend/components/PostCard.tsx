@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Bookmark, Share2, MoreHorizontal, Pencil, Trash2, Loader2, Repeat2, BarChart3, Pin } from "lucide-react";
+import { Heart, MessageSquare, Bookmark, Share2, MoreHorizontal, Pencil, Trash2, Repeat2, BarChart3, Pin, Quote } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn, getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import ShareDialog from "@/components/post/ShareDialog";
+import QuotePostDialog from "@/components/post/QuotePostDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +52,7 @@ export interface PostCardProps {
   mentions?: string[];
   likes_count: number;
   comments_count: number;
+  reposts_count?: number;
   views_count?: number;
   created_at: string;
   is_edited?: boolean;
@@ -60,6 +62,19 @@ export interface PostCardProps {
   scheduled_at?: string | null;
   is_liked?: boolean;
   is_bookmarked?: boolean;
+  is_reposted?: boolean;
+  repost_of_id?: number | string | null;
+  quote_of_id?: number | string | null;
+  repost_of?: any;
+  quote_of?: any;
+  community_id?: number | string | null;
+  community?: {
+    id: number;
+    name: string;
+    slug: string;
+    avatar?: string | null;
+    type?: string;
+  } | null;
 }
 
 function formatCount(num: number): string {
@@ -149,6 +164,7 @@ export default function PostCard({
   mentions = [],
   likes_count,
   comments_count,
+  reposts_count = 0,
   views_count = 0,
   created_at,
   is_edited = false,
@@ -156,12 +172,20 @@ export default function PostCard({
   showPinnedBadge = false,
   is_liked: initialLiked = false,
   is_bookmarked: initialBookmarked = false,
+  is_reposted: initialReposted = false,
+  repost_of_id,
+  quote_of_id,
+  repost_of,
+  quote_of,
+  community,
 }: PostCardProps) {
   const { user } = useAuth();
   const router = useRouter();
   const [liked, setLiked] = useState(initialLiked);
   const [bookmarked, setBookmarked] = useState(initialBookmarked);
+  const [reposted, setReposted] = useState(initialReposted);
   const [likeCount, setLikeCount] = useState(likes_count);
+  const [repostCount, setRepostCount] = useState(reposts_count);
   const [viewCount, setViewCount] = useState(views_count);
   const [postContent, setPostContent] = useState(content);
   const [postImages, setPostImages] = useState<string[]>(images);
@@ -173,15 +197,36 @@ export default function PostCard({
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLiking, setIsLiking] = useState(false);
   const [isBookmarking, setIsBookmarking] = useState(false);
+  const [isReposting, setIsReposting] = useState(false);
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const isOwner = Boolean(
-    user && (user.username === author.username || (author.id && user.id === author.id))
+  // If this post is a pure repost, actual display author & content comes from repost_of
+  const effectivePost = repost_of || {
+    id,
+    author,
+    content: postContent,
+    images: postImages,
+    mentions,
+    created_at,
+  };
+
+  const displayAuthor = effectivePost.author || author;
+
+  const isReposter = Boolean(
+    repost_of && user && (user.username === author.username || (author.id && user.id === author.id))
   );
+
+  const isOriginalAuthor = Boolean(
+    user && (user.username === displayAuthor.username || (displayAuthor.id && user.id === displayAuthor.id))
+  );
+
+  const canShowMenu = isReposter || isOriginalAuthor;
+  const canEdit = !repost_of && isOriginalAuthor;
 
   useEffect(() => {
     setViewCount(views_count);
@@ -191,22 +236,12 @@ export default function PostCard({
     setPostContent(content);
     setPostImages(images);
     setIsPinned(Boolean(initialPinned));
-  }, [content, images, initialPinned]);
-
-  useEffect(() => {
-    const handlePostUpdated = (e: Event) => {
-      const customEvent = e as CustomEvent<PostCardProps>;
-      if (customEvent.detail && String(customEvent.detail.id) === String(id)) {
-        setPostContent(customEvent.detail.content);
-        setPostImages(customEvent.detail.images || []);
-        if (customEvent.detail.is_edited !== undefined) {
-          setIsEdited(customEvent.detail.is_edited);
-        }
-      }
-    };
-    window.addEventListener("post-updated", handlePostUpdated);
-    return () => window.removeEventListener("post-updated", handlePostUpdated);
-  }, [id]);
+    setLiked(Boolean(initialLiked));
+    setBookmarked(Boolean(initialBookmarked));
+    setReposted(Boolean(initialReposted));
+    setLikeCount(likes_count);
+    setRepostCount(reposts_count);
+  }, [content, images, initialPinned, initialLiked, initialBookmarked, initialReposted, likes_count, reposts_count]);
 
   const handleLike = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -240,6 +275,43 @@ export default function PostCard({
       })
       .finally(() => {
         setIsLiking(false);
+      });
+  };
+
+  const handleToggleRepost = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!user) {
+      toast.error("Sign in to repost");
+      return;
+    }
+
+    if (isReposting) return;
+
+    const previousReposted = reposted;
+    const previousCount = repostCount;
+
+    setReposted(!previousReposted);
+    setRepostCount(previousReposted ? Math.max(0, previousCount - 1) : previousCount + 1);
+    setIsReposting(true);
+
+    api
+      .post(`/api/posts/${id}/repost`)
+      .then((res) => {
+        if (res.data) {
+          setReposted(res.data.is_reposted);
+          setRepostCount(res.data.reposts_count);
+          toast.success(res.data.is_reposted ? "Post reposted!" : "Repost removed");
+        }
+      })
+      .catch(() => {
+        setReposted(previousReposted);
+        setRepostCount(previousCount);
+        toast.error("Failed to repost");
+      })
+      .finally(() => {
+        setIsReposting(false);
       });
   };
 
@@ -300,11 +372,11 @@ export default function PostCard({
     setLightboxOpen(true);
   };
 
-  const avatarSrc = getAvatarUrl(author.avatar);
+  const avatarSrc = getAvatarUrl(displayAuthor.avatar);
 
   const timeAgo = (() => {
     try {
-      return formatDistanceToNow(new Date(created_at), { addSuffix: false });
+      return formatDistanceToNow(new Date(effectivePost.created_at || created_at), { addSuffix: false });
     } catch {
       return "";
     }
@@ -312,18 +384,16 @@ export default function PostCard({
 
   const handleCardClick = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
-    // Don't navigate if user clicked on an interactive element (buttons, links, menus, inputs, dialogs)
     if (
       target.closest('a, button, input, textarea, select, [role="button"], [role="menuitem"], [role="dialog"], [data-interactive]')
     ) {
       return;
     }
-    // Don't navigate if user is selecting text
     const selection = window.getSelection();
     if (selection && selection.toString().trim().length > 0) {
       return;
     }
-    router.push(`/post/${id}`);
+    router.push(`/post/${effectivePost.id || id}`);
   };
 
   return (
@@ -334,6 +404,15 @@ export default function PostCard({
         className="relative border-b border-border hover:bg-muted/25 dark:hover:bg-muted/15 transition-colors duration-150 cursor-pointer group"
       >
         <div className="p-4 sm:p-5">
+          
+          {/* Repost Header Banner */}
+          {Boolean(repost_of) && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold mb-2.5 pl-6">
+              <Repeat2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+              <span>{author.name} Reposted</span>
+            </div>
+          )}
+
           {/* Pinned Post Badge */}
           {showPinnedBadge && isPinned && (
             <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500 mb-2 pl-9">
@@ -344,32 +423,83 @@ export default function PostCard({
 
           {/* Header */}
           <div className="flex items-start gap-3">
-            <Link
-              href={`/@${author.username}`}
-              onClick={(e) => e.stopPropagation()}
-              className="shrink-0 relative z-10"
-            >
-              <Avatar className="size-10 ring-2 ring-border/40">
-                <AvatarImage src={avatarSrc} alt={author.name} />
-                <AvatarFallback className={`text-xs font-bold ${getAvatarGradient(author.username || author.name)}`}>
-                  {getInitials(author.name)}
-                </AvatarFallback>
-              </Avatar>
-            </Link>
+            {community ? (
+              /* Facebook Style: Square/Squircle Community Avatar with small User Avatar overlaid */
+              <div className="shrink-0 relative z-10 size-10">
+                <Link
+                  href={`/c/${community.slug}`}
+                  onClick={(e) => e.stopPropagation()}
+                  title={community.name}
+                  className="block size-10 rounded-xl overflow-hidden ring-2 ring-border/50 bg-muted/60"
+                >
+                  {community.avatar ? (
+                    <img
+                      src={getAvatarUrl(community.avatar)}
+                      alt={community.name}
+                      className="size-full object-cover rounded-xl"
+                    />
+                  ) : (
+                    <div className="size-full flex items-center justify-center font-bold text-xs bg-primary/10 text-primary rounded-xl">
+                      {getInitials(community.name)}
+                    </div>
+                  )}
+                </Link>
+
+                {/* Overlaid Author Avatar */}
+                <Link
+                  href={`/@${displayAuthor.username}`}
+                  onClick={(e) => e.stopPropagation()}
+                  title={displayAuthor.name}
+                  className="absolute -bottom-1 -right-1 z-20 block size-5.5 rounded-full ring-2 ring-card overflow-hidden shadow-xs"
+                >
+                  <Avatar className="size-5.5 rounded-full">
+                    <AvatarImage src={avatarSrc} alt={displayAuthor.name} />
+                    <AvatarFallback className={`text-[8px] font-bold ${getAvatarGradient(displayAuthor.username || displayAuthor.name)}`}>
+                      {getInitials(displayAuthor.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
+              </div>
+            ) : (
+              <Link
+                href={`/@${displayAuthor.username}`}
+                onClick={(e) => e.stopPropagation()}
+                className="shrink-0 relative z-10"
+              >
+                <Avatar className="size-10 ring-2 ring-border/40">
+                  <AvatarImage src={avatarSrc} alt={displayAuthor.name} />
+                  <AvatarFallback className={`text-xs font-bold ${getAvatarGradient(displayAuthor.username || displayAuthor.name)}`}>
+                    {getInitials(displayAuthor.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
+            )}
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <Link
-                  href={`/@${author.username}`}
+                  href={`/@${displayAuthor.username}`}
                   onClick={(e) => e.stopPropagation()}
                   className="text-[15px] font-bold text-foreground hover:underline relative z-10 flex items-center gap-1"
                 >
-                  <span>{author.name}</span>
-                  {Boolean(author.verified) && <VerifiedBadge size="sm" />}
-                  <UserBadges equippedBadges={author.equipped_badges} size="xs" />
+                  <span>{displayAuthor.name}</span>
+                  {Boolean(displayAuthor.verified) && <VerifiedBadge size="sm" />}
+                  <UserBadges equippedBadges={displayAuthor.equipped_badges} size="xs" />
                 </Link>
+                {community && (
+                  <>
+                    <span className="text-xs text-muted-foreground">in</span>
+                    <Link
+                      href={`/c/${community.slug}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                      {community.name}
+                    </Link>
+                  </>
+                )}
                 <span className="text-sm text-muted-foreground">
-                  @{author.username}
+                  @{displayAuthor.username}
                 </span>
                 <span className="text-sm text-muted-foreground">·</span>
                 <span className="text-sm text-muted-foreground">
@@ -385,27 +515,63 @@ export default function PostCard({
               {/* Content */}
               <div className="mt-1.5 relative z-10">
                 <p className="text-[15px] leading-[1.6] text-foreground whitespace-pre-wrap">
-                  {renderHighlighted(postContent, mentions)}
+                  {renderHighlighted(effectivePost.content || "", effectivePost.mentions || mentions)}
                 </p>
-                {/* Embedded Video (YouTube, Instagram Reels, Direct Video) */}
-                <VideoEmbed content={postContent} />
-                {/* Rich Link OpenGraph Preview Card */}
-                <LinkPreviewCard content={postContent} />
+                {/* Embedded Video */}
+                <VideoEmbed content={effectivePost.content || ""} />
+                {/* Rich Link OpenGraph Preview */}
+                <LinkPreviewCard content={effectivePost.content || ""} />
               </div>
 
               {/* Image Grid */}
-              {postImages.length > 0 && (
+              {(effectivePost.images && effectivePost.images.length > 0) && (
                 <div className="mt-3">
-                  <PostImageGrid images={postImages} onImageClick={handleImageClick} />
+                  <PostImageGrid images={effectivePost.images} onImageClick={handleImageClick} />
+                </div>
+              )}
+
+              {/* Embedded Quote Post Card */}
+              {quote_of && (
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/post/${quote_of.id}`);
+                  }}
+                  className="mt-3 rounded-2xl border border-border/80 bg-card/70 hover:bg-muted/40 p-3.5 transition-colors cursor-pointer space-y-2 group/quote"
+                >
+                  <div className="flex items-center gap-2">
+                    <Avatar className="size-5 ring-1 ring-border/40">
+                      <AvatarImage src={getAvatarUrl(quote_of.author?.avatar)} alt={quote_of.author?.name} />
+                      <AvatarFallback className="text-[9px] font-bold">
+                        {getInitials(quote_of.author?.name || "U")}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs font-bold text-foreground group-hover/quote:underline">
+                      {quote_of.author?.name}
+                    </span>
+                    {Boolean(quote_of.author?.verified) && <VerifiedBadge size="xs" />}
+                    <span className="text-xs text-muted-foreground">
+                      @{quote_of.author?.username}
+                    </span>
+                  </div>
+                  {quote_of.content && (
+                    <p className="text-xs text-foreground/90 leading-relaxed line-clamp-3">
+                      {quote_of.content}
+                    </p>
+                  )}
+                  {quote_of.images && quote_of.images.length > 0 && (
+                    <div className="mt-2 rounded-xl overflow-hidden max-h-44 pointer-events-none">
+                      <PostImageGrid images={quote_of.images} onImageClick={() => {}} />
+                    </div>
+                  )}
                 </div>
               )}
 
               {/* Actions Bar */}
               <div className="mt-3 flex items-center justify-between relative z-10 -ml-2">
-                {/* Left actions */}
                 <div className="flex items-center gap-0">
                   {/* Comments */}
-                  <Link href={`/post/${id}`} onClick={(e) => e.stopPropagation()}>
+                  <Link href={`/post/${effectivePost.id || id}`} onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -416,12 +582,56 @@ export default function PostCard({
                     </Button>
                   </Link>
 
+                  {/* Repost / Quote Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          className={cn(
+                            "h-8 px-2 gap-1.5 text-xs font-medium rounded-md transition-colors",
+                            reposted
+                              ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                              : "text-[#78716C] hover:text-emerald-600 hover:bg-emerald-500/10"
+                          )}
+                        >
+                          <Repeat2 className={cn("size-[16px]", reposted && "stroke-[2.5]")} />
+                          {repostCount > 0 && <span>{formatCount(repostCount)}</span>}
+                        </Button>
+                      }
+                    />
+                    <DropdownMenuContent align="start" className="rounded-2xl p-1.5 min-w-36 bg-popover border-border shadow-xl">
+                      <DropdownMenuItem
+                        onClick={handleToggleRepost}
+                        className="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-xl text-foreground hover:bg-muted"
+                      >
+                        <Repeat2 className="size-4 text-emerald-600" />
+                        <span>{reposted ? "Undo Repost" : "Repost"}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (!user) {
+                            toast.error("Sign in to quote posts");
+                            return;
+                          }
+                          setQuoteDialogOpen(true);
+                        }}
+                        className="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-xl text-foreground hover:bg-muted"
+                      >
+                        <Quote className="size-4 text-primary" />
+                        <span>Quote Post</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   {/* Like */}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleLike}
-                    disabled={false}
                     className={cn(
                       "h-8 px-2 gap-1.5 text-xs font-medium rounded-md transition-colors",
                       liked
@@ -462,6 +672,7 @@ export default function PostCard({
                     <Bookmark className={cn("size-[16px]", bookmarked && "fill-current")} />
                   </Button>
 
+                  {/* Share */}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -478,8 +689,8 @@ export default function PostCard({
               </div>
             </div>
 
-            {/* Owner Dropdown */}
-            {isOwner && (
+            {/* Owner / Reposter Dropdown */}
+            {canShowMenu && (
               <div className="relative z-10 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger
@@ -488,34 +699,41 @@ export default function PostCard({
                         variant="ghost"
                         size="sm"
                         className="size-7 sm:size-7.5 p-0 rounded-full text-muted-foreground/70 hover:text-foreground hover:bg-muted/80 active:scale-95 transition-all cursor-pointer"
-                        title="More options"
                       >
                         <MoreHorizontal className="size-4" />
                       </Button>
                     }
                   />
-                  <DropdownMenuContent align="end" className="w-40 sm:w-44 p-1">
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-44 p-1.5 rounded-2xl bg-popover/95 backdrop-blur-xl border border-border/80 shadow-2xl animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2"
+                  >
                     <DropdownMenuItem
                       onClick={handleTogglePin}
-                      className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
+                      className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted focus:bg-muted transition-colors cursor-pointer"
                     >
-                      <Pin className="size-3.5 text-amber-500" />
+                      <Pin className="size-3.5 text-amber-500 rotate-45" />
                       <span>{isPinned ? "Unpin from profile" : "Pin to profile"}</span>
                     </DropdownMenuItem>
+
+                    {canEdit && (
+                      <DropdownMenuItem
+                        onClick={() => setEditDialogOpen(true)}
+                        className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted focus:bg-muted transition-colors cursor-pointer"
+                      >
+                        <Pencil className="size-3.5 text-primary" />
+                        <span>Edit post</span>
+                      </DropdownMenuItem>
+                    )}
+
+                    <div className="my-1 border-t border-border/50" />
+
                     <DropdownMenuItem
-                      onClick={() => setEditDialogOpen(true)}
-                      className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
-                    >
-                      <Pencil className="size-3.5 text-muted-foreground" />
-                      <span>Edit</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant="destructive"
                       onClick={() => setDeleteDialogOpen(true)}
-                      className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
+                      className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-destructive hover:bg-destructive/10 focus:bg-destructive/10 transition-colors cursor-pointer"
                     >
                       <Trash2 className="size-3.5" />
-                      <span>Delete</span>
+                      <span>{isReposter ? "Undo Repost" : "Delete post"}</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -525,10 +743,11 @@ export default function PostCard({
         </div>
       </article>
 
+      {/* Lightbox */}
       <ImageLightbox
-        images={postImages}
+        images={effectivePost.images || []}
+        initialIndex={lightboxIndex}
         open={lightboxOpen}
-        index={lightboxIndex}
         onClose={() => setLightboxOpen(false)}
       />
 
@@ -536,11 +755,39 @@ export default function PostCard({
       <PostEditorDialog
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
-        postToEdit={{ id, content: postContent, images: postImages }}
-        onPostUpdated={(updatedPost) => {
-          setPostContent(updatedPost.content);
-          setPostImages(updatedPost.images || []);
-          setIsEdited(true);
+        postToEdit={{
+          id: effectivePost.id || id,
+          content: effectivePost.content || "",
+          images: effectivePost.images || [],
+        }}
+      />
+
+      {/* Share Dialog */}
+      <ShareDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        post={{
+          id: effectivePost.id || id,
+          author: displayAuthor,
+          content: effectivePost.content || "",
+          images: effectivePost.images || [],
+        }}
+      />
+
+      {/* Quote Dialog */}
+      <QuotePostDialog
+        open={quoteDialogOpen}
+        onOpenChange={setQuoteDialogOpen}
+        targetPost={{
+          id: effectivePost.id || id,
+          content: effectivePost.content || "",
+          images: effectivePost.images || [],
+          created_at: effectivePost.created_at || created_at,
+          author: displayAuthor,
+        }}
+        currentUser={user}
+        onPostCreated={() => {
+          setRepostCount((prev) => prev + 1);
         }}
       />
 
@@ -548,7 +795,7 @@ export default function PostCard({
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Post?</AlertDialogTitle>
+            <AlertDialogTitle>Delete post?</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to delete this post? This action cannot be undone.
             </AlertDialogDescription>
@@ -558,20 +805,12 @@ export default function PostCard({
             <AlertDialogAction
               onClick={handleDeletePost}
               disabled={deleting}
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             >
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+              {deleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Share Dialog */}
-      <ShareDialog
-        open={shareDialogOpen}
-        onOpenChange={setShareDialogOpen}
-        post={{ id, author, content: postContent, images: postImages }}
-      />
     </>
   );
 }

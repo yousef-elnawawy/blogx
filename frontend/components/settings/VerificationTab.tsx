@@ -784,16 +784,26 @@ export default function VerificationTab() {
                       </div>
 
                       {req.document_url && (
-                        <a
-                          href={req.document_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-semibold"
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const res = await api.get(req.document_url!, { responseType: "blob" });
+                              const blob = new Blob([res.data], {
+                                type: (res.headers["content-type"] as string) || "application/pdf",
+                              });
+                              const blobUrl = URL.createObjectURL(blob);
+                              window.open(blobUrl, "_blank");
+                            } catch {
+                              toast.error("Failed to load verification document.");
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline font-semibold cursor-pointer"
                         >
                           <FileText className="size-3.5" />
                           <span>View Attached Document</span>
                           <ExternalLink className="size-3" />
-                        </a>
+                        </button>
                       )}
 
                       {req.status === "pending" && (
@@ -969,17 +979,9 @@ export default function VerificationTab() {
       <AlertDialog open={Boolean(deleteTargetUser)} onOpenChange={(open) => !open && setDeleteTargetUser(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive flex items-center gap-2">
-              <ShieldAlert className="size-5" />
-              Delete User Account?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="space-y-2">
-              <p>
-                Are you sure you want to permanently delete <strong>@{deleteTargetUser?.username}</strong> ({deleteTargetUser?.name})?
-              </p>
-              <p className="text-xs text-muted-foreground">
-                This will delete all their posts, comments, likes, images, and data permanently. This action cannot be undone.
-              </p>
+            <AlertDialogTitle>Delete user account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete @{deleteTargetUser?.username} ({deleteTargetUser?.name})? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -987,16 +989,8 @@ export default function VerificationTab() {
             <AlertDialogAction
               onClick={handleDeleteUser}
               disabled={isDeletingUser}
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold cursor-pointer"
             >
-              {isDeletingUser ? (
-                <>
-                  <Loader2 className="size-3.5 animate-spin mr-1.5" />
-                  Deleting...
-                </>
-              ) : (
-                "Permanently Delete"
-              )}
+              {isDeletingUser ? "Deleting..." : "Permanently Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

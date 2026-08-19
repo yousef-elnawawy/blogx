@@ -317,61 +317,61 @@ export function FeaturedArticleFeedCard() {
 }
 
 /* =========================================================================
-   3. Horizontal Scrolling Communities with REAL Cover Images
+   3. Horizontal Scrolling Communities Carousel (Real Communities from API)
    ========================================================================= */
-const communitiesWithImages = [
-  {
-    id: "web-dev",
-    name: "Web Development",
-    members: "14.2k members",
-    description: "Next.js, React, Laravel APIs, fullstack architecture.",
-    image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "ai-ml",
-    name: "Artificial Intelligence",
-    members: "18.5k members",
-    description: "LLMs, Neural Networks, Computer Vision and AI Agents.",
-    image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "gamedev",
-    name: "Game Development",
-    members: "9.1k members",
-    description: "Unreal Engine, Unity, Godot, shaders and game devlogs.",
-    image: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "design",
-    name: "UI / UX & Design",
-    members: "11.8k members",
-    description: "Design systems, typography, Figma and micro-interactions.",
-    image: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?w=600&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "mobile-dev",
-    name: "Mobile Apps",
-    members: "7.4k members",
-    description: "React Native, Flutter, Swift, Kotlin, and mobile architecture.",
-    image: "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=600&auto=format&fit=crop&q=80",
-  },
-  {
-    id: "security",
-    name: "Cybersecurity & Cloud",
-    members: "6.9k members",
-    description: "Penetration testing, Docker, Kubernetes, AWS and DevSecOps.",
-    image: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=80",
-  },
-];
-
 export function SuggestedCommunitiesFeedCard() {
-  const [joinedMap, setJoinedMap] = useState<Record<string, boolean>>({});
+  const [communities, setCommunities] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [joiningId, setJoiningId] = useState<number | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const toggleJoin = (id: string, name: string) => {
-    const isJoined = !joinedMap[id];
-    setJoinedMap((prev) => ({ ...prev, [id]: isJoined }));
-    toast.success(isJoined ? `Joined ${name}!` : `Left ${name}`);
+  useEffect(() => {
+    api
+      .get("/api/communities?tab=popular")
+      .then((res) => {
+        setCommunities(res.data.data || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleToggleJoin = async (c: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setJoiningId(c.id);
+    try {
+      if (c.is_member || c.member_status === "admin") {
+        await api.post(`/api/communities/${c.id}/leave`);
+        setCommunities((prev) =>
+          prev.map((item) =>
+            item.id === c.id
+              ? { ...item, is_member: false, member_status: "none", members_count: Math.max(0, item.members_count - 1) }
+              : item
+          )
+        );
+        toast.success(`Left ${c.name}`);
+      } else {
+        const res = await api.post(`/api/communities/${c.id}/join`);
+        setCommunities((prev) =>
+          prev.map((item) =>
+            item.id === c.id
+              ? {
+                  ...item,
+                  is_member: res.data.status === "approved",
+                  member_status: res.data.status,
+                  members_count: res.data.status === "approved" ? item.members_count + 1 : item.members_count,
+                }
+              : item
+          )
+        );
+        toast.success(res.data.message || `Joined ${c.name}!`);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to update membership");
+    } finally {
+      setJoiningId(null);
+    }
   };
 
   const scroll = (direction: "left" | "right") => {
@@ -380,6 +380,10 @@ export function SuggestedCommunitiesFeedCard() {
       scrollRef.current.scrollBy({ left: offset, behavior: "smooth" });
     }
   };
+
+  if (loading || communities.length === 0) {
+    return null;
+  }
 
   return (
     <div className="py-4 border-b border-border bg-muted/10 animate-in fade-in-50 duration-300">
@@ -412,66 +416,93 @@ export function SuggestedCommunitiesFeedCard() {
         </div>
       </div>
 
-      {/* Horizontal Carousel with REAL images */}
+      {/* Horizontal Carousel with Real Communities */}
       <div
         ref={scrollRef}
         className="flex gap-3.5 overflow-x-auto px-4 sm:px-5 no-scrollbar scroll-smooth py-1"
       >
-        {communitiesWithImages.map((c) => {
-          const isJoined = joinedMap[c.id];
+        {communities.map((c) => {
+          const isJoined = c.is_member || c.member_status === "admin";
+          const isPending = c.member_status === "pending";
+          const coverSrc = getAvatarUrl(c.cover);
+          const avatarSrc = getAvatarUrl(c.avatar);
 
           return (
-            <div
+            <Link
               key={c.id}
-              className="w-56 sm:w-60 shrink-0 rounded-lg border border-border/70 bg-background overflow-hidden hover:border-primary/50 transition-all flex flex-col justify-between shadow-2xs group"
+              href={`/c/${c.slug}`}
+              className="w-56 sm:w-60 shrink-0 rounded-2xl border border-border/70 bg-card overflow-hidden hover:border-primary/50 transition-all flex flex-col justify-between shadow-2xs group"
             >
               {/* Cover Photo */}
-              <div className="relative h-24 w-full overflow-hidden bg-muted">
-                <img
-                  src={c.image}
-                  alt={c.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
+              <div className="relative h-22 w-full overflow-hidden bg-muted">
+                {coverSrc ? (
+                  <img
+                    src={coverSrc}
+                    alt={c.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-linear-to-r from-primary/20 via-amber-500/10 to-orange-500/20" />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                 <span className="absolute bottom-2 left-2.5 text-[11px] font-bold text-white drop-shadow-sm flex items-center gap-1">
                   <Users className="size-3" />
-                  {c.members}
+                  {c.members_count} members
                 </span>
               </div>
 
               {/* Card Body */}
               <div className="p-3.5 flex flex-col justify-between flex-1">
                 <div>
-                  <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors truncate">
-                    {c.name}
-                  </h4>
-                  <p className="text-[11px] text-foreground/75 mt-1 line-clamp-2 leading-tight">
-                    {c.description}
-                  </p>
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Avatar className="size-6 rounded-lg ring-1 ring-border/50">
+                      <AvatarImage src={avatarSrc} alt={c.name} className="rounded-lg object-cover" />
+                      <AvatarFallback className="text-[10px] font-bold rounded-lg bg-primary/10 text-primary">
+                        {getInitials(c.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <h4 className="text-xs font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                      {c.name}
+                    </h4>
+                  </div>
+
+                  {c.description && (
+                    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-tight">
+                      {c.description}
+                    </p>
+                  )}
                 </div>
 
-                <Button
-                  size="sm"
-                  variant={isJoined ? "outline" : "secondary"}
-                  onClick={() => toggleJoin(c.id, c.name)}
-                  className={cn(
-                    "w-full h-7.5 text-xs font-bold rounded-md mt-3 transition-all",
-                    isJoined
-                      ? "border-border text-foreground hover:bg-destructive/10 hover:text-destructive"
-                      : "bg-primary/10 hover:bg-primary/20 text-primary"
-                  )}
-                >
-                  {isJoined ? (
-                    <>
-                      <Check className="size-3 mr-1 text-emerald-500" />
-                      Joined
-                    </>
-                  ) : (
-                    "Join"
-                  )}
-                </Button>
+                <div className="pt-3 mt-2 border-t border-border/50">
+                  <Button
+                    size="sm"
+                    variant={isJoined ? "outline" : isPending ? "secondary" : "default"}
+                    onClick={(e) => handleToggleJoin(c, e)}
+                    disabled={joiningId === c.id}
+                    className={`w-full rounded-full text-xs font-bold h-7.5 transition-all cursor-pointer ${
+                      isJoined
+                        ? "border-border hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+                        : isPending
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+                    }`}
+                  >
+                    {joiningId === c.id ? (
+                      <Clock className="size-3.5 animate-spin" />
+                    ) : isJoined ? (
+                      <div className="flex items-center gap-1">
+                        <Check className="size-3 text-emerald-600" />
+                        <span>Joined</span>
+                      </div>
+                    ) : isPending ? (
+                      <span>Pending</span>
+                    ) : (
+                      <span>Join</span>
+                    )}
+                  </Button>
+                </div>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>

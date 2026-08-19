@@ -391,6 +391,92 @@ class NotificationService
         ]);
     }
 
+    /**
+     * Repost notification.
+     */
+    public static function sendRepostNotification(User $actor, Post $originalPost): void
+    {
+        if ($actor->id === $originalPost->user_id) return;
+        if (self::isDuplicate($originalPost->user_id, 'repost', $actor->id, ['post_id' => $originalPost->id])) return;
+
+        self::createAndBroadcast([
+            'user_id'  => $originalPost->user_id,
+            'actor_id' => $actor->id,
+            'type'     => 'repost',
+            'title'    => 'Post Reposted',
+            'message'  => "{$actor->name} reposted your post.",
+            'data'     => [
+                'post_id'      => $originalPost->id,
+                'post_snippet' => self::truncate($originalPost->content),
+                'action_url'   => "/post/{$originalPost->id}",
+            ],
+        ]);
+    }
+
+    /**
+     * Quote post notification.
+     */
+    public static function sendQuoteNotification(User $actor, Post $quotePost, Post $originalPost): void
+    {
+        if ($actor->id === $originalPost->user_id) return;
+        if (self::isDuplicate($originalPost->user_id, 'quote', $actor->id, ['post_id' => $originalPost->id])) return;
+
+        self::createAndBroadcast([
+            'user_id'  => $originalPost->user_id,
+            'actor_id' => $actor->id,
+            'type'     => 'quote',
+            'title'    => 'Post Quoted',
+            'message'  => "{$actor->name} quoted your post: \"" . self::truncate($quotePost->content, 40) . "\"",
+            'data'     => [
+                'post_id'       => $originalPost->id,
+                'quote_post_id' => $quotePost->id,
+                'quote_snippet' => self::truncate($quotePost->content),
+                'post_snippet'  => self::truncate($originalPost->content),
+                'action_url'    => "/post/{$quotePost->id}",
+            ],
+        ]);
+    }
+
+    /**
+     * Community join request notification to community owner.
+     */
+    public static function sendCommunityJoinRequestNotification(User $applicant, $community): void
+    {
+        self::createAndBroadcast([
+            'user_id'  => $community->creator_id,
+            'actor_id' => $applicant->id,
+            'type'     => 'community_join_request',
+            'title'    => 'New Community Join Request',
+            'message'  => "{$applicant->name} requested to join {$community->name}.",
+            'data'     => [
+                'community_id'   => $community->id,
+                'community_slug' => $community->slug,
+                'community_name' => $community->name,
+                'action_url'     => "/c/{$community->slug}?tab=members",
+            ],
+        ]);
+    }
+
+    /**
+     * Community membership approved notification.
+     */
+    public static function sendCommunityApprovedNotification(User $target, $community): void
+    {
+        self::createAndBroadcast([
+            'user_id'  => $target->id,
+            'actor_id' => $community->creator_id,
+            'type'     => 'community_approved',
+            'title'    => 'Community Request Approved! 🎉',
+            'message'  => "Your request to join {$community->name} was approved. You can now post and engage with members!",
+            'data'     => [
+                'community_id'   => $community->id,
+                'community_slug' => $community->slug,
+                'community_name' => $community->name,
+                'action_url'     => "/c/{$community->slug}",
+            ],
+        ]);
+    }
+
     // ─── Utility helpers ─────────────────────────────────────────────────────
 
     private static function truncate(?string $text, int $limit = 80): string

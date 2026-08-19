@@ -37,12 +37,12 @@ class VerificationController extends Controller
         $validated = $request->validate([
             'category' => ['required', 'string', 'max:100'],
             'reason'   => ['required', 'string', 'max:2000'],
-            'document' => ['nullable', 'file', 'max:102400', 'mimes:jpg,jpeg,png,webp,pdf'], // Up to 100MB
+            'document' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp,pdf'], // Up to 10MB
         ]);
 
         $documentPath = null;
         if ($request->hasFile('document')) {
-            $documentPath = $request->file('document')->store('verification_docs', 'public');
+            $documentPath = $request->file('document')->store('verification_docs', 'local');
         }
 
         $verificationRequest = VerificationRequest::create([
@@ -55,7 +55,7 @@ class VerificationController extends Controller
 
         return response()->json([
             'message' => 'Verification request submitted successfully. It will be reviewed by our admin team.',
-            'request' => $this->formatRequest($verificationRequest),
+            'request' => $this->formatRequest($verificationRequest, false),
         ], 201);
     }
 
@@ -73,7 +73,7 @@ class VerificationController extends Controller
         return response()->json([
             'is_verified'    => (bool) $user->verified,
             'is_admin'       => (bool) $user->is_admin,
-            'latest_request' => $latestRequest ? $this->formatRequest($latestRequest) : null,
+            'latest_request' => $latestRequest ? $this->formatRequest($latestRequest, (bool) $user->is_admin) : null,
         ]);
     }
 
@@ -99,10 +99,40 @@ class VerificationController extends Controller
         $requests = $query->paginate(20);
 
         $requests->getCollection()->transform(function ($req) {
-            return $this->formatRequest($req);
+            return $this->formatRequest($req, true);
         });
 
         return response()->json($requests);
+    }
+
+    /**
+     * Securely stream/download verification document (Admin only).
+     */
+    public function adminDocument(Request $request, $id)
+    {
+        $user = $request->user();
+        if (!$user || !$user->is_admin) {
+            return response()->json(['message' => 'Unauthorized. Admin access required.'], 403);
+        }
+
+        $verificationRequest = VerificationRequest::find($id);
+        if (!$verificationRequest || !$verificationRequest->document_path) {
+            return response()->json(['message' => 'Document not found.'], 404);
+        }
+
+        $path = $verificationRequest->document_path;
+
+        // Check in private local storage first
+        if (Storage::disk('local')->exists($path)) {
+            return Storage::disk('local')->response($path);
+        }
+
+        // Fallback for legacy files uploaded before migration
+        if (Storage::disk('public')->exists($path)) {
+            return Storage::disk('public')->response($path);
+        }
+
+        return response()->json(['message' => 'File does not exist on storage.'], 404);
     }
 
     /**
@@ -141,7 +171,7 @@ class VerificationController extends Controller
 
         return response()->json([
             'message' => "Account @{$verificationRequest->user->username} has been verified successfully.",
-            'request' => $this->formatRequest($verificationRequest->fresh(['user', 'reviewer'])),
+            'request' => $this->formatRequest($verificationRequest->fresh(['user', 'reviewer']), true),
         ]);
     }
 
@@ -171,20 +201,23 @@ class VerificationController extends Controller
 
         return response()->json([
             'message' => "Verification request for @{$verificationRequest->user->username} was rejected.",
-            'request' => $this->formatRequest($verificationRequest->fresh(['user', 'reviewer'])),
+            'request' => $this->formatRequest($verificationRequest->fresh(['user', 'reviewer']), true),
         ]);
     }
 
     /**
      * Format verification request data for API responses.
      */
-    private function formatRequest(VerificationRequest $req): array
+    private function formatRequest(VerificationRequest $req, bool $isAdmin = false): array
     {
         $docUrl = null;
         if ($req->document_path) {
-            $docUrl = str_starts_with($req->document_path, 'http')
-                ? $req->document_path
-                : config('app.url') . '/storage/' . ltrim($req->document_path, '/');
+            if ($isAdmin) {
+                // Return secure admin viewer endpoint
+                $docUrl = url('/api/admin/verification-requests/' . $req->id . '/document');
+            } else {
+                $docUrl = null; // Do not expose file paths to normal users
+            }
         }
 
         $userAvatar = $req->user?->avatar;
@@ -197,6 +230,7 @@ class VerificationController extends Controller
             'category'      => $req->category,
             'reason'        => $req->reason,
             'document_url'  => $docUrl,
+            'has_document'  => !empty($req->document_path),
             'status'        => $req->status,
             'admin_notes'   => $req->admin_notes,
             'created_at'    => $req->created_at,

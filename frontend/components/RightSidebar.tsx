@@ -49,7 +49,9 @@ export default function RightSidebar() {
   const [trendingLoading, setTrendingLoading] = useState(true);
   const [suggestions, setSuggestions] = useState<SuggestedUser[]>([]);
   const [followingMap, setFollowingMap] = useState<Record<number, boolean>>({});
-  const [joinedCommMap, setJoinedCommMap] = useState<Record<string, boolean>>({});
+  const [communities, setCommunities] = useState<any[]>([]);
+  const [communitiesLoading, setCommunitiesLoading] = useState(true);
+  const [joiningCommId, setJoiningCommId] = useState<number | null>(null);
 
   useEffect(() => {
     api
@@ -62,6 +64,12 @@ export default function RightSidebar() {
       .get("/api/users/suggestions")
       .then((r) => setSuggestions(r.data.users || []))
       .catch(() => {});
+
+    api
+      .get("/api/communities?limit=5")
+      .then((r) => setCommunities(r.data.data || []))
+      .catch(() => {})
+      .finally(() => setCommunitiesLoading(false));
   }, []);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -83,10 +91,42 @@ export default function RightSidebar() {
     }
   };
 
-  const handleJoinCommunity = (id: string, name: string) => {
-    const isJoined = !joinedCommMap[id];
-    setJoinedCommMap((prev) => ({ ...prev, [id]: isJoined }));
-    toast.success(isJoined ? `Joined ${name}!` : `Left ${name}`);
+  const handleToggleJoinCommunity = async (comm: any, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setJoiningCommId(comm.id);
+    try {
+      if (comm.is_member || comm.member_status === "admin") {
+        const res = await api.post(`/api/communities/${comm.id}/leave`);
+        setCommunities((prev) =>
+          prev.map((c) =>
+            c.id === comm.id
+              ? { ...c, is_member: false, member_status: "none", members_count: res.data.members_count }
+              : c
+          )
+        );
+        toast.success(`Left ${comm.name}`);
+      } else {
+        const res = await api.post(`/api/communities/${comm.id}/join`);
+        setCommunities((prev) =>
+          prev.map((c) =>
+            c.id === comm.id
+              ? {
+                  ...c,
+                  is_member: res.data.status === "approved",
+                  member_status: res.data.status,
+                  members_count: res.data.members_count,
+                }
+              : c
+          )
+        );
+        toast.success(res.data.message || `Joined ${comm.name}!`);
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to update membership");
+    } finally {
+      setJoiningCommId(null);
+    }
   };
 
   return (
@@ -234,67 +274,84 @@ export default function RightSidebar() {
         )}
 
         {/* Suggested Communities */}
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          <div className="flex items-center justify-between px-4 pt-4 pb-2">
-            <h2 className="text-sm font-bold text-foreground">Suggested communities</h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-600">
-              New
-            </span>
-          </div>
+        {communities.length > 0 && (
+          <div className="rounded-2xl border border-border bg-card overflow-hidden">
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+              <h2 className="text-sm font-bold text-foreground">Suggested communities</h2>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                Popular
+              </span>
+            </div>
 
-          <div className="divide-y divide-border/50">
-            {[
-              {
-                id: "web",
-                name: "Web Development",
-                members: "14.2k",
-                image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=200&auto=format&fit=crop&q=80",
-              },
-              {
-                id: "ai",
-                name: "Artificial Intelligence",
-                members: "18.5k",
-                image: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=200&auto=format&fit=crop&q=80",
-              },
-              {
-                id: "gaming",
-                name: "Game Development",
-                members: "9.1k",
-                image: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=200&auto=format&fit=crop&q=80",
-              },
-            ].map((comm) => {
-              const isJoined = joinedCommMap[comm.id];
+            <div className="divide-y divide-border/50">
+              {communities.map((comm) => {
+                const isJoined = comm.is_member || comm.member_status === "admin";
+                const isPending = comm.member_status === "pending";
+                const isProcessing = joiningCommId === comm.id;
+                const avatarSrc = getAvatarUrl(comm.avatar);
 
-              return (
-                <div
-                  key={comm.id}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
-                >
-                  <img
-                    src={comm.image}
-                    alt={comm.name}
-                    className="size-9 rounded-xl object-cover shrink-0 border border-border/50"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold text-foreground truncate">{comm.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{comm.members} members</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant={isJoined ? "outline" : "secondary"}
-                    onClick={() => handleJoinCommunity(comm.id, comm.name)}
-                    className={cn(
-                      "rounded-full px-3 h-7 text-[11px] font-bold shrink-0 transition-colors",
-                      isJoined ? "border-border text-foreground hover:text-destructive" : "bg-primary/10 text-primary hover:bg-primary/20"
-                    )}
+                return (
+                  <div
+                    key={comm.id}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
                   >
-                    {isJoined ? "Joined" : "Join"}
-                  </Button>
-                </div>
-              );
-            })}
+                    <Link href={`/c/${comm.slug}`} className="shrink-0">
+                      <Avatar className="size-9 rounded-xl border border-border/50 bg-primary/10">
+                        <AvatarImage src={avatarSrc} alt={comm.name} />
+                        <AvatarFallback className="text-xs font-bold text-primary">
+                          {getInitials(comm.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Link>
+
+                    <div className="flex-1 min-w-0">
+                      <Link href={`/c/${comm.slug}`} className="block">
+                        <p className="text-xs font-bold text-foreground truncate hover:underline hover:text-primary transition-colors">
+                          {comm.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {comm.members_count || 1} {comm.members_count === 1 ? "member" : "members"}
+                        </p>
+                      </Link>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant={isJoined ? "outline" : isPending ? "secondary" : "default"}
+                      disabled={isProcessing}
+                      onClick={(e) => handleToggleJoinCommunity(comm, e)}
+                      className={cn(
+                        "rounded-full px-3 h-7 text-[11px] font-bold shrink-0 transition-colors cursor-pointer",
+                        isJoined
+                          ? "border-border text-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                          : isPending
+                          ? "bg-muted text-muted-foreground"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+                      )}
+                    >
+                      {isProcessing ? (
+                        <Loader2 className="size-3 animate-spin" />
+                      ) : isJoined ? (
+                        "Joined"
+                      ) : isPending ? (
+                        "Pending"
+                      ) : (
+                        "Join"
+                      )}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <Link
+              href="/communities"
+              className="block px-4 py-3 hover:bg-muted/50 transition-colors"
+            >
+              <span className="text-xs font-semibold text-primary">Explore all communities →</span>
+            </Link>
           </div>
-        </div>
+        )}
 
         {/* Footer */}
         <div className="px-1 pb-4">

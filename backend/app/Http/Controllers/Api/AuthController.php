@@ -71,8 +71,14 @@ class AuthController extends Controller
             'password' => Hash::make($validated['password']),
         ]);
 
-        // Fire registered event to trigger email verification notification
-        event(new Registered($user));
+        // Fire registered event in the background without blocking the HTTP response
+        defer(function () use ($user) {
+            try {
+                event(new Registered($user));
+            } catch (\Throwable $e) {
+                Log::warning('Async email verification failed: ' . $e->getMessage());
+            }
+        });
 
         // Create initial access token
         $token = $user->createToken('auth-token')->plainTextToken;
@@ -354,8 +360,8 @@ class AuthController extends Controller
             'bio' => ['nullable', 'string', 'max:500'],
             'location' => ['nullable', 'string', 'max:100'],
             'website' => ['nullable', 'string', 'max:255'],
-            'avatar' => ['nullable', 'image', 'max:102400'], // Up to 100MB
-            'cover' => ['nullable', 'image', 'max:102400'], // Up to 100MB
+            'avatar' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'], // Up to 10MB
+            'cover' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'], // Up to 10MB
             'remove_avatar' => ['nullable', 'boolean'],
             'remove_cover' => ['nullable', 'boolean'],
             'social_links' => ['nullable'],
@@ -393,16 +399,46 @@ class AuthController extends Controller
             $validated['cover'] = '/storage/' . $path;
         }
 
-        // Handle social links array or json string
+        // Handle and sanitize social links (prevent XSS / javascript: protocol)
         if ($request->has('social_links')) {
             $rawSocial = $request->input('social_links');
+            $socialArray = [];
+
             if (is_string($rawSocial)) {
                 $decoded = json_decode($rawSocial, true);
-                $validated['social_links'] = is_array($decoded) ? $decoded : [];
+                $socialArray = is_array($decoded) ? $decoded : [];
             } elseif (is_array($rawSocial)) {
-                $validated['social_links'] = $rawSocial;
-            } else {
-                $validated['social_links'] = [];
+                $socialArray = $rawSocial;
+            }
+
+            $sanitizedSocial = [];
+            foreach ($socialArray as $key => $value) {
+                if (!is_string($key) || !is_string($value)) {
+                    continue;
+                }
+                $cleanKey = substr(preg_replace('/[^a-zA-Z0-9_-]/', '', $key), 0, 50);
+                $cleanVal = trim($value);
+
+                // Reject javascript: or data: pseudo-protocols
+                if (preg_match('/^(javascript|data|vbscript):/i', $cleanVal)) {
+                    continue;
+                }
+
+                if ($cleanKey !== '' && $cleanVal !== '') {
+                    $sanitizedSocial[$cleanKey] = substr($cleanVal, 0, 255);
+                }
+            }
+
+            $validated['social_links'] = $sanitizedSocial;
+        }
+
+        // Sanitize website link
+        if (!empty($validated['website'])) {
+            $web = trim($validated['website']);
+            if (preg_match('/^(javascript|data|vbscript):/i', $web)) {
+                $validated['website'] = null;
+            } elseif (!preg_match('/^https?:\/\//i', $web)) {
+                $validated['website'] = 'https://' . $web;
             }
         }
 
@@ -410,11 +446,13 @@ class AuthController extends Controller
             $validated['username'] = strtolower(trim($validated['username']));
         }
 
+        $emailChanged = false;
         if (isset($validated['email'])) {
             $newEmail = strtolower(trim($validated['email']));
             if ($newEmail !== $user->email) {
                 $validated['email'] = $newEmail;
                 $validated['email_verified_at'] = null;
+                $emailChanged = true;
             }
         }
 
@@ -422,9 +460,20 @@ class AuthController extends Controller
 
         $user->update($validated);
 
+        if ($emailChanged) {
+            defer(function () use ($user) {
+                try {
+                    $user->sendEmailVerificationNotification();
+                } catch (\Throwable $e) {
+                    Log::warning("Could not send email verification to {$user->email}: " . $e->getMessage());
+                }
+            });
+        }
+
         return response()->json([
             'message' => 'Profile updated successfully',
             'user' => $user->fresh(),
+            'email_verification_sent' => $emailChanged,
         ]);
     }
 

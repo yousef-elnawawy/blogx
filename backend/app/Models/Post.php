@@ -11,6 +11,9 @@ class Post extends Model
 
     protected $fillable = [
         'user_id',
+        'community_id',
+        'repost_of_id',
+        'quote_of_id',
         'content',
         'comments_enabled',
         'views_count',
@@ -49,6 +52,31 @@ class Post extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function community()
+    {
+        return $this->belongsTo(Community::class);
+    }
+
+    public function repostOf()
+    {
+        return $this->belongsTo(Post::class, 'repost_of_id');
+    }
+
+    public function quoteOf()
+    {
+        return $this->belongsTo(Post::class, 'quote_of_id');
+    }
+
+    public function reposts()
+    {
+        return $this->hasMany(Post::class, 'repost_of_id');
+    }
+
+    public function quotes()
+    {
+        return $this->hasMany(Post::class, 'quote_of_id');
+    }
+
     public function images()
     {
         return $this->hasMany(PostImage::class)->orderBy('order');
@@ -85,14 +113,22 @@ class Post extends Model
     }
 
     // Helper Methods
-    public function isLikedBy(User $user)
+    public function isLikedBy(?User $user)
     {
+        if (!$user) return false;
         return $this->likes()->where('user_id', $user->id)->exists();
     }
 
-    public function isBookmarkedBy(User $user)
+    public function isBookmarkedBy(?User $user)
     {
+        if (!$user) return false;
         return $this->bookmarks()->where('user_id', $user->id)->exists();
+    }
+
+    public function isRepostedBy(?User $user)
+    {
+        if (!$user) return false;
+        return $this->reposts()->where('user_id', $user->id)->exists();
     }
 
     public function getLikeCountAttribute()
@@ -103,5 +139,10 @@ class Post extends Model
     public function getCommentCountAttribute()
     {
         return $this->comments()->count();
+    }
+
+    public function getRepostCountAttribute()
+    {
+        return $this->reposts()->count() + $this->quotes()->count();
     }
 }

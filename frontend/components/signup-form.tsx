@@ -33,6 +33,7 @@ import {
   PartyPopper,
   Compass,
   Settings,
+  AtSign,
 } from "lucide-react";
 
 const steps = [
@@ -111,36 +112,35 @@ export function SignUpForm() {
   // Trigger Celebratory Confetti on Step 3 (First-time registration only)
   useEffect(() => {
     if (currentStep === 3) {
-      // Primary burst
+      // Big initial explosion
       confetti({
-        particleCount: 70,
-        spread: 60,
-        origin: { y: 0.65 },
-        colors: ["#d97706", "#2563eb", "#10b981", "#8b5cf6", "#f59e0b"],
-        disableForReducedMotion: true,
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ["#d97706", "#2563eb", "#10b981", "#8b5cf6", "#f59e0b", "#ec4899"],
       });
 
-      // Subtle follow-up side cannons
-      const timer = setTimeout(() => {
-        confetti({
-          particleCount: 40,
-          angle: 60,
-          spread: 55,
-          origin: { x: 0 },
-          colors: ["#d97706", "#10b981", "#3b82f6"],
-          disableForReducedMotion: true,
-        });
-        confetti({
-          particleCount: 40,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1 },
-          colors: ["#d97706", "#10b981", "#3b82f6"],
-          disableForReducedMotion: true,
-        });
-      }, 250);
+      // Side fireworks cannons
+      const end = Date.now() + 2000;
+      const interval: NodeJS.Timeout = setInterval(() => {
+        if (Date.now() > end) {
+          clearInterval(interval);
+          return;
+        }
 
-      return () => clearTimeout(timer);
+        confetti({
+          startVelocity: 30,
+          spread: 360,
+          ticks: 60,
+          origin: {
+            x: Math.random(),
+            y: Math.random() - 0.2,
+          },
+          colors: ["#d97706", "#10b981", "#3b82f6", "#f59e0b"],
+        });
+      }, 350);
+
+      return () => clearInterval(interval);
     }
   }, [currentStep]);
 
@@ -364,11 +364,12 @@ export function SignUpForm() {
             {/* Name and Username in 2 columns on sm screens */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="name" className="text-foreground text-xs font-semibold">
-                  Full Name
+                <Label htmlFor="name" className="text-foreground text-xs font-semibold flex items-center gap-1.5">
+                  <User className="size-3.5 text-muted-foreground" />
+                  <span>Full Name</span>
                 </Label>
-                <div className="relative">
-                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                <div className="relative group">
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
                   <Input
                     id="name"
                     placeholder="Alex Morgan"
@@ -386,20 +387,19 @@ export function SignUpForm() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="username" className="text-foreground text-xs font-semibold">
-                  Username
+                <Label htmlFor="username" className="text-foreground text-xs font-semibold flex items-center gap-1.5">
+                  <AtSign className="size-3.5 text-muted-foreground" />
+                  <span>Username</span>
                 </Label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-semibold pointer-events-none">
-                    @
-                  </span>
+                <div className="relative group">
+                  <AtSign className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
                   <Input
                     id="username"
                     placeholder="alex_morgan"
                     value={formData.username}
                     onChange={(e) => updateField("username", e.target.value)}
                     className={cn(
-                      "h-11 pl-9 rounded-xl border-border bg-card/70 backdrop-blur-sm text-sm focus-visible:ring-2 focus-visible:ring-primary/20",
+                      "h-11 pl-10 rounded-xl border-border bg-card/70 backdrop-blur-sm text-sm focus-visible:ring-2 focus-visible:ring-primary/20",
                       errors.username && "border-destructive focus-visible:ring-destructive/20"
                     )}
                   />
@@ -412,11 +412,12 @@ export function SignUpForm() {
 
             {/* Email Address */}
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-foreground text-xs font-semibold">
-                Email Address
+              <Label htmlFor="email" className="text-foreground text-xs font-semibold flex items-center gap-1.5">
+                <Mail className="size-3.5 text-muted-foreground" />
+                <span>Email Address</span>
               </Label>
-              <div className="relative">
-                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+              <div className="relative group">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
                 <Input
                   id="email"
                   type="email"
@@ -436,11 +437,12 @@ export function SignUpForm() {
 
             {/* Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="text-foreground text-xs font-semibold">
-                Password
+              <Label htmlFor="password" className="text-foreground text-xs font-semibold flex items-center gap-1.5">
+                <Lock className="size-3.5 text-muted-foreground" />
+                <span>Password</span>
               </Label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+              <div className="relative group">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -579,11 +581,12 @@ export function SignUpForm() {
 
             {/* Confirm Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="confirmPassword" className="text-foreground text-xs font-semibold">
-                Confirm Password
+              <Label htmlFor="confirmPassword" className="text-foreground text-xs font-semibold flex items-center gap-1.5">
+                <Lock className="size-3.5 text-muted-foreground" />
+                <span>Confirm Password</span>
               </Label>
-              <div className="relative">
-                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+              <div className="relative group">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
                 <Input
                   id="confirmPassword"
                   type={showConfirmPassword ? "text" : "password"}
@@ -703,11 +706,12 @@ export function SignUpForm() {
           <div className="space-y-3.5">
             {/* Bio */}
             <div className="space-y-1.5">
-              <Label htmlFor="bio" className="text-foreground text-xs font-semibold">
-                Bio / About You
+              <Label htmlFor="bio" className="text-foreground text-xs font-semibold flex items-center gap-1.5">
+                <FileText className="size-3.5 text-muted-foreground" />
+                <span>Bio / About You</span>
               </Label>
-              <div className="relative">
-                <FileText className="absolute left-3.5 top-3 size-4 text-muted-foreground pointer-events-none" />
+              <div className="relative group">
+                <FileText className="absolute left-3.5 top-3 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
                 <Textarea
                   id="bio"
                   placeholder="Share a short bio about what you write, think, or create..."
@@ -721,11 +725,12 @@ export function SignUpForm() {
             {/* Location & Website */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="location" className="text-foreground text-xs font-semibold">
-                  Location
+                <Label htmlFor="location" className="text-foreground text-xs font-semibold flex items-center gap-1.5">
+                  <MapPin className="size-3.5 text-muted-foreground" />
+                  <span>Location</span>
                 </Label>
-                <div className="relative">
-                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                <div className="relative group">
+                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
                   <Input
                     id="location"
                     placeholder="San Francisco, CA"
@@ -737,11 +742,12 @@ export function SignUpForm() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="website" className="text-foreground text-xs font-semibold">
-                  Website / Portfolio
+                <Label htmlFor="website" className="text-foreground text-xs font-semibold flex items-center gap-1.5">
+                  <Globe className="size-3.5 text-muted-foreground" />
+                  <span>Website / Portfolio</span>
                 </Label>
-                <div className="relative">
-                  <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                <div className="relative group">
+                  <Globe className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
                   <Input
                     id="website"
                     placeholder="https://yourblog.com"
@@ -800,23 +806,62 @@ export function SignUpForm() {
           </div>
 
           {/* Personalized Welcome Header */}
-          <div className="space-y-2 mb-6">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-              Welcome to BlogX, {formData.name ? formData.name.split(" ")[0] : "Friend"}!
+          <div className="space-y-2 mb-5">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground font-[family-name:var(--font-fraunces)]">
+              Welcome to BlogX, {formData.name ? formData.name.split(" ")[0] : "Friend"}! 🎉
             </h1>
-            <p className="text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
-              Your account has been successfully created. You&apos;re now ready to share your voice, connect with passionate writers, and explore community posts.
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto leading-relaxed">
+              Your account is ready! Discover what you can do on BlogX:
             </p>
           </div>
 
+          {/* Quick Platform Tour Cards */}
+          <div className="w-full grid grid-cols-1 gap-2.5 mb-6 text-left">
+            <div className="p-3 rounded-2xl border border-border/70 bg-card/60 flex items-start gap-3">
+              <div className="size-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                <FileText className="size-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-foreground">Write & Share Posts</h4>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Publish rich short posts, photos, polls, and long-form blog stories.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-2xl border border-border/70 bg-card/60 flex items-start gap-3">
+              <div className="size-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 mt-0.5">
+                <Compass className="size-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-foreground">Explore Communities</h4>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Join specialized forums, engage in niche discussions, or create your own space.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-2xl border border-border/70 bg-card/60 flex items-start gap-3">
+              <div className="size-8 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0 mt-0.5">
+                <AtSign className="size-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-foreground">Connect with Creators</h4>
+                <p className="text-[11px] text-muted-foreground leading-snug">
+                  Follow inspiring authors, exchange live messages, and grow your audience.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Onboarding Action CTAs */}
-          <div className="w-full space-y-3 pt-2">
+          <div className="w-full space-y-2.5 pt-1">
             <Button
               type="button"
               onClick={() => router.push("/")}
-              className="h-12 w-full rounded-xl font-semibold text-sm bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="h-11 w-full rounded-xl font-bold text-xs sm:text-sm bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90 active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Compass className="size-4.5" />
+              <Compass className="size-4" />
               <span>Start Exploring Feed</span>
               <ArrowRight className="size-4 ml-auto sm:ml-1" />
             </Button>
@@ -824,11 +869,11 @@ export function SignUpForm() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push("/settings")}
-              className="h-11 w-full rounded-xl border border-border/80 hover:bg-accent text-sm font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer"
+              onClick={() => router.push(`/@${formData.username || ""}`)}
+              className="h-10 w-full rounded-xl border border-border/80 hover:bg-accent text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
-              <Settings className="size-4" />
-              <span>Customize Profile & Preferences</span>
+              <User className="size-3.5" />
+              <span>View My Profile</span>
             </Button>
           </div>
         </div>
