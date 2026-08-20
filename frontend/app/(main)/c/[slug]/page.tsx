@@ -73,6 +73,9 @@ export default function SingleCommunityPage() {
     try {
       const res = await api.get(`/api/communities/${slug}`);
       setCommunity(res.data);
+      if (res.data?.name) {
+        document.title = `${res.data.name} (c/${res.data.slug}) — BlogX Communities`;
+      }
       if (res.data?.id) {
         fetchMembers(res.data.id);
       }

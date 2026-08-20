@@ -34,6 +34,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
+import PollWidget, { PollData } from "@/components/post/PollWidget";
 import { toast } from "sonner";
 
 interface Author {
@@ -78,6 +79,7 @@ interface PostDetail {
     cover?: string | null;
     type?: string;
   } | null;
+  poll?: PollData | null;
   repost_of?: any;
   quote_of?: any;
 }
@@ -213,6 +215,10 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
       .get(`/api/posts/${id}`)
       .then((res) => {
         setPost(res.data);
+        if (res.data?.author?.name) {
+          const preview = (res.data.content || "Post").slice(0, 40);
+          document.title = `${res.data.author.name} on BlogX: "${preview}..."`;
+        }
         // Record impression on single post visit
         api.post(`/api/posts/${id}/view`).then((viewRes) => {
           if (viewRes.data?.views_count) {
@@ -643,6 +649,18 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
           <VideoEmbed content={post.content} />
           {/* Rich Link OpenGraph Preview Card */}
           <LinkPreviewCard content={post.content} />
+          {/* YouTube Style Poll Widget */}
+          {post.poll && (
+            <div className="mt-3.5" onClick={(e) => e.stopPropagation()}>
+              <PollWidget
+                poll={post.poll}
+                postId={post.id}
+                onVoted={(updatedPoll) => {
+                  setPost((prev) => (prev ? { ...prev, poll: updatedPoll } : null));
+                }}
+              />
+            </div>
+          )}
         </div>
 
         {/* Images */}

@@ -34,10 +34,12 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Info,
 } from "lucide-react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
 import BlogCard, { BlogItem } from "@/components/blog/BlogCard";
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
+import AccountInfoDialog from "@/components/profile/AccountInfoDialog";
 import api from "@/lib/api";
 import { cn, getAvatarUrl, getAvatarGradient, getDefaultBannerGradient, getInitials, detectSocialPlatform } from "@/lib/utils";
 import { toast } from "sonner";
@@ -147,6 +149,7 @@ function UserProfileContent() {
   const [userListUsers, setUserListUsers] = useState<UserListItem[]>([]);
   const [userListLoading, setUserListLoading] = useState(false);
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
+  const [accountInfoOpen, setAccountInfoOpen] = useState(false);
 
   const isOwnProfile =
     !authLoading && currentUser?.username === username;
@@ -167,6 +170,9 @@ function UserProfileContent() {
       .then((res) => {
         setProfileUser(res.data.user);
         setUserPosts(res.data.posts?.data ?? []);
+        if (res.data.user?.name) {
+          document.title = `${res.data.user.name} (@${res.data.user.username}) / BlogX`;
+        }
       })
       .catch((err) => {
         if (err.response?.status === 404) setNotFound(true);
@@ -474,6 +480,16 @@ function UserProfileContent() {
           </Avatar>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="size-9 rounded-full cursor-pointer hover:border-primary/50"
+              onClick={() => setAccountInfoOpen(true)}
+              title="Account info"
+            >
+              <Info className="size-4 text-muted-foreground hover:text-foreground" />
+            </Button>
+
             <Button
               variant="outline"
               size="icon"
@@ -1060,7 +1076,17 @@ function UserProfileContent() {
         />
       )}
 
-
+      {/* Account Info Modal */}
+      {profileUser && (
+        <AccountInfoDialog
+          open={accountInfoOpen}
+          onOpenChange={setAccountInfoOpen}
+          user={profileUser}
+          onFollowChange={(isFollowing) =>
+            setProfileUser((prev) => (prev ? { ...prev, is_following: isFollowing } : null))
+          }
+        />
+      )}
 
       {/* Post Editor Dialog for editing post drafts */}
       <PostEditorDialog

@@ -35,6 +35,25 @@ export default function BlogsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [topics, setTopics] = useState<Array<{ name: string; tag: string; count?: number }>>([]);
+
+  useEffect(() => {
+    document.title = selectedTag
+      ? `#${selectedTag} Articles / BlogX`
+      : "Blog & Engineering Stories / BlogX";
+  }, [selectedTag]);
+
+  // Fetch dynamic topics from backend
+  useEffect(() => {
+    api
+      .get("/api/blogs/topics")
+      .then((res) => {
+        if (res.data?.topics && Array.isArray(res.data.topics)) {
+          setTopics(res.data.topics);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Fetch featured blog
   useEffect(() => {
@@ -92,16 +111,19 @@ export default function BlogsPage() {
     }
   };
 
-  const POPULAR_TOPICS = [
-    "Laravel",
-    "React",
-    "Next.js",
-    "PHP",
-    "TypeScript",
-    "TailwindCSS",
-    "Architecture",
-    "AI",
-  ];
+  const displayTopics =
+    topics.length > 0
+      ? topics.map((t) => t.name)
+      : [
+          "Laravel",
+          "React",
+          "Next.js",
+          "PHP",
+          "TypeScript",
+          "TailwindCSS",
+          "Architecture",
+          "AI",
+        ];
 
   return (
     <div className="min-h-screen pb-24 divide-y divide-border/60 animate-in fade-in duration-200">
@@ -149,7 +171,7 @@ export default function BlogsPage() {
           <span className="text-[11px] font-semibold text-muted-foreground shrink-0 mr-1">
             Topics:
           </span>
-          {POPULAR_TOPICS.map((topic) => {
+          {displayTopics.map((topic) => {
             const active = selectedTag === topic;
             return (
               <button

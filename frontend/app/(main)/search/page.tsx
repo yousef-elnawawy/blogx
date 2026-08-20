@@ -20,6 +20,7 @@ import {
   ArrowRight,
   Flame,
   BookOpen,
+  Users2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -49,12 +50,25 @@ interface UserResult {
   is_following: boolean;
 }
 
+interface CommunityResult {
+  id: number;
+  name: string;
+  slug: string;
+  description: string | null;
+  avatar: string | null;
+  cover?: string | null;
+  type?: string;
+  members_count: number;
+  posts_count?: number;
+  is_member?: boolean;
+}
+
 interface HashtagResult {
   tag: string;
   usage_count: number;
 }
 
-type Tab = "all" | "posts" | "blogs" | "people" | "hashtags";
+type Tab = "all" | "posts" | "blogs" | "people" | "communities" | "hashtags";
 
 const RECENT_SEARCHES_KEY = "blogx_recent_searches";
 
@@ -246,6 +260,67 @@ function RichPersonCard({
   );
 }
 
+/* ─────────────── Community Search Card ─────────────── */
+function CommunitySearchCard({ community }: { community: CommunityResult }) {
+  const avatarSrc = getAvatarUrl(community.avatar);
+  const router = useRouter();
+
+  return (
+    <div
+      onClick={() => router.push(`/c/${community.slug}`)}
+      className="p-4 sm:p-5 hover:bg-muted/30 transition-colors border-b border-border/60 cursor-pointer group"
+    >
+      <div className="flex items-start gap-3.5">
+        <Avatar className="size-12 rounded-2xl ring-1 ring-border/60 shrink-0">
+          <AvatarImage src={avatarSrc} alt={community.name} />
+          <AvatarFallback className="rounded-2xl text-sm font-bold bg-primary/10 text-primary">
+            {getInitials(community.name)}
+          </AvatarFallback>
+        </Avatar>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm sm:text-base font-bold text-foreground group-hover:text-primary transition-colors truncate">
+                {community.name}
+              </h3>
+              <p className="text-xs text-muted-foreground font-mono">c/{community.slug}</p>
+            </div>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/c/${community.slug}`);
+              }}
+              className="rounded-full text-xs font-semibold h-8 px-3.5 hover:border-primary/50"
+            >
+              View
+            </Button>
+          </div>
+
+          {community.description && (
+            <p className="text-xs sm:text-sm text-foreground/80 mt-1.5 line-clamp-2 leading-relaxed">
+              {community.description}
+            </p>
+          )}
+
+          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+            <span>{formatCount(community.members_count)} members</span>
+            {typeof community.posts_count === "number" && (
+              <>
+                <span>•</span>
+                <span>{formatCount(community.posts_count)} posts</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─────────────── Hashtag Card ─────────────── */
 function HashtagCard({
   tag,
@@ -346,6 +421,7 @@ function SearchPageContent() {
   const [posts, setPosts] = useState<PostCardProps[]>([]);
   const [blogs, setBlogs] = useState<BlogItem[]>([]);
   const [people, setPeople] = useState<UserResult[]>([]);
+  const [communities, setCommunities] = useState<CommunityResult[]>([]);
   const [hashtags, setHashtags] = useState<HashtagResult[]>([]);
 
   // Discover state (no query)
@@ -356,6 +432,10 @@ function SearchPageContent() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    document.title = query ? `"${query}" - Search / BlogX` : "Search & Explore / BlogX";
+  }, [query]);
 
   // Load recent searches from localStorage
   useEffect(() => {
@@ -423,6 +503,7 @@ function SearchPageContent() {
         setPosts([]);
         setBlogs([]);
         setPeople([]);
+        setCommunities([]);
         setHashtags([]);
         return;
       }
@@ -434,6 +515,7 @@ function SearchPageContent() {
         setPosts(res.data.posts || []);
         setBlogs(res.data.blogs || []);
         setPeople(res.data.people || []);
+        setCommunities(res.data.communities || []);
         setHashtags(res.data.hashtags || []);
       } catch {
         /* silent */
@@ -489,6 +571,7 @@ function SearchPageContent() {
     { id: "posts", label: "Posts", icon: <FileText className="size-4" /> },
     { id: "blogs", label: "Blog", icon: <BookOpen className="size-4" /> },
     { id: "people", label: "People", icon: <Users className="size-4" /> },
+    { id: "communities", label: "Communities", icon: <Users2 className="size-4" /> },
     { id: "hashtags", label: "Topics", icon: <Hash className="size-4" /> },
   ];
 
@@ -582,6 +665,32 @@ function SearchPageContent() {
                 </div>
               )}
 
+              {/* Top Communities Section */}
+              {communities.length > 0 && (
+                <div className="border-b border-border">
+                  <div className="flex items-center justify-between px-4 py-3 bg-muted/20 sm:px-6">
+                    <div className="flex items-center gap-2">
+                      <Users2 className="size-4 text-primary" />
+                      <h2 className="text-sm font-bold text-foreground">Communities</h2>
+                    </div>
+                    {communities.length > 2 && (
+                      <button
+                        onClick={() => handleTabChange("communities")}
+                        className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
+                      >
+                        View all
+                        <ArrowRight className="size-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    {communities.slice(0, 3).map((c) => (
+                      <CommunitySearchCard key={c.id} community={c} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Top Hashtags Pills */}
               {hashtags.length > 0 && (
                 <div className="p-4 sm:px-6 border-b border-border bg-muted/10">
@@ -649,7 +758,7 @@ function SearchPageContent() {
               )}
 
               {/* No results at all */}
-              {people.length === 0 && hashtags.length === 0 && posts.length === 0 && blogs.length === 0 && (
+              {people.length === 0 && communities.length === 0 && hashtags.length === 0 && posts.length === 0 && blogs.length === 0 && (
                 <EmptyState
                   title={`No results for "${query}"`}
                   subtitle="Try searching for something else, checking for spelling errors, or browsing trending topics."
@@ -710,6 +819,25 @@ function SearchPageContent() {
                 <EmptyState
                   title={`No blog stories found for "${query}"`}
                   subtitle="Try searching for different blog topics or keywords."
+                  onReset={handleClear}
+                />
+              )}
+            </div>
+          )}
+
+          {/* TAB: COMMUNITIES */}
+          {activeTab === "communities" && (
+            <div>
+              {communities.length > 0 ? (
+                <div>
+                  {communities.map((c) => (
+                    <CommunitySearchCard key={c.id} community={c} />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title={`No communities found for "${query}"`}
+                  subtitle="Try searching for a different community name or keyword."
                   onReset={handleClear}
                 />
               )}

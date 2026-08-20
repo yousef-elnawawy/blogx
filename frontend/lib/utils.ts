@@ -394,7 +394,7 @@ export function detectSocialPlatform(rawUrl: string): SocialPlatformInfo {
 }
 
 export function sanitizeUrl(url: string): string {
-  let clean = url.trim();
+  const clean = url.trim();
   if (
     clean.startsWith("javascript:") ||
     clean.startsWith("data:") ||

@@ -9,7 +9,6 @@ import {
   Flame,
   Tv,
   AtSign,
-  Share2,
 } from "lucide-react";
 
 interface SocialIconProps {

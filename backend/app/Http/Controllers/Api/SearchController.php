@@ -118,6 +118,26 @@ class SearchController extends Controller
             $result['people'] = $people->values();
         }
 
+        if (in_array($type, ['all', 'communities'])) {
+            $communityController = new CommunityController();
+            $cleanQ = ltrim($q, 'c/');
+            $communities = \App\Models\Community::with(['creator:id,name,username,avatar,verified'])
+                ->withCount(['approvedMembers as members_count', 'posts as posts_count'])
+                ->where(function ($w) use ($q, $cleanQ) {
+                    $w->where('name', 'like', "%{$q}%")
+                      ->orWhere('name', 'like', "%{$cleanQ}%")
+                      ->orWhere('slug', 'like', "%{$q}%")
+                      ->orWhere('slug', 'like', "%{$cleanQ}%")
+                      ->orWhere('description', 'like', "%{$q}%");
+                })
+                ->orderByDesc('members_count')
+                ->take(20)
+                ->get()
+                ->map(fn($c) => $communityController->formatCommunity($c, $user));
+
+            $result['communities'] = $communities->values();
+        }
+
         if (in_array($type, ['all', 'hashtags'])) {
             // Strip leading # if user typed it
             $cleanQ = ltrim($q, '#');
@@ -180,32 +200,38 @@ class SearchController extends Controller
             ->get()
             ->map(fn($b) => $blogController->formatBlog($b, $user));
 
-        if (!$hashtag) {
-            return response()->json([
-                'hashtag'     => ['tag' => $cleanTag, 'usage_count' => count($blogs)],
-                'posts'       => [],
-                'blogs'       => $blogs,
-                'total'       => count($blogs),
-            ]);
+        $postIds = [];
+        if ($hashtag) {
+            $postIds = $hashtag->posts()->pluck('posts.id')->toArray();
         }
 
-        $posts = $hashtag->posts()
-            ->with(['user', 'images'])
+        $postsQuery = Post::published()
+            ->where(function ($q) use ($postIds, $cleanTag) {
+                if (!empty($postIds)) {
+                    $q->whereIn('id', $postIds);
+                }
+                $q->orWhere('content', 'like', "%#{$cleanTag}%");
+            })
+            ->with(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community', 'poll.options', 'poll.votes'])
             ->withCount(['likes', 'comments'])
-            ->latest()
-            ->paginate(15);
+            ->latest();
 
+        $posts = $postsQuery->paginate(15);
         $posts->getCollection()->transform(
             fn($post) => $postController->formatPost($post, $user)
         );
 
+        $totalItems = $posts->total() + count($blogs);
+        $usageCount = $hashtag ? max($hashtag->usage_count, $totalItems) : $totalItems;
+
         return response()->json([
             'hashtag' => [
-                'tag'         => $hashtag->tag,
-                'usage_count' => $hashtag->usage_count,
+                'tag'         => $cleanTag,
+                'usage_count' => $usageCount,
             ],
             'posts' => $posts,
             'blogs' => $blogs,
+            'total' => $totalItems,
         ]);
     }
 

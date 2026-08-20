@@ -337,6 +337,9 @@ export default function BlogDetailPage() {
       .then((res) => {
         const blg = res.data.blog || res.data.article;
         setBlog(blg);
+        if (blg?.title) {
+          document.title = `${blg.title} — BlogX Stories`;
+        }
         setLiked(Boolean(blg.is_liked));
         setLikeCount(blg.likes_count || 0);
         setBookmarked(Boolean(blg.is_bookmarked));

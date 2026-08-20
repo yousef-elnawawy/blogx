@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\CommunityController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordResetController;
+use App\Http\Controllers\Api\PollController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SearchController;
@@ -96,6 +97,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/posts/{id}/comments', [PostController::class, 'storeComment']);
     Route::post('/posts/{id}/comments/{commentId}/like', [PostController::class, 'toggleCommentLike']);
     Route::post('/posts/{id}/bookmark', [PostController::class, 'toggleBookmark']);
+    Route::post('/polls/{id}/vote', [PollController::class, 'vote']);
     Route::get('/bookmarks', [PostController::class, 'bookmarks']);
     Route::get('/likes', [PostController::class, 'likedPosts']);
     Route::get('/mentions', [PostController::class, 'mentions']);
@@ -147,6 +149,7 @@ Route::get('/users/suggestions', [ProfileController::class, 'suggestions']);
 
 // Blogs Public
 Route::get('/blogs', [BlogController::class, 'index']);
+Route::get('/blogs/topics', [BlogController::class, 'topics']);
 Route::get('/blogs/featured', [BlogController::class, 'featured']);
 Route::get('/blogs/{slugOrId}', [BlogController::class, 'show']);
 

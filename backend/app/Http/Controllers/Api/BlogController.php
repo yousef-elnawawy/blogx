@@ -46,6 +46,54 @@ class BlogController extends Controller
     }
 
     /**
+     * Get all active tags and topics dynamically from published blogs.
+     */
+    public function topics(Request $request)
+    {
+        $blogs = Blog::published()->whereNotNull('tags')->get(['tags']);
+        $tagCounts = [];
+
+        foreach ($blogs as $b) {
+            $tags = $b->tags;
+            if (is_array($tags)) {
+                foreach ($tags as $t) {
+                    $clean = trim($t);
+                    if ($clean !== '') {
+                        $tagCounts[$clean] = ($tagCounts[$clean] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+
+        arsort($tagCounts);
+
+        $topics = [];
+        foreach ($tagCounts as $name => $count) {
+            $topics[] = [
+                'name'  => $name,
+                'tag'   => $name,
+                'count' => $count,
+            ];
+        }
+
+        // Fallback default topics if no blogs yet
+        if (empty($topics)) {
+            $defaultTags = ['Laravel', 'React', 'Next.js', 'PHP', 'TypeScript', 'TailwindCSS', 'Architecture', 'AI'];
+            foreach ($defaultTags as $dt) {
+                $topics[] = [
+                    'name'  => $dt,
+                    'tag'   => $dt,
+                    'count' => 1,
+                ];
+            }
+        }
+
+        return response()->json([
+            'topics' => $topics,
+        ]);
+    }
+
+    /**
      * Get a featured blog for discovery / feed.
      */
     public function featured(Request $request)

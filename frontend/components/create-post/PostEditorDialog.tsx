@@ -20,6 +20,7 @@ import HashtagSuggestions, {
 import MentionSuggestions, {
   MentionSuggestion,
 } from "./MentionSuggestions";
+import PollCreator, { PollDraft } from "@/components/post/PollCreator";
 import api from "@/lib/api";
 import { PostCardProps } from "@/components/PostCard";
 import { getAvatarUrl } from "@/lib/utils";
@@ -101,6 +102,7 @@ export default function PostEditorDialog({
   const [contentLength, setContentLength] = useState(0);
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<"published" | "draft" | null>(null);
   const [draftSaved, setDraftSaved] = useState(false);
@@ -574,6 +576,20 @@ export default function PostEditorDialog({
         }
       });
 
+      if (pollDraft && pollDraft.options.some((o) => o.trim() !== "")) {
+        const validOptions = pollDraft.options.filter((o) => o.trim() !== "");
+        if (validOptions.length < 2) {
+          toast.error("A poll requires at least 2 options.");
+          setSubmitting(false);
+          setSubmittingAction(null);
+          return;
+        }
+        formData.append("poll[duration_days]", String(pollDraft.duration_days));
+        validOptions.forEach((opt, idx) => {
+          formData.append(`poll[options][${idx}]`, opt.trim());
+        });
+      }
+
       if (postToEdit) {
         removedImages.forEach((url) => {
           formData.append("removed_images[]", url);
@@ -611,6 +627,7 @@ export default function PostEditorDialog({
       if (editorRef.current) editorRef.current.innerHTML = "";
       setImages([]);
       setRemovedImages([]);
+      setPollDraft(null);
       setDraftSaved(false);
       onOpenChange(false);
     } catch (err: unknown) {
@@ -623,7 +640,7 @@ export default function PostEditorDialog({
   };
 
   const avatarSrc = getAvatarUrl(user?.avatar);
-  const canPost = (contentLength > 0 || images.length > 0) && !submitting;
+  const canPost = (contentLength > 0 || images.length > 0 || Boolean(pollDraft)) && !submitting;
 
   const containerWidth = containerRef.current?.clientWidth ?? 450;
   const popupWidth = 320;
@@ -745,6 +762,13 @@ export default function PostEditorDialog({
           </div>
         )}
 
+        {/* Poll Creator */}
+        {pollDraft && (
+          <div className="shrink-0 px-4 sm:px-6 mb-3">
+            <PollCreator poll={pollDraft} onChange={setPollDraft} />
+          </div>
+        )}
+
         {/* Bottom toolbar */}
         <div className="shrink-0 relative flex items-center justify-between px-3 py-2 sm:px-5 sm:py-2.5 border-t border-border bg-background">
           <div className="flex items-center gap-1 sm:gap-2">
@@ -753,6 +777,12 @@ export default function PostEditorDialog({
               onInsertHashtag={insertHashtag}
               onInsertMention={insertMention}
               onInsertEmoji={insertEmoji}
+              onAddPoll={() =>
+                setPollDraft(
+                  pollDraft ? null : { options: ["", ""], duration_days: 1 }
+                )
+              }
+              hasPoll={Boolean(pollDraft)}
               onOpenArticleEditor={() => {
                 onOpenChange(false);
                 router.push("/blogs/new");

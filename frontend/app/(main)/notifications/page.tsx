@@ -208,6 +208,10 @@ export default function NotificationsPage() {
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => {
+    document.title = "Notifications / BlogX";
+  }, []);
+
   /* load on mount & filter change */
   useEffect(() => {
     if (user) {

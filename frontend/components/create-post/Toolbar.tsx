@@ -7,6 +7,7 @@ import {
   AtSign,
   Smile,
   BookOpen,
+  BarChart2,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,8 @@ interface ToolbarProps {
   onInsertMention?: () => void;
   onInsertEmoji?: (emoji: string) => void;
   onOpenArticleEditor?: () => void;
+  onAddPoll?: () => void;
+  hasPoll?: boolean;
   imageCount?: number;
   contentLength?: number;
   maxContentLength?: number;
@@ -35,6 +38,8 @@ export default function Toolbar({
   onInsertMention,
   onInsertEmoji,
   onOpenArticleEditor,
+  onAddPoll,
+  hasPoll = false,
   imageCount = 0,
   contentLength = 0,
   maxContentLength = 1000,
@@ -89,7 +94,25 @@ export default function Toolbar({
         <ImageIcon className="size-[17px]" />
       </button>
 
-      {/* 2. Insert Hashtag */}
+      {/* 2. Add Poll */}
+      {onAddPoll && (
+        <button
+          type="button"
+          aria-label="Create poll"
+          onClick={onAddPoll}
+          className={cn(
+            "size-8 rounded-full flex items-center justify-center transition-all cursor-pointer",
+            hasPoll
+              ? "bg-primary text-primary-foreground shadow-xs"
+              : "text-primary hover:bg-primary/10 active:scale-95"
+          )}
+          title={hasPoll ? "Poll active" : "Create YouTube-style Poll"}
+        >
+          <BarChart2 className="size-[17px]" />
+        </button>
+      )}
+
+      {/* 3. Insert Hashtag */}
       <button
         type="button"
         aria-label="Add hashtag"
@@ -100,7 +123,7 @@ export default function Toolbar({
         <Hash className="size-[17px]" />
       </button>
 
-      {/* 3. Insert Mention */}
+      {/* 4. Insert Mention */}
       {onInsertMention && (
         <button
           type="button"
@@ -113,7 +136,7 @@ export default function Toolbar({
         </button>
       )}
 
-      {/* 4. Emoji Picker */}
+      {/* 5. Emoji Picker */}
       {onInsertEmoji && (
         <div className="relative" ref={emojiRef}>
           <button

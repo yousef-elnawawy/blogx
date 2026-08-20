@@ -22,6 +22,10 @@ export default function CommunitiesPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [joiningId, setJoiningId] = useState<number | null>(null);
 
+  useEffect(() => {
+    document.title = "Communities & Public Hubs / BlogX";
+  }, []);
+
   const fetchCommunities = async () => {
     setLoading(true);
     try {

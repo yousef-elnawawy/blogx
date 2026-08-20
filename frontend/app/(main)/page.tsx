@@ -138,6 +138,10 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    document.title = activeTab === "following" ? "Following Feed / BlogX" : "Home / BlogX";
+  }, [activeTab]);
+
+  useEffect(() => {
     fetchPosts(activeTab);
   }, [activeTab, fetchPosts]);
 

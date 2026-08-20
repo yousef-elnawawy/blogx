@@ -67,7 +67,7 @@ class CommunityController extends Controller
             'name'        => ['required', 'string', 'min:3', 'max:50'],
             'slug'        => ['nullable', 'string', 'min:3', 'max:50', 'unique:communities,slug', 'regex:/^[a-zA-Z0-9-_]+$/'],
             'description' => ['nullable', 'string', 'max:500'],
-            'type'        => ['required', 'in:public,restricted,private'],
+            'type'        => ['nullable', 'in:public,restricted,private'],
             'rules'       => ['nullable', 'array', 'max:10'],
             'rules.*'     => ['string', 'max:255'],
             'avatar'      => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
@@ -100,7 +100,7 @@ class CommunityController extends Controller
             'name'          => $validated['name'],
             'slug'          => $slug,
             'description'   => $validated['description'] ?? null,
-            'type'          => $validated['type'],
+            'type'          => 'public',
             'rules'         => $validated['rules'] ?? [],
             'avatar'        => $avatarPath,
             'cover'         => $coverPath,
@@ -215,24 +215,8 @@ class CommunityController extends Controller
             if ($existing->status === 'approved') {
                 return response()->json(['message' => 'Already a member of this community', 'status' => 'approved']);
             }
-            if ($existing->status === 'pending') {
-                return response()->json(['message' => 'Your join request is pending approval', 'status' => 'pending']);
-            }
-            // If rejected previously, reset to pending/approved
-            $existing->delete();
-        }
-
-        // If public -> immediately approve
-        if ($community->type === 'public') {
-            CommunityMember::create([
-                'community_id' => $community->id,
-                'user_id'      => $user->id,
-                'role'         => 'member',
-                'status'       => 'approved',
-            ]);
-
+            $existing->update(['status' => 'approved']);
             $community->increment('members_count');
-
             return response()->json([
                 'message'       => 'Joined community successfully',
                 'status'        => 'approved',
@@ -240,19 +224,18 @@ class CommunityController extends Controller
             ]);
         }
 
-        // If restricted -> request pending approval
         CommunityMember::create([
             'community_id' => $community->id,
             'user_id'      => $user->id,
             'role'         => 'member',
-            'status'       => 'pending',
+            'status'       => 'approved',
         ]);
 
-        NotificationService::sendCommunityJoinRequestNotification($user, $community);
+        $community->increment('members_count');
 
         return response()->json([
-            'message'       => 'Join request sent to community admins for approval',
-            'status'        => 'pending',
+            'message'       => 'Joined community successfully',
+            'status'        => 'approved',
             'members_count' => $community->members_count,
         ]);
     }

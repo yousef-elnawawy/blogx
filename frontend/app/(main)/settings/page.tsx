@@ -25,6 +25,10 @@ function SettingsContent() {
     tabParam && VALID_TABS.includes(tabParam) ? tabParam : null;
 
   useEffect(() => {
+    document.title = "Account Settings & Privacy / BlogX";
+  }, []);
+
+  useEffect(() => {
     if (!loading && !user) {
       router.push("/login");
     }

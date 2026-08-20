@@ -15,7 +15,9 @@ export default function BookmarksPage() {
   const [blogs, setBlogs] = useState<BlogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("all");
-  const router = useRouter();
+  useEffect(() => {
+    document.title = "Saved Bookmarks / BlogX";
+  }, []);
 
   useEffect(() => {
     setLoading(true);

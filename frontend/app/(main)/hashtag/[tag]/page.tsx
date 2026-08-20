@@ -47,6 +47,10 @@ export default function HashtagPage({
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  useEffect(() => {
+    document.title = `#${decodedTag} — BlogX Topics`;
+  }, [decodedTag]);
+
   const fetchPosts = useCallback(
     async (pageNum: number, append = false) => {
       if (append) setLoadingMore(true);

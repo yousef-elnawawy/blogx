@@ -282,8 +282,7 @@ export function LoginForm({
             <User className="size-3.5 text-muted-foreground" />
             <span>Email or Username</span>
           </FieldLabel>
-          <div className="relative group">
-            <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
+          <div className="relative">
             <Input
               id="login"
               type="text"
@@ -296,7 +295,7 @@ export function LoginForm({
                 setFormData((prev) => ({ ...prev, login: e.target.value }))
               }
               className={cn(
-                "h-11 pl-10 rounded-xl border-border bg-card/70 backdrop-blur-sm text-sm focus-visible:ring-2 focus-visible:ring-primary/20 transition-all",
+                "h-11 px-3.5 rounded-xl border-border bg-card/70 backdrop-blur-sm text-sm focus-visible:ring-2 focus-visible:ring-primary/20 transition-all",
                 errors.login && "border-destructive focus-visible:ring-destructive/20"
               )}
             />
@@ -325,8 +324,7 @@ export function LoginForm({
               Forgot password?
             </Link>
           </div>
-          <div className="relative group">
-            <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground transition-colors group-focus-within:text-primary pointer-events-none" />
+          <div className="relative">
             <Input
               id="password"
               type={showPassword ? "text" : "password"}
@@ -339,7 +337,7 @@ export function LoginForm({
                 setFormData((prev) => ({ ...prev, password: e.target.value }))
               }
               className={cn(
-                "h-11 pl-10 pr-10 rounded-xl border-border bg-card/70 backdrop-blur-sm text-sm focus-visible:ring-2 focus-visible:ring-primary/20 transition-all",
+                "h-11 pl-3.5 pr-10 rounded-xl border-border bg-card/70 backdrop-blur-sm text-sm focus-visible:ring-2 focus-visible:ring-primary/20 transition-all",
                 errors.password && "border-destructive focus-visible:ring-destructive/20"
               )}
             />
@@ -348,7 +346,7 @@ export function LoginForm({
               tabIndex={-1}
               aria-label={showPassword ? "Hide password" : "Show password"}
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {showPassword ? (
                 <EyeOff className="size-4" />

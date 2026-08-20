@@ -319,6 +319,10 @@ export default function NewBlogPage() {
   }, []);
 
   useEffect(() => {
+    document.title = title ? `${title} — BlogX Editor` : "Write a Story — BlogX";
+  }, [title]);
+
+  useEffect(() => {
     adjustHeight();
   }, [content, adjustHeight]);
 

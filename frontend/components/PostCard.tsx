@@ -35,6 +35,7 @@ import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
 import VideoEmbed from "@/components/post/VideoEmbed";
 import LinkPreviewCard from "@/components/post/LinkPreviewCard";
+import PollWidget, { PollData } from "@/components/post/PollWidget";
 import api from "@/lib/api";
 
 export interface PostCardProps {
@@ -50,6 +51,7 @@ export interface PostCardProps {
   content: string;
   images?: string[];
   mentions?: string[];
+  poll?: PollData | null;
   likes_count: number;
   comments_count: number;
   reposts_count?: number;
@@ -83,7 +85,7 @@ function formatCount(num: number): string {
 }
 
 function renderHighlighted(text: string, validMentions?: string[]) {
-  const regex = /(https?:\/\/[^\s]+|www\.[^\s]+|@[\w.]+|#[\p{L}\p{N}_]+)/gu;
+  const regex = /(https?:\/\/[^\s]+|www\.[^\s]+|@[a-zA-Z0-9_]+|#[\p{L}\p{N}_]+)/gu;
   const parts = text.split(regex);
 
   return parts.map((part, i) => {
@@ -162,6 +164,7 @@ export default function PostCard({
   content,
   images = [],
   mentions = [],
+  poll,
   likes_count,
   comments_count,
   reposts_count = 0,
@@ -177,6 +180,7 @@ export default function PostCard({
   quote_of_id,
   repost_of,
   quote_of,
+  community_id,
   community,
 }: PostCardProps) {
   const { user } = useAuth();
@@ -190,9 +194,8 @@ export default function PostCard({
   const [postContent, setPostContent] = useState(content);
   const [postImages, setPostImages] = useState<string[]>(images);
   const [isEdited, setIsEdited] = useState(is_edited);
-  const [isPinned, setIsPinned] = useState(initialPinned);
+  const [isPinned, setIsPinned] = useState(Boolean(initialPinned));
   const articleRef = useRef<HTMLElement>(null);
-
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isLiking, setIsLiking] = useState(false);
@@ -212,6 +215,9 @@ export default function PostCard({
     content: postContent,
     images: postImages,
     mentions,
+    poll,
+    community,
+    community_id,
     created_at,
   };
 
@@ -227,6 +233,10 @@ export default function PostCard({
 
   const canShowMenu = isReposter || isOriginalAuthor;
   const canEdit = !repost_of && isOriginalAuthor;
+  const hasCommunity = Boolean(community || community_id || effectivePost?.community || effectivePost?.community_id);
+  const hasQuote = Boolean(quote_of || quote_of_id || effectivePost?.quote_of || effectivePost?.quote_of_id);
+  const hasRepost = Boolean(repost_of || repost_of_id);
+  const canRepost = !hasCommunity && !hasQuote && !hasRepost;
 
   useEffect(() => {
     setViewCount(views_count);
@@ -521,6 +531,10 @@ export default function PostCard({
                 <VideoEmbed content={effectivePost.content || ""} />
                 {/* Rich Link OpenGraph Preview */}
                 <LinkPreviewCard content={effectivePost.content || ""} />
+                {/* Interactive Poll */}
+                {(effectivePost.poll || poll) && (
+                  <PollWidget poll={(effectivePost.poll || poll)!} />
+                )}
               </div>
 
               {/* Image Grid */}
@@ -582,50 +596,52 @@ export default function PostCard({
                     </Button>
                   </Link>
 
-                  {/* Repost / Quote Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                          className={cn(
-                            "h-8 px-2 gap-1.5 text-xs font-medium rounded-md transition-colors",
-                            reposted
-                              ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
-                              : "text-[#78716C] hover:text-emerald-600 hover:bg-emerald-500/10"
-                          )}
+                  {/* Repost / Quote Dropdown (Allowed only for regular non-community, non-quote posts) */}
+                  {canRepost && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                            className={cn(
+                              "h-8 px-2 gap-1.5 text-xs font-medium rounded-md transition-colors",
+                              reposted
+                                ? "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                                : "text-[#78716C] hover:text-emerald-600 hover:bg-emerald-500/10"
+                            )}
+                          >
+                            <Repeat2 className={cn("size-[16px]", reposted && "stroke-[2.5]")} />
+                            {repostCount > 0 && <span>{formatCount(repostCount)}</span>}
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="start" className="rounded-2xl p-1.5 min-w-36 bg-popover border-border shadow-xl">
+                        <DropdownMenuItem
+                          onClick={handleToggleRepost}
+                          className="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-xl text-foreground hover:bg-muted"
                         >
-                          <Repeat2 className={cn("size-[16px]", reposted && "stroke-[2.5]")} />
-                          {repostCount > 0 && <span>{formatCount(repostCount)}</span>}
-                        </Button>
-                      }
-                    />
-                    <DropdownMenuContent align="start" className="rounded-2xl p-1.5 min-w-36 bg-popover border-border shadow-xl">
-                      <DropdownMenuItem
-                        onClick={handleToggleRepost}
-                        className="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-xl text-foreground hover:bg-muted"
-                      >
-                        <Repeat2 className="size-4 text-emerald-600" />
-                        <span>{reposted ? "Undo Repost" : "Repost"}</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (!user) {
-                            toast.error("Sign in to quote posts");
-                            return;
-                          }
-                          setQuoteDialogOpen(true);
-                        }}
-                        className="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-xl text-foreground hover:bg-muted"
-                      >
-                        <Quote className="size-4 text-primary" />
-                        <span>Quote Post</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                          <Repeat2 className="size-4 text-emerald-600" />
+                          <span>{reposted ? "Undo Repost" : "Repost"}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!user) {
+                              toast.error("Sign in to quote posts");
+                              return;
+                            }
+                            setQuoteDialogOpen(true);
+                          }}
+                          className="flex items-center gap-2 px-3 py-2 text-xs font-semibold cursor-pointer rounded-xl text-foreground hover:bg-muted"
+                        >
+                          <Quote className="size-4 text-primary" />
+                          <span>Quote Post</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
 
                   {/* Like */}
                   <Button

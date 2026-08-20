@@ -186,48 +186,6 @@ export default function CreateCommunityDialog({
             />
           </div>
 
-          {/* Privacy Type */}
-          <div className="space-y-2">
-            <Label className="text-xs font-semibold">Community Privacy & Access</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setType("public")}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                  type === "public"
-                    ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary"
-                    : "border-border bg-background hover:bg-muted/50 text-foreground"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Globe className="size-4" />
-                  <span className="text-xs font-bold">Public Forum</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Anyone can join, view, and post freely.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setType("restricted")}
-                className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                  type === "restricted"
-                    ? "border-primary bg-primary/10 text-primary shadow-xs ring-1 ring-primary"
-                    : "border-border bg-background hover:bg-muted/50 text-foreground"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <Lock className="size-4" />
-                  <span className="text-xs font-bold">Requires Approval</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground leading-snug">
-                  Users request to join; admins must approve.
-                </p>
-              </button>
-            </div>
-          </div>
-
           {/* Community Rules */}
           <div className="space-y-2">
             <Label className="text-xs font-semibold">Community Guidelines / Rules</Label>

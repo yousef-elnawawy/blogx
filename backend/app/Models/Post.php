@@ -82,6 +82,11 @@ class Post extends Model
         return $this->hasMany(PostImage::class)->orderBy('order');
     }
 
+    public function poll()
+    {
+        return $this->hasOne(Poll::class);
+    }
+
     public function comments()
     {
         return $this->hasMany(Comment::class);

@@ -22,7 +22,7 @@ class PostController extends Controller
         $tab = $request->query('tab', 'for_you');
 
         $query = Post::published()
-            ->with(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community'])
+            ->with(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community', 'poll.options', 'poll.votes'])
             ->withCount(['likes', 'comments']);
 
         // Only include community posts in general feed if user is a member of that community
@@ -351,7 +351,7 @@ class PostController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'content'           => ['required_without:images', 'nullable', 'string', 'max:5000'],
+            'content'           => ['required_without_all:images,poll', 'nullable', 'string', 'max:5000'],
             'images'            => ['nullable', 'array', 'max:10'],
             'images.*'          => ['image', 'mimes:jpeg,png,jpg,webp,gif', 'max:10240'], // Up to 10 MB per image
             'comments_enabled'  => ['nullable', 'boolean'],
@@ -359,6 +359,11 @@ class PostController extends Controller
             'status'            => ['nullable', 'in:published,draft'],
             'community_id'      => ['nullable', 'exists:communities,id'],
             'quote_of_id'       => ['nullable', 'exists:posts,id'],
+            'poll'              => ['nullable', 'array'],
+            'poll.question'     => ['nullable', 'string', 'max:255'],
+            'poll.options'      => ['required_with:poll', 'array', 'min:2', 'max:5'],
+            'poll.options.*'    => ['required', 'string', 'max:150'],
+            'poll.duration_days'=> ['nullable', 'integer', 'min:1', 'max:30'],
         ]);
 
         $status = $validated['status'] ?? 'published';
@@ -406,6 +411,26 @@ class PostController extends Controller
             }
         }
 
+        // Create Poll if provided
+        if (!empty($validated['poll']) && !empty($validated['poll']['options'])) {
+            $durationDays = (int) ($validated['poll']['duration_days'] ?? 1);
+            $poll = \App\Models\Poll::create([
+                'post_id'    => $post->id,
+                'question'   => $validated['poll']['question'] ?? null,
+                'expires_at' => now()->addDays(max(1, min(30, $durationDays))),
+            ]);
+
+            foreach ($validated['poll']['options'] as $idx => $optText) {
+                if (trim($optText) !== '') {
+                    $poll->options()->create([
+                        'option_text' => trim($optText),
+                        'order'       => $idx,
+                        'votes_count' => 0,
+                    ]);
+                }
+            }
+        }
+
         // Extract and sync hashtags and mentions
         $this->syncHashtags($post, $validated['content'] ?? '');
         $this->syncMentions($post, $validated['content'] ?? '');
@@ -423,7 +448,7 @@ class PostController extends Controller
             NotificationService::checkPostCountMilestone($request->user());
         }
 
-        $post->load(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community']);
+        $post->load(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community', 'poll.options', 'poll.votes']);
         return response()->json([
             'message' => $isScheduled ? 'Post scheduled successfully' : 'Post created successfully',
             'post'    => $this->formatPost($post, $request->user()),
@@ -442,13 +467,17 @@ class PostController extends Controller
             return response()->json(['message' => 'Post not found'], 404);
         }
 
-        // If targetPost is a repost itself, link to the real root original post
-        $originalPostId = $targetPost->repost_of_id ?? $targetPost->id;
-        $originalPost = Post::find($originalPostId);
-
-        if (!$originalPost) {
-            return response()->json(['message' => 'Original post not found'], 404);
+        // Enforce Repost rule 1: Community posts cannot be reposted
+        if ($targetPost->community_id) {
+            return response()->json(['message' => 'Community posts cannot be reposted.'], 422);
         }
+
+        // Enforce Repost rule 2: Quote posts and pure reposts cannot be reposted
+        if ($targetPost->quote_of_id || $targetPost->repost_of_id) {
+            return response()->json(['message' => 'Quote posts and reposts cannot be reposted.'], 422);
+        }
+
+        $originalPost = $targetPost;
 
         $existingRepost = Post::where('user_id', $user->id)
             ->where('repost_of_id', $originalPost->id)
@@ -490,12 +519,17 @@ class PostController extends Controller
             return response()->json(['message' => 'Post not found'], 404);
         }
 
-        $originalPostId = $targetPost->repost_of_id ?? $targetPost->id;
-        $originalPost = Post::find($originalPostId);
-
-        if (!$originalPost) {
-            return response()->json(['message' => 'Original post not found'], 404);
+        // Enforce Quote rule 1: Community posts cannot be quoted
+        if ($targetPost->community_id) {
+            return response()->json(['message' => 'Community posts cannot be quoted.'], 422);
         }
+
+        // Enforce Quote rule 2: Quote posts and reposts cannot be quoted
+        if ($targetPost->quote_of_id || $targetPost->repost_of_id) {
+            return response()->json(['message' => 'Quote posts and reposts cannot be quoted.'], 422);
+        }
+
+        $originalPost = $targetPost;
 
         $validated = $request->validate([
             'content'      => ['required', 'string', 'max:5000'],
@@ -1006,6 +1040,16 @@ class PostController extends Controller
 
         $repostsCount = $post->reposts_count ?? ($post->reposts()->count() + $post->quotes()->count());
 
+        // Poll formatting
+        $pollData = null;
+        if ($post->relationLoaded('poll') ? $post->poll : $post->poll()->exists()) {
+            $poll = $post->relationLoaded('poll') ? $post->poll : $post->poll()->with(['options', 'votes'])->first();
+            if ($poll) {
+                $pollController = new PollController();
+                $pollData = $pollController->formatPoll($poll, $user);
+            }
+        }
+
         return [
             'id'              => $post->id,
             'content'         => $post->content,
@@ -1028,6 +1072,7 @@ class PostController extends Controller
             'community_id'    => $post->community_id,
             'community'       => $community,
             'mentions'        => $mentions,
+            'poll'            => $pollData,
             'images'          => $post->images->map(function ($img) {
                 $path = $img->image_path;
                 if ($path && !str_starts_with($path, 'http')) {

@@ -19,8 +19,11 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  title: "BlogX",
-  description: "BlogX - Modern Social Blogging Platform",
+  title: {
+    default: "BlogX — Modern Social & Engineering Platform",
+    template: "%s | BlogX",
+  },
+  description: "BlogX - Modern Social Blogging, Interactive Polls, and Engineering Platform",
 };
 
 export default function RootLayout({
