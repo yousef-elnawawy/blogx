@@ -30,6 +30,7 @@ import {
   Share2,
   QrCode,
   BookOpen,
+  Layers,
   Lock,
   Plus,
   Pencil,
@@ -38,6 +39,7 @@ import {
 } from "lucide-react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
 import BlogCard, { BlogItem } from "@/components/blog/BlogCard";
+import SeriesCard, { SeriesCardProps } from "@/components/blog/SeriesCard";
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import AccountInfoDialog from "@/components/profile/AccountInfoDialog";
 import api from "@/lib/api";
@@ -114,6 +116,9 @@ function UserProfileContent() {
   const [userArticles, setUserArticles] = useState<BlogItem[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(false);
   const [articlesLoaded, setArticlesLoaded] = useState(false);
+  const [userSeries, setUserSeries] = useState<SeriesCardProps[]>([]);
+  const [seriesLoading, setSeriesLoading] = useState(false);
+  const [seriesLoaded, setSeriesLoaded] = useState(false);
   const [articleDrafts, setArticleDrafts] = useState<BlogItem[]>([]);
   const [postDrafts, setPostDrafts] = useState<PostCardProps[]>([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
@@ -155,8 +160,8 @@ function UserProfileContent() {
     !authLoading && currentUser?.username === username;
 
   const profileTabs = isOwnProfile
-    ? ["Posts", "Blog", "Communities", "Drafts", "Media", "Likes"]
-    : ["Posts", "Blog", "Communities", "Media", "Likes"];
+    ? ["Posts", "Blog", "Series", "Communities", "Drafts", "Media", "Likes"]
+    : ["Posts", "Blog", "Series", "Communities", "Media", "Likes"];
 
   // Fetch base profile data
   useEffect(() => {
@@ -225,6 +230,26 @@ function UserProfileContent() {
       fetchArticles();
     }
   }, [activeTab, articlesLoaded, fetchArticles]);
+
+  // Fetch series when Series tab is active
+  const fetchSeries = useCallback(() => {
+    if (!username) return;
+    setSeriesLoading(true);
+    api
+      .get("/api/series", { params: { username } })
+      .then((res) => {
+        setUserSeries(res.data.data ?? res.data.series ?? []);
+        setSeriesLoaded(true);
+      })
+      .catch(() => {})
+      .finally(() => setSeriesLoading(false));
+  }, [username]);
+
+  useEffect(() => {
+    if (activeTab === "Series" && !seriesLoaded) {
+      fetchSeries();
+    }
+  }, [activeTab, seriesLoaded, fetchSeries]);
 
   // Fetch media when Media tab is active
   const fetchMedia = useCallback(() => {
@@ -749,6 +774,46 @@ function UserProfileContent() {
         </div>
       )}
 
+      {/* ── TAB: SERIES ── */}
+      {activeTab === "Series" && (
+        <div>
+          {seriesLoading ? (
+            <div className="py-16 text-center">
+              <Loader2 className="size-8 animate-spin mx-auto text-primary" />
+            </div>
+          ) : userSeries.length > 0 ? (
+            <div className="divide-y divide-border/60">
+              {userSeries.map((seriesItem) => (
+                <SeriesCard key={seriesItem.id} series={seriesItem} />
+              ))}
+            </div>
+          ) : (
+            <div className="p-12 text-center max-w-sm mx-auto">
+              <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Layers className="size-7" />
+              </div>
+              <h3 className="mb-1 text-base font-bold text-foreground font-[family-name:var(--font-fraunces)]">
+                No series created yet
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed mb-4">
+                {isOwnProfile
+                  ? "Create multi-part learning series and group related blog posts into structured courses."
+                  : `@${profileUser.username} hasn't created any series yet.`}
+              </p>
+              {isOwnProfile && (
+                <Button
+                  onClick={() => router.push("/series")}
+                  className="rounded-lg text-xs font-bold gap-1.5"
+                >
+                  <Plus className="size-3.5" />
+                  <span>Create a Series</span>
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── TAB: COMMUNITIES ── */}
       {activeTab === "Communities" && (
         <div className="p-4 sm:p-5">
@@ -837,16 +902,16 @@ function UserProfileContent() {
             <div className="p-12 text-center border-2 border-dashed border-border/60 rounded-2xl">
               <p className="text-sm font-semibold text-foreground mb-1">No drafts saved</p>
               <p className="text-xs text-muted-foreground">
-                When you click &quot;Save as Draft&quot; while writing a post or article, it will appear here safely.
+                When you click &quot;Save as Draft&quot; while writing a post or blog story, it will appear here safely.
               </p>
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Article Drafts */}
+              {/* Blog Drafts */}
               {articleDrafts.length > 0 && (
                 <div className="rounded-2xl border border-border/60 bg-card overflow-hidden divide-y divide-border/60">
                   <div className="px-4 py-2.5 bg-muted/30 text-xs font-bold text-foreground">
-                    Article Drafts ({articleDrafts.length})
+                    Blog Drafts ({articleDrafts.length})
                   </div>
                   {articleDrafts.map((d) => (
                     <BlogCard
@@ -941,10 +1006,10 @@ function UserProfileContent() {
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2.5 flex flex-col justify-end">
                     <span className="text-[11px] font-bold text-white line-clamp-1 drop-shadow-sm">
-                      {m.title || (m.type === "article_cover" ? "Article Cover" : "Post Photo")}
+                      {m.title || (m.type === "article_cover" || m.type === "blog_cover" ? "Blog Cover" : "Post Photo")}
                     </span>
                     <span className="text-[9px] text-white/80 uppercase font-extrabold tracking-wider mt-0.5">
-                      {m.type === "article_cover" ? "Article" : "Post"}
+                      {m.type === "article_cover" || m.type === "blog_cover" ? "Blog" : "Post"}
                     </span>
                   </div>
                 </Link>

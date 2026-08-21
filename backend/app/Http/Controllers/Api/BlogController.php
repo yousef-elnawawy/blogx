@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Blog;
 use App\Models\Bookmark;
 use App\Models\Post;
+use App\Models\Series;
 use App\Models\User;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
@@ -118,14 +119,13 @@ class BlogController extends Controller
         }
 
         if (!$blog) {
-            return response()->json(['blog' => null, 'article' => null]);
+            return response()->json(['blog' => null]);
         }
 
         $formatted = $this->formatBlog($blog, $authUser);
 
         return response()->json([
-            'blog'    => $formatted,
-            'article' => $formatted, // for backward compatibility during transition
+            'blog' => $formatted,
         ]);
     }
 
@@ -167,9 +167,55 @@ class BlogController extends Controller
 
         $formatted = $this->formatBlog($blog, $authUser);
 
+        // If part of a series, include series context and navigation
+        if ($blog->series_id) {
+            $series = Series::with(['publishedBlogs' => function ($q) {
+                $q->select('id', 'series_id', 'title', 'slug', 'read_time', 'series_order')
+                  ->orderBy('series_order', 'asc');
+            }])->find($blog->series_id);
+
+            if ($series) {
+                $orderedBlogs = $series->publishedBlogs->values();
+                $currentIndex = $orderedBlogs->search(fn($b) => $b->id === $blog->id);
+
+                $prevBlog = ($currentIndex !== false && $currentIndex > 0)
+                    ? $orderedBlogs->get($currentIndex - 1)
+                    : null;
+
+                $nextBlog = ($currentIndex !== false && $currentIndex < $orderedBlogs->count() - 1)
+                    ? $orderedBlogs->get($currentIndex + 1)
+                    : null;
+
+                $formatted['series'] = [
+                    'id'          => $series->id,
+                    'title'       => $series->title,
+                    'slug'        => $series->slug,
+                    'current_part' => $currentIndex !== false ? $currentIndex + 1 : ($blog->series_order ?: 1),
+                    'total_parts' => $orderedBlogs->count(),
+                    'prev_blog'   => $prevBlog ? [
+                        'id'    => $prevBlog->id,
+                        'title' => $prevBlog->title,
+                        'slug'  => $prevBlog->slug,
+                    ] : null,
+                    'next_blog'   => $nextBlog ? [
+                        'id'    => $nextBlog->id,
+                        'title' => $nextBlog->title,
+                        'slug'  => $nextBlog->slug,
+                    ] : null,
+                    'all_parts'   => $orderedBlogs->map(fn($b, $idx) => [
+                        'id'          => $b->id,
+                        'title'       => $b->title,
+                        'slug'        => $b->slug,
+                        'part_number' => $idx + 1,
+                        'read_time'   => $b->read_time,
+                        'is_current'  => $b->id === $blog->id,
+                    ]),
+                ];
+            }
+        }
+
         return response()->json([
-            'blog'    => $formatted,
-            'article' => $formatted,
+            'blog' => $formatted,
         ]);
     }
 
@@ -179,16 +225,31 @@ class BlogController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title'       => ['required', 'string', 'max:255'],
-            'content'     => ['required', 'string'],
-            'excerpt'     => ['nullable', 'string', 'max:2000'],
-            'cover_image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
-            'tags'        => ['nullable'],
-            'status'      => ['nullable', 'in:published,draft'],
+            'title'        => ['required', 'string', 'max:255'],
+            'content'      => ['required', 'string'],
+            'excerpt'      => ['nullable', 'string', 'max:2000'],
+            'cover_image'  => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:10240'],
+            'tags'         => ['nullable'],
+            'status'       => ['nullable', 'in:published,draft'],
+            'series_id'    => ['nullable', 'exists:series,id'],
+            'series_order' => ['nullable', 'integer', 'min:1'],
         ]);
 
         $status = $validated['status'] ?? 'published';
         $user = $request->user();
+
+        // Check series ownership
+        $seriesId = null;
+        $seriesOrder = null;
+        if (!empty($validated['series_id'])) {
+            $series = Series::where('id', $validated['series_id'])
+                ->where('user_id', $user->id)
+                ->first();
+            if ($series) {
+                $seriesId = $series->id;
+                $seriesOrder = $validated['series_order'] ?? (Blog::where('series_id', $series->id)->max('series_order') + 1);
+            }
+        }
 
         // Generate base slug with UTF-8 / Arabic support
         $baseSlug = Str::slug($validated['title'], '-', null);
@@ -239,6 +300,8 @@ class BlogController extends Controller
             'tags'         => $tags,
             'read_time'    => $readTime,
             'status'       => $status,
+            'series_id'    => $seriesId,
+            'series_order' => $seriesOrder,
             'published_at' => $status === 'published' ? now() : null,
         ]);
 
@@ -275,7 +338,24 @@ class BlogController extends Controller
             'remove_cover' => ['nullable', 'boolean'],
             'tags'         => ['nullable'],
             'status'       => ['nullable', 'in:published,draft'],
+            'series_id'    => ['nullable'],
+            'series_order' => ['nullable', 'integer', 'min:1'],
         ]);
+
+        if (array_key_exists('series_id', $validated)) {
+            if ($validated['series_id']) {
+                $series = Series::where('id', $validated['series_id'])
+                    ->where('user_id', $user->id)
+                    ->first();
+                if ($series) {
+                    $blog->series_id = $series->id;
+                    $blog->series_order = $validated['series_order'] ?? ($blog->series_order ?: (Blog::where('series_id', $series->id)->max('series_order') + 1));
+                }
+            } else {
+                $blog->series_id = null;
+                $blog->series_order = null;
+            }
+        }
 
         if (isset($validated['title']) && $validated['title'] !== $blog->title) {
             $baseSlug = Str::slug($validated['title'], '-', null);
@@ -338,7 +418,6 @@ class BlogController extends Controller
         return response()->json([
             'message' => 'Blog post updated successfully',
             'blog'    => $formatted,
-            'article' => $formatted,
         ]);
     }
 
@@ -470,7 +549,6 @@ class BlogController extends Controller
 
         return response()->json([
             'blog_drafts'    => $blogDrafts,
-            'article_drafts' => $blogDrafts, // backwards compatibility
             'post_drafts'    => $postDrafts,
             'total_drafts'   => $blogDrafts->count() + $postDrafts->count(),
         ]);
@@ -501,6 +579,8 @@ class BlogController extends Controller
             'tags'         => $blog->tags ?? [],
             'read_time'    => $blog->read_time ?? 1,
             'status'       => $blog->status,
+            'series_id'    => $blog->series_id,
+            'series_order' => $blog->series_order,
             'views_count'  => (int) $blog->views_count,
             'likes_count'  => (int) ($blog->likes_count ?? $blog->likes()->count()),
             'is_liked'      => $authUser ? $blog->isLikedBy($authUser) : false,

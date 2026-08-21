@@ -3,6 +3,7 @@ import MobileHeader from "@/components/MobileHeader";
 import MobileBottomBar from "@/components/MobileBottomBar";
 import TrendingHashtagsSidebar from "@/components/TrendingHashtagsSidebar";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
+import WelcomeOnboardingModal from "@/components/WelcomeOnboardingModal";
 
 export default function MainLayout({
   children,
@@ -11,6 +12,9 @@ export default function MainLayout({
 }) {
   return (
     <div className="blogx-layout">
+      {/* Welcome Onboarding Modal for New Registered Users */}
+      <WelcomeOnboardingModal />
+
       {/* Left Sidebar - Navigation (Desktop) */}
       <LeftSidebar />
 

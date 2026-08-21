@@ -37,7 +37,7 @@ const itemVariants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.5, ease: "easeOut" as const },
   },
 };
 
@@ -137,25 +137,23 @@ export default function AboutPage() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="flex items-center justify-center gap-3 pt-3 flex-wrap"
           >
-            <Button
-              asChild
-              className="rounded-2xl h-11 px-6 font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 cursor-pointer"
-            >
-              <Link href="/">
+            <Link href="/">
+              <Button
+                className="rounded-2xl h-11 px-6 font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/20 cursor-pointer"
+              >
                 <span>Explore Feed</span>
                 <ArrowRight className="size-4 ml-1" />
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="rounded-2xl h-11 px-6 font-semibold text-sm border-border bg-card/60 backdrop-blur-xs hover:bg-muted cursor-pointer"
-            >
-              <Link href="/blogs">
+              </Button>
+            </Link>
+            <Link href="/blogs">
+              <Button
+                variant="outline"
+                className="rounded-2xl h-11 px-6 font-semibold text-sm border-border bg-card/60 backdrop-blur-xs hover:bg-muted cursor-pointer"
+              >
                 <BookOpen className="size-4 mr-1.5 text-primary" />
                 <span>Read Blog Stories</span>
-              </Link>
-            </Button>
+              </Button>
+            </Link>
           </motion.div>
         </div>
       </section>
@@ -280,19 +278,21 @@ export default function AboutPage() {
           Create your account today, follow your favorite engineers, cast your votes, and start sharing your knowledge with the world.
         </p>
         <div className="pt-2 flex items-center justify-center gap-3">
-          <Button
-            asChild
-            className="rounded-2xl h-11 px-8 font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer"
-          >
-            <Link href="/signup">Sign Up for Free</Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="rounded-2xl h-11 px-6 font-semibold text-sm cursor-pointer"
-          >
-            <Link href="/login">Sign In</Link>
-          </Button>
+          <Link href="/signup">
+            <Button
+              className="rounded-2xl h-11 px-8 font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md cursor-pointer"
+            >
+              Sign Up for Free
+            </Button>
+          </Link>
+          <Link href="/login">
+            <Button
+              variant="outline"
+              className="rounded-2xl h-11 px-6 font-semibold text-sm cursor-pointer"
+            >
+              Sign In
+            </Button>
+          </Link>
         </div>
       </section>
     </div>

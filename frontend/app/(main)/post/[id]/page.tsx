@@ -654,8 +654,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
             <div className="mt-3.5" onClick={(e) => e.stopPropagation()}>
               <PollWidget
                 poll={post.poll}
-                postId={post.id}
-                onVoted={(updatedPoll) => {
+                onVoteSuccess={(updatedPoll) => {
                   setPost((prev) => (prev ? { ...prev, poll: updatedPoll } : null));
                 }}
               />

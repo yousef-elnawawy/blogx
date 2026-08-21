@@ -200,10 +200,10 @@ export function SuggestedUsersFeedCard() {
 }
 
 /* =========================================================================
-   2. Seamless In-Feed Featured Article Card
+   2. Seamless In-Feed Featured Blog Card
    ========================================================================= */
-export function FeaturedArticleFeedCard() {
-  const [article, setArticle] = useState<any>(null);
+export function FeaturedBlogFeedCard() {
+  const [blog, setBlog] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -212,7 +212,7 @@ export function FeaturedArticleFeedCard() {
       .then((res) => {
         const item = res.data.blog || res.data.article;
         if (item) {
-          setArticle(item);
+          setBlog(item);
         }
       })
       .catch(() => {})
@@ -233,7 +233,7 @@ export function FeaturedArticleFeedCard() {
     );
   }
 
-  if (!article) return null;
+  if (!blog) return null;
 
   return (
     <article className="border-b border-border p-4 sm:p-5 hover:bg-muted/15 transition-colors group animate-in fade-in-50 duration-300">
@@ -241,71 +241,71 @@ export function FeaturedArticleFeedCard() {
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500">
           <Sparkles className="size-3.5" />
-          <span>FEATURED STORY</span>
+          <span>FEATURED BLOG STORY</span>
         </div>
 
         <Link
           href="/blogs"
           className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
         >
-          <span>All posts</span>
+          <span>All blogs</span>
           <ArrowRight className="size-3" />
         </Link>
       </div>
 
       {/* Large Cover Image (if available) */}
-      {article.cover_image && (
+      {blog.cover_image && (
         <Link
-          href={`/blog/${encodeURIComponent(article.slug)}`}
+          href={`/blog/${encodeURIComponent(blog.slug)}`}
           className="block relative w-full h-48 sm:h-64 rounded-lg overflow-hidden bg-muted mb-3 border border-border/60"
         >
           <img
-            src={getAvatarUrl(article.cover_image)}
-            alt={article.title}
+            src={getAvatarUrl(blog.cover_image)}
+            alt={blog.title}
             className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
           />
         </Link>
       )}
 
       {/* Title */}
-      <Link href={`/blog/${encodeURIComponent(article.slug)}`} className="block mb-1.5">
+      <Link href={`/blog/${encodeURIComponent(blog.slug)}`} className="block mb-1.5">
         <h2 className="text-lg sm:text-2xl font-bold text-foreground group-hover:text-primary transition-colors leading-snug font-[family-name:var(--font-fraunces)]">
-          {article.title}
+          {blog.title}
         </h2>
       </Link>
 
       {/* Excerpt */}
-      {article.excerpt && (
+      {blog.excerpt && (
         <p className="text-xs sm:text-sm text-foreground/80 leading-relaxed line-clamp-2 mb-3">
-          {article.excerpt}
+          {blog.excerpt}
         </p>
       )}
 
       {/* Author Bar */}
       <div className="flex items-center justify-between pt-2.5 border-t border-border/40 gap-3 flex-wrap text-xs">
         <Link
-          href={`/@${article.author?.username}`}
+          href={`/@${blog.author?.username}`}
           className="flex items-center gap-2.5 group/author"
         >
           <Avatar className="size-7 ring-1 ring-border/50">
-            <AvatarImage src={getAvatarUrl(article.author?.avatar)} alt={article.author?.name} />
+            <AvatarImage src={getAvatarUrl(blog.author?.avatar)} alt={blog.author?.name} />
             <AvatarFallback className="text-[10px] font-bold">
-              {getInitials(article.author?.name || "A")}
+              {getInitials(blog.author?.name || "A")}
             </AvatarFallback>
           </Avatar>
           <span className="font-bold text-foreground group-hover/author:underline">
-            {article.author?.name}
+            {blog.author?.name}
           </span>
-          {article.author?.verified && <VerifiedBadge size="sm" />}
+          {blog.author?.verified && <VerifiedBadge size="sm" />}
           <span className="text-muted-foreground">·</span>
           <span className="text-muted-foreground inline-flex items-center gap-1">
             <Clock className="size-3" />
-            {article.read_time || 1} min read
+            {blog.read_time || 1} min read
           </span>
         </Link>
 
         <Link
-          href={`/blog/${encodeURIComponent(article.slug)}`}
+          href={`/blog/${encodeURIComponent(blog.slug)}`}
           className="font-bold text-primary hover:underline inline-flex items-center gap-1"
         >
           <span>Read story</span>
@@ -315,6 +315,9 @@ export function FeaturedArticleFeedCard() {
     </article>
   );
 }
+
+// Backwards compatibility alias
+export const FeaturedArticleFeedCard = FeaturedBlogFeedCard;
 
 /* =========================================================================
    3. Horizontal Scrolling Communities Carousel (Real Communities from API)

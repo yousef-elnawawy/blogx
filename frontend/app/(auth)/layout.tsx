@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuthLayout({
@@ -11,18 +11,22 @@ export default function AuthLayout({
 }) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const initialUserRef = useRef<boolean | null>(null);
+
+  // Record whether the user was already logged in upon visiting the auth page
+  useEffect(() => {
+    if (!loading && initialUserRef.current === null) {
+      initialUserRef.current = !!user;
+    }
+  }, [loading, user]);
 
   useEffect(() => {
-    // Once auth check is done and user is logged in, redirect silently
-    if (!loading && user) {
+    // If the user arrived at /login or /signup while already logged in, redirect home
+    if (!loading && user && initialUserRef.current === true) {
       router.replace("/");
     }
   }, [user, loading, router]);
-
-  // Never block rendering — always show the page immediately.
-  // If the user is authenticated, the useEffect above redirects them.
-  // This prevents the blank "loading" screen on /login and /signup.
-  if (user) return null;
 
   return <>{children}</>;
 }

@@ -208,6 +208,9 @@ export function SignUpForm() {
       }
 
       toast.success("Account created successfully! Welcome to BlogX.");
+      if (typeof window !== "undefined") {
+        localStorage.setItem("blogx_welcome_onboarding", "true");
+      }
       setCurrentStep(3);
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.status === 422) {

@@ -198,7 +198,7 @@ export default function ShareDialog({
             ) : (
               <Share2 className="size-5 text-primary" />
             )}
-            <span>{isBlog ? "Share Blog Article" : "Share Post"}</span>
+            <span>{isBlog ? "Share Blog Story" : "Share Post"}</span>
           </DialogTitle>
         </DialogHeader>
 

@@ -54,8 +54,10 @@
   --color-brand-like-subtle: var(--brand-like-subtle);
   --color-brand-bookmark: var(--brand-bookmark);
   --color-brand-bookmark-subtle: var(--brand-bookmark-subtle);
-  --color-brand-article: var(--brand-article);
-  --color-brand-article-subtle: var(--brand-article-subtle);
+  --color-brand-blog: var(--brand-blog);
+  --color-brand-blog-subtle: var(--brand-blog-subtle);
+  --color-brand-article: var(--brand-blog);
+  --color-brand-article-subtle: var(--brand-blog-subtle);
   --color-brand-explore: var(--brand-explore);
   --color-brand-explore-subtle: var(--brand-explore-subtle);
   --color-brand-notification: var(--brand-notification);
@@ -74,6 +76,8 @@
   --brand-like-subtle: rgba(225, 29, 72, 0.12);
   --brand-bookmark: #9333ea;
   --brand-bookmark-subtle: rgba(147, 51, 234, 0.12);
+  --brand-blog: #6366f1;
+  --brand-blog-subtle: rgba(99, 102, 241, 0.12);
   --brand-article: #6366f1;
   --brand-article-subtle: rgba(99, 102, 241, 0.12);
   --brand-explore: #059669;
@@ -612,17 +616,20 @@ textarea::-moz-selection {
   color: var(--brand-hashtag);
 }
 
+.nav-item-blogs,
 .nav-item-articles {
-  color: var(--brand-article);
+  color: var(--brand-blog);
 }
+.nav-item-blogs-active,
 .nav-item-articles-active {
-  background-color: var(--brand-article-subtle);
-  color: var(--brand-article);
+  background-color: var(--brand-blog-subtle);
+  color: var(--brand-blog);
   font-weight: 700;
 }
+.nav-item-blogs-hover:hover,
 .nav-item-articles-hover:hover {
-  background-color: var(--brand-article-subtle);
-  color: var(--brand-article);
+  background-color: var(--brand-blog-subtle);
+  color: var(--brand-blog);
 }
 
 .nav-item-explore {

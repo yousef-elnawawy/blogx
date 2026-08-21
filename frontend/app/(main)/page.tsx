@@ -23,7 +23,7 @@ import {
 import {
   SuggestedUsersFeedCard,
   TrendingTopicsFeedCard,
-  FeaturedArticleFeedCard,
+  FeaturedBlogFeedCard,
   SuggestedCommunitiesFeedCard,
 } from "@/components/feed/FeedDiscoveryCards";
 import api from "@/lib/api";
@@ -262,7 +262,7 @@ export default function Home() {
             </h2>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
               {activeTab === "following"
-                ? "Follow creators to see their latest thoughts and articles here."
+                ? "Follow creators to see their latest thoughts and blogs here."
                 : "Be the first to share an update with the community."}
             </p>
           </div>
@@ -270,7 +270,7 @@ export default function Home() {
           {/* Show Discovery Sections */}
           <div className="text-left pt-4 space-y-4">
             <SuggestedUsersFeedCard />
-            <FeaturedArticleFeedCard />
+            <FeaturedBlogFeedCard />
             <TrendingTopicsFeedCard />
             <SuggestedCommunitiesFeedCard />
           </div>
@@ -289,7 +289,7 @@ export default function Home() {
               {index === 0 && <SuggestedUsersFeedCard />}
 
               {/* Discovery Section 2: Featured Story after post #2 */}
-              {index === 1 && <FeaturedArticleFeedCard />}
+              {index === 1 && <FeaturedBlogFeedCard />}
 
               {/* Discovery Section 3: Trending Topics bar after post #4 */}
               {index === 3 && <TrendingTopicsFeedCard />}
@@ -302,7 +302,7 @@ export default function Home() {
           {/* If there are fewer posts, display remaining discovery elements */}
           {posts.length === 1 && (
             <>
-              <FeaturedArticleFeedCard />
+              <FeaturedBlogFeedCard />
               <TrendingTopicsFeedCard />
               <SuggestedCommunitiesFeedCard />
             </>

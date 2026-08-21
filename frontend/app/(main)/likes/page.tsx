@@ -14,7 +14,7 @@ type TabType = "all" | "posts" | "blogs";
 export default function LikedPostsPage() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<PostCardProps[]>([]);
-  const [articles, setArticles] = useState<BlogItem[]>([]);
+  const [blogs, setBlogs] = useState<BlogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const router = useRouter();
@@ -27,7 +27,7 @@ export default function LikedPostsPage() {
         if (user?.username) {
           const res = await api.get(`/api/profile/${user.username}/likes`);
           setPosts(res.data.posts ?? []);
-          setArticles(res.data.articles ?? []);
+          setBlogs(res.data.blogs ?? res.data.articles ?? []);
         } else {
           const res = await api.get("/api/likes");
           setPosts(res.data.data ?? []);
@@ -35,7 +35,7 @@ export default function LikedPostsPage() {
       } catch (err) {
         console.error(err);
         setPosts([]);
-        setArticles([]);
+        setBlogs([]);
       } finally {
         setLoading(false);
       }
@@ -55,7 +55,7 @@ export default function LikedPostsPage() {
   }, [user?.username]);
 
   const displayedPosts = activeTab === "blogs" ? [] : posts;
-  const displayedBlogs = activeTab === "posts" ? [] : articles;
+  const displayedBlogs = activeTab === "posts" ? [] : blogs;
   const totalCount = displayedPosts.length + displayedBlogs.length;
 
   return (
@@ -95,7 +95,7 @@ export default function LikedPostsPage() {
               activeTab === "all" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <span>All ({posts.length + articles.length})</span>
+            <span>All ({posts.length + blogs.length})</span>
             {activeTab === "all" && (
               <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
             )}
@@ -123,7 +123,7 @@ export default function LikedPostsPage() {
               activeTab === "blogs" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
-            <span>Blog ({articles.length})</span>
+            <span>Blog ({blogs.length})</span>
             {activeTab === "blogs" && (
               <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-primary rounded-full" />
             )}

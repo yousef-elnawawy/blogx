@@ -22,6 +22,7 @@ import {
   Bell,
   BookOpen,
   FileText,
+  Layers,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -72,10 +73,19 @@ export default function MobileHeader() {
       label: "Blog",
       href: "/blogs",
       icon: BookOpen,
-      colorClass: "nav-item-articles",
-      activeClass: "nav-item-articles-active",
-      hoverClass: "nav-item-articles-hover",
-      iconActiveClass: "nav-item-articles stroke-[2.5]",
+      colorClass: "nav-item-blogs",
+      activeClass: "nav-item-blogs-active",
+      hoverClass: "nav-item-blogs-hover",
+      iconActiveClass: "nav-item-blogs stroke-[2.5]",
+    },
+    {
+      label: "Series",
+      href: "/series",
+      icon: Layers,
+      colorClass: "nav-item-feed",
+      activeClass: "nav-item-feed-active",
+      hoverClass: "nav-item-feed-hover",
+      iconActiveClass: "nav-item-feed stroke-[2.5]",
     },
     {
       label: "Explore",
@@ -138,10 +148,10 @@ export default function MobileHeader() {
             label: "My Drafts",
             href: `/@${user.username}?tab=Drafts`,
             icon: FileText,
-            colorClass: "nav-item-articles",
-            activeClass: "nav-item-articles-active",
-            hoverClass: "nav-item-articles-hover",
-            iconActiveClass: "nav-item-articles stroke-[2.5]",
+            colorClass: "nav-item-blogs",
+            activeClass: "nav-item-blogs-active",
+            hoverClass: "nav-item-blogs-hover",
+            iconActiveClass: "nav-item-blogs stroke-[2.5]",
           },
         ]
       : []),

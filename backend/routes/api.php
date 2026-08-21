@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\PollController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SearchController;
+use App\Http\Controllers\Api\SeriesController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\Api\VerificationController;
 use Illuminate\Support\Facades\Route;
@@ -122,6 +123,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/blogs/{id}/like', [BlogController::class, 'toggleLike']);
     Route::post('/blogs/{id}/bookmark', [BlogController::class, 'toggleBookmark']);
     Route::get('/drafts', [BlogController::class, 'myDrafts']);
+
+    // Series (Auth)
+    Route::get('/user/series', [SeriesController::class, 'userSeries']);
+    Route::post('/series', [SeriesController::class, 'store']);
+    Route::post('/series/{id}', [SeriesController::class, 'update']);
+    Route::delete('/series/{id}', [SeriesController::class, 'destroy']);
 });
 
 // Public routes — enriched when auth token is present
@@ -131,6 +138,10 @@ Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::post('/posts/{id}/share', [PostController::class, 'recordShare']);
 Route::post('/posts/{id}/view', [PostController::class, 'recordImpression']);
 Route::post('/posts/views/batch', [PostController::class, 'recordBatchImpressions']);
+
+// Series Public
+Route::get('/series', [SeriesController::class, 'index']);
+Route::get('/series/{slugOrId}', [SeriesController::class, 'show']);
 
 // Communities (Public)
 Route::get('/communities', [CommunityController::class, 'index']);

@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 type TabType = "all" | "posts" | "blogs";
 
 export default function BookmarksPage() {
+  const router = useRouter();
   const [posts, setPosts] = useState<PostCardProps[]>([]);
   const [blogs, setBlogs] = useState<BlogItem[]>([]);
   const [loading, setLoading] = useState(true);

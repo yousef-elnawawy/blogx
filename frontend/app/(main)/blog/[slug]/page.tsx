@@ -42,6 +42,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import RichBlogContent from "@/components/blog/RichBlogContent";
+import SeriesNavigationBanner from "@/components/blog/SeriesNavigationBanner";
 
 export interface BlogDetail {
   id: number;
@@ -58,6 +60,7 @@ export interface BlogDetail {
   is_liked?: boolean;
   published_at: string | null;
   created_at: string | null;
+  series?: any;
   author: {
     id: number | null;
     name: string;
@@ -624,10 +627,31 @@ export default function BlogDetailPage() {
           </div>
         )}
 
-        {/* Main Content Render */}
+        {/* Series Badge Indicator (Top) */}
+        {blog.series && (
+          <div className="mb-4">
+            <Link
+              href={`/series/${blog.series.slug}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-muted/50 hover:bg-muted text-xs font-semibold text-foreground/80 hover:text-foreground border border-border/60 transition-colors"
+            >
+              <span className="text-primary font-bold">Part {blog.series.current_part} of {blog.series.total_parts}</span>
+              <span className="text-muted-foreground">in</span>
+              <span className="font-bold underline underline-offset-2">{blog.series.title}</span>
+            </Link>
+          </div>
+        )}
+
+        {/* Main Content Render with Syntax Highlighting, YouTube, Twitter & Tables */}
         <div className="space-y-1 text-foreground/95 text-[15px] sm:text-base leading-relaxed tracking-normal">
-          {renderBlogContent(blog.content)}
+          <RichBlogContent content={blog.content} />
         </div>
+
+        {/* Series Navigation Banner (Bottom) */}
+        {blog.series && (
+          <div className="mt-8">
+            <SeriesNavigationBanner series={blog.series} />
+          </div>
+        )}
 
         {/* Footer actions bar */}
         <div className="flex items-center justify-between py-4 border-t border-border/60 mt-10 gap-3">

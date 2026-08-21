@@ -24,6 +24,8 @@ class Blog extends Model
         'views_count',
         'is_pinned',
         'published_at',
+        'series_id',
+        'series_order',
     ];
 
     protected $casts = [
@@ -32,6 +34,8 @@ class Blog extends Model
         'views_count'  => 'integer',
         'is_pinned'    => 'boolean',
         'published_at' => 'datetime',
+        'series_id'    => 'integer',
+        'series_order' => 'integer',
     ];
 
     // Scopes
@@ -59,6 +63,11 @@ class Blog extends Model
     public function bookmarks()
     {
         return $this->hasMany(Bookmark::class);
+    }
+
+    public function series()
+    {
+        return $this->belongsTo(Series::class);
     }
 
     // Helpers

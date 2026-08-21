@@ -649,7 +649,7 @@ export default function AccountSettings({ onBack }: AccountSettingsProps) {
             Danger Zone
           </h3>
           <p className="text-xs text-muted-foreground">
-            Permanently delete your BlogX account and all associated posts, articles, and bookmarks. This action cannot be undone.
+            Permanently delete your BlogX account and all associated posts, blogs, series, and bookmarks. This action cannot be undone.
           </p>
           <Button
             type="button"

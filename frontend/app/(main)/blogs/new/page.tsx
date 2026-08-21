@@ -9,288 +9,39 @@ import {
   X,
   Eye,
   Edit3,
-  Heading1,
-  Heading2,
   Heading3,
   Bold,
   Italic,
-  Strikethrough,
   Quote,
   List,
-  ListOrdered,
-  Code,
+  Code2,
   Table as TableIcon,
   Minus,
   Sparkles,
   Loader2,
   Bookmark,
   Send,
-  Image as ImageIcon,
-  CheckCircle2,
-  AlertCircle,
-  HelpCircle,
+  Video,
+  Layers,
   Clock,
-  FileText,
+  Terminal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/api";
 import { toast } from "sonner";
-import { cn, getAvatarUrl } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
-
-function formatInlineText(line: string): React.ReactNode {
-  const regex = /(\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s]+|www\.[^\s]+)/gu;
-  const parts = line.split(regex);
-
-  return parts.map((part, i) => {
-    if (!part) return null;
-
-    const mdMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
-    if (mdMatch) {
-      const label = mdMatch[1];
-      let href = mdMatch[2].trim();
-      if (!href.startsWith("http://") && !href.startsWith("https://")) {
-        href = `https://${href}`;
-      }
-      return (
-        <a
-          key={i}
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary underline font-medium"
-        >
-          {label}
-        </a>
-      );
-    }
-
-    if (/^(https?:\/\/|www\.)/i.test(part)) {
-      let cleanUrl = part;
-      let trailing = "";
-      const matchTrailing = cleanUrl.match(/[.,!?:;)]+$/);
-      if (matchTrailing) {
-        trailing = matchTrailing[0];
-        cleanUrl = cleanUrl.slice(0, -trailing.length);
-      }
-      const safeHref = cleanUrl.startsWith("http") ? cleanUrl : `https://${cleanUrl}`;
-      return (
-        <span key={i} className="inline">
-          <a
-            href={safeHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline"
-          >
-            {cleanUrl}
-          </a>
-          {trailing}
-        </span>
-      );
-    }
-
-    return <span key={i}>{part}</span>;
-  });
-}
-
-// Markdown & Table & Callout Renderer for Rich Blog Preview
-function renderRichContent(text: string) {
-  if (!text) return null;
-
-  const lines = text.split("\n");
-  const elements: React.ReactNode[] = [];
-  let inCodeBlock = false;
-  let codeBuffer: string[] = [];
-  let inTable = false;
-  let tableRows: string[][] = [];
-
-  const flushTable = (keyPrefix: number) => {
-    if (tableRows.length > 0) {
-      const headerRow = tableRows[0];
-      const bodyRows = tableRows.slice(1);
-
-      elements.push(
-        <div key={`table-${keyPrefix}`} className="my-6 overflow-x-auto rounded-lg border border-border/70 shadow-2xs">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/60">
-                {headerRow.map((cell, idx) => (
-                  <th key={idx} className="px-4 py-3 font-bold text-foreground font-[family-name:var(--font-fraunces)]">
-                    {formatInlineText(cell.trim())}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border/40">
-              {bodyRows.map((row, rIdx) => (
-                <tr key={rIdx} className="hover:bg-muted/20 transition-colors">
-                  {row.map((cell, cIdx) => (
-                    <td key={cIdx} className="px-4 py-2.5 text-foreground/90 leading-relaxed">
-                      {formatInlineText(cell.trim())}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      );
-      tableRows = [];
-      inTable = false;
-    }
-  };
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-
-    // Code block check
-    if (line.trim().startsWith("```")) {
-      if (inTable) flushTable(index);
-      if (inCodeBlock) {
-        elements.push(
-          <pre
-            key={`code-${index}`}
-            className="p-4 my-4 rounded-lg bg-muted/80 text-foreground font-mono text-xs sm:text-sm overflow-x-auto border border-border/60"
-          >
-            <code>{codeBuffer.join("\n")}</code>
-          </pre>
-        );
-        codeBuffer = [];
-        inCodeBlock = false;
-      } else {
-        inCodeBlock = true;
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      codeBuffer.push(line);
-      continue;
-    }
-
-    // Markdown Table row: | Col 1 | Col 2 |
-    if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
-      const isDivider = /^\|\s*[-:]+[-| :]*\|$/.test(line.trim());
-      if (isDivider) {
-        continue;
-      }
-      const cells = line.split("|").slice(1, -1);
-      tableRows.push(cells);
-      inTable = true;
-      continue;
-    } else if (inTable) {
-      flushTable(index);
-    }
-
-    // Headings
-    if (line.startsWith("### ")) {
-      elements.push(
-        <h3 key={index} className="text-lg sm:text-xl font-bold text-foreground mt-6 mb-2 font-[family-name:var(--font-fraunces)]">
-          {formatInlineText(line.replace(/^###\s+/, ""))}
-        </h3>
-      );
-      continue;
-    }
-    if (line.startsWith("## ")) {
-      elements.push(
-        <h2 key={index} className="text-xl sm:text-2xl font-bold text-foreground mt-8 mb-3 font-[family-name:var(--font-fraunces)]">
-          {formatInlineText(line.replace(/^##\s+/, ""))}
-        </h2>
-      );
-      continue;
-    }
-    if (line.startsWith("# ")) {
-      elements.push(
-        <h1 key={index} className="text-2xl sm:text-3xl font-extrabold text-foreground mt-10 mb-4 font-[family-name:var(--font-fraunces)]">
-          {formatInlineText(line.replace(/^#\s+/, ""))}
-        </h1>
-      );
-      continue;
-    }
-
-    // Callout / Note: > [!NOTE] or > [!TIP] or standard Blockquote
-    if (line.startsWith("> ")) {
-      const quoteText = line.replace(/^>\s+/, "");
-      elements.push(
-        <blockquote
-          key={index}
-          className="border-l-3 border-primary pl-4 py-2 my-4 italic text-foreground/80 bg-primary/5 rounded-r-md"
-        >
-          {formatInlineText(quoteText)}
-        </blockquote>
-      );
-      continue;
-    }
-
-    // Divider
-    if (line.trim() === "---" || line.trim() === "***") {
-      elements.push(<hr key={index} className="my-8 border-border/60" />);
-      continue;
-    }
-
-    // Image markdown: ![alt](url)
-    const imgMatch = line.match(/^!\[(.*?)\]\((.*?)\)$/);
-    if (imgMatch) {
-      const alt = imgMatch[1];
-      const src = imgMatch[2];
-      elements.push(
-        <figure key={index} className="my-6">
-          <img
-            src={src}
-            alt={alt}
-            className="w-full max-h-[500px] object-cover rounded-lg border border-border/60"
-          />
-          {alt && alt !== "image" && (
-            <figcaption className="text-center text-xs text-muted-foreground mt-2">
-              {alt}
-            </figcaption>
-          )}
-        </figure>
-      );
-      continue;
-    }
-
-    // Bullet List
-    if (line.match(/^[-*]\s+/)) {
-      elements.push(
-        <li key={index} className="ml-5 list-disc text-[15px] leading-relaxed text-foreground/90 my-1">
-          {formatInlineText(line.replace(/^[-*]\s+/, ""))}
-        </li>
-      );
-      continue;
-    }
-
-    // Numbered list
-    if (line.match(/^\d+\.\s+/)) {
-      elements.push(
-        <li key={index} className="ml-5 list-decimal text-[15px] leading-relaxed text-foreground/90 my-1">
-          {formatInlineText(line.replace(/^\d+\.\s+/, ""))}
-        </li>
-      );
-      continue;
-    }
-
-    // Empty line
-    if (!line.trim()) {
-      elements.push(<div key={index} className="h-3" />);
-      continue;
-    }
-
-    // Normal paragraph
-    elements.push(
-      <p key={index} className="text-[15px] sm:text-base leading-relaxed text-foreground/90 my-2">
-        {formatInlineText(line)}
-      </p>
-    );
-  }
-
-  if (inTable) {
-    flushTable(lines.length);
-  }
-
-  return elements;
-}
+import RichBlogContent from "@/components/blog/RichBlogContent";
+import SlashMenu from "@/components/blog/SlashMenu";
 
 export default function NewBlogPage() {
   const router = useRouter();
@@ -307,6 +58,21 @@ export default function NewBlogPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<"draft" | "published" | null>(null);
 
+  // Compact series state
+  const [userSeries, setUserSeries] = useState<Array<{ id: number; title: string; blogs_count: number }>>([]);
+  const [selectedSeriesId, setSelectedSeriesId] = useState<number | "none">("none");
+  const [seriesOrder, setSeriesOrder] = useState<number>(1);
+
+  // Dialogs for rich insertions
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
+  const [youtubeInput, setYoutubeInput] = useState("");
+  const [twitterDialogOpen, setTwitterDialogOpen] = useState(false);
+  const [twitterInput, setTwitterInput] = useState("");
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
+  const [codeLanguage, setCodeLanguage] = useState("typescript");
+  const [codeSnippet, setCodeSnippet] = useState("");
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
@@ -314,13 +80,23 @@ export default function NewBlogPage() {
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.max(textareaRef.current.scrollHeight, 400)}px`;
+      textareaRef.current.style.height = `${Math.max(textareaRef.current.scrollHeight, 450)}px`;
     }
   }, []);
 
   useEffect(() => {
-    document.title = title ? `${title} — BlogX Editor` : "Write a Story — BlogX";
+    document.title = title ? `${title} — BlogX Editor` : "Write a Blog Story — BlogX";
   }, [title]);
+
+  useEffect(() => {
+    if (!user) return;
+    api
+      .get("/api/user/series")
+      .then((res) => {
+        setUserSeries(res.data?.series || res.data?.data || []);
+      })
+      .catch(() => {});
+  }, [user]);
 
   useEffect(() => {
     adjustHeight();
@@ -377,9 +153,77 @@ export default function NewBlogPage() {
     }, 0);
   };
 
-  const insertTable = () => {
-    const sampleTable = `\n| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Item A | Value 1 | Details |\n| Item B | Value 2 | Details |\n`;
-    insertFormatting(sampleTable, "", "");
+  // Keyboard shortcut listener (e.g. typing '/' at start of a newline opens slash menu)
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "/" && (content === "" || content.endsWith("\n"))) {
+      e.preventDefault();
+      setSlashMenuOpen(true);
+    }
+  };
+
+  const handleSlashSelect = (commandId: string) => {
+    switch (commandId) {
+      case "h1":
+        insertFormatting("\n# ", "\n", "Heading 1");
+        break;
+      case "h2":
+        insertFormatting("\n## ", "\n", "Heading 2");
+        break;
+      case "h3":
+        insertFormatting("\n### ", "\n", "Heading 3");
+        break;
+      case "code":
+        setCodeDialogOpen(true);
+        break;
+      case "youtube":
+        setYoutubeDialogOpen(true);
+        break;
+      case "twitter":
+        setTwitterDialogOpen(true);
+        break;
+      case "table":
+        insertFormatting(
+          "\n| Feature | Status | Notes |\n| --- | --- | --- |\n| Item 1 | Active | Details |\n| Item 2 | Coming Soon | Details |\n",
+          "",
+          ""
+        );
+        break;
+      case "callout":
+        insertFormatting("\n> **Note:** ", "\n", "Enter key insights or important tips here...");
+        break;
+      case "bullet-list":
+        insertFormatting("\n- ", "\n", "List item");
+        break;
+      case "numbered-list":
+        insertFormatting("\n1. ", "\n", "Step one");
+        break;
+      case "divider":
+        insertFormatting("\n---\n", "", "");
+        break;
+      default:
+        break;
+    }
+  };
+
+  const handleInsertYouTube = () => {
+    if (!youtubeInput.trim()) return;
+    insertFormatting(`\n\n${youtubeInput.trim()}\n\n`, "", "");
+    setYoutubeInput("");
+    setYoutubeDialogOpen(false);
+  };
+
+  const handleInsertTwitter = () => {
+    if (!twitterInput.trim()) return;
+    insertFormatting(`\n\n${twitterInput.trim()}\n\n`, "", "");
+    setTwitterInput("");
+    setTwitterDialogOpen(false);
+  };
+
+  const handleInsertCode = () => {
+    const code = codeSnippet.trim() || "// write your code here";
+    insertFormatting(`\n\`\`\`${codeLanguage}\n${code}\n\`\`\`\n`, "", "");
+    setCodeSnippet("");
+    setCodeDialogOpen(false);
   };
 
   const handleAddTag = (e: React.KeyboardEvent) => {
@@ -422,6 +266,11 @@ export default function NewBlogPage() {
         formData.append(`tags[${idx}]`, tag);
       });
 
+      if (selectedSeriesId !== "none") {
+        formData.append("series_id", String(selectedSeriesId));
+        formData.append("series_order", String(seriesOrder));
+      }
+
       if (coverFile) {
         formData.append("cover_image", coverFile);
       }
@@ -430,7 +279,7 @@ export default function NewBlogPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
-      const savedBlog = res.data?.blog || res.data?.article || res.data?.data || res.data;
+      const savedBlog = res.data?.blog || res.data?.data || res.data;
       toast.success(
         status === "published"
           ? "Blog post published successfully!"
@@ -459,19 +308,19 @@ export default function NewBlogPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground pb-24 selection:bg-primary/20">
-      {/* Top Fixed Notion-style Bar */}
-      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border/70 px-4 sm:px-8 py-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      {/* Top Header */}
+      <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border/70 px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
           <Link
             href="/blogs"
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted transition-colors"
           >
             <ArrowLeft className="size-4" />
-            <span>Blog</span>
+            <span>Blogs</span>
           </Link>
-          <span className="text-muted-foreground/50 text-xs">/</span>
-          <span className="text-xs font-bold text-foreground truncate max-w-[200px] sm:max-w-[300px]">
-            {title || "Untitled Post"}
+          <span className="text-muted-foreground/40 text-xs">/</span>
+          <span className="text-xs font-bold text-foreground truncate max-w-[180px] sm:max-w-[280px]">
+            {title || "Untitled Blog"}
           </span>
         </div>
 
@@ -482,7 +331,7 @@ export default function NewBlogPage() {
             variant="ghost"
             size="sm"
             onClick={() => setIsPreview(!isPreview)}
-            className="h-8.5 px-3 text-xs font-semibold rounded-md gap-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"
+            className="h-8 px-2.5 text-xs font-semibold rounded-md gap-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"
           >
             {isPreview ? (
               <>
@@ -503,7 +352,7 @@ export default function NewBlogPage() {
             size="sm"
             disabled={isSubmitting}
             onClick={() => handleSave("draft")}
-            className="h-8.5 px-3.5 text-xs font-semibold rounded-md gap-1.5"
+            className="h-8 px-3 text-xs font-semibold rounded-md gap-1.5"
           >
             {isSubmitting && submittingAction === "draft" ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -518,7 +367,7 @@ export default function NewBlogPage() {
             size="sm"
             disabled={isSubmitting}
             onClick={() => handleSave("published")}
-            className="h-8.5 px-4 text-xs font-bold rounded-md gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+            className="h-8 px-3.5 text-xs font-bold rounded-md gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
           >
             {isSubmitting && submittingAction === "published" ? (
               <Loader2 className="size-3.5 animate-spin" />
@@ -530,12 +379,12 @@ export default function NewBlogPage() {
         </div>
       </header>
 
-      {/* Main Workspace (Notion-style centered container) */}
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12">
-        {/* Cover Image Upload Area */}
+      {/* Main Workspace */}
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 sm:pt-10">
+        {/* Cover Image Upload */}
         <div className="mb-6 group">
           {coverPreview ? (
-            <div className="relative h-48 sm:h-72 w-full rounded-lg overflow-hidden border border-border/70 group shadow-2xs">
+            <div className="relative h-44 sm:h-64 w-full rounded-lg overflow-hidden border border-border/70 shadow-xs">
               <img
                 src={coverPreview}
                 alt="Cover"
@@ -544,20 +393,20 @@ export default function NewBlogPage() {
               <button
                 type="button"
                 onClick={handleRemoveCover}
-                className="absolute top-3 right-3 p-1.5 rounded-md bg-background/80 hover:bg-destructive hover:text-destructive-foreground text-foreground backdrop-blur-sm transition-colors shadow-md"
+                className="absolute top-2.5 right-2.5 p-1 rounded-md bg-background/80 hover:bg-destructive hover:text-white text-foreground backdrop-blur-sm transition-colors shadow-xs"
                 title="Remove cover"
               >
-                <X className="size-4" />
+                <X className="size-3.5" />
               </button>
             </div>
           ) : (
             <button
               type="button"
               onClick={() => coverInputRef.current?.click()}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors border border-dashed border-border/80"
+              className="w-full h-20 sm:h-24 border border-dashed border-border/80 hover:border-primary/50 rounded-lg bg-muted/20 hover:bg-muted/40 transition-colors flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground cursor-pointer"
             >
-              <ImageIcon className="size-3.5" />
-              <span>Add Cover Image</span>
+              <Upload className="size-4 text-primary" />
+              <span className="text-xs font-semibold">Add cover image (Optional)</span>
             </button>
           )}
           <input
@@ -570,229 +419,370 @@ export default function NewBlogPage() {
         </div>
 
         {/* Title Input */}
-        <div className="mb-4">
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Post Title..."
-            className="w-full text-3xl sm:text-5xl font-bold bg-transparent border-0 focus:outline-none placeholder:text-muted-foreground/40 text-foreground font-[family-name:var(--font-fraunces)] leading-tight"
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Title..."
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          className="w-full text-2xl sm:text-4xl font-extrabold tracking-tight bg-transparent text-foreground placeholder:text-muted-foreground/40 outline-hidden font-[family-name:var(--font-fraunces)] mb-4"
+        />
 
-        {/* Tags & Meta Toolbar */}
-        <div className="flex items-center flex-wrap gap-2 py-3 border-y border-border/50 text-xs text-muted-foreground mb-6">
-          <div className="flex items-center gap-1.5">
-            <Clock className="size-3.5" />
-            <span>~{readTime} min read</span>
+        {/* Clean Standard Toolbar */}
+        {!isPreview && (
+          <div className="sticky top-12 z-30 mb-4 p-1 rounded-lg border border-border/70 bg-background/95 backdrop-blur-md flex flex-wrap items-center gap-0.5 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setSlashMenuOpen(true)}
+              className="px-2 py-1 rounded-md text-xs font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1 cursor-pointer"
+            >
+              <Sparkles className="size-3.5" />
+              <span>/ Blocks</span>
+            </button>
+
+            <div className="h-4 w-px bg-border mx-1" />
+
+            <button
+              type="button"
+              onClick={() => insertFormatting("### ", "", "Heading")}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Heading"
+            >
+              <Heading3 className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => insertFormatting("**", "**", "bold text")}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Bold"
+            >
+              <Bold className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => insertFormatting("*", "*", "italic text")}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Italic"
+            >
+              <Italic className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => insertFormatting("`", "`", "code")}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Inline Code"
+            >
+              <Terminal className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCodeDialogOpen(true)}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Code Block"
+            >
+              <Code2 className="size-3.5 text-purple-500" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setYoutubeDialogOpen(true)}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Embed YouTube Video"
+            >
+              <Video className="size-3.5 text-red-500" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setTwitterDialogOpen(true)}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Embed Tweet from X"
+            >
+              <Sparkles className="size-3.5 text-blue-400" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                insertFormatting(
+                  "\n| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Item A | Value 1 | Details |\n| Item B | Value 2 | Details |\n",
+                  "",
+                  ""
+                )
+              }
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Insert Table"
+            >
+              <TableIcon className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => insertFormatting("\n> ", "\n", "Note or quote...")}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Callout"
+            >
+              <Quote className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => insertFormatting("\n- ", "\n", "List item")}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Bullet list"
+            >
+              <List className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => insertFormatting("\n---\n", "", "")}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Divider"
+            >
+              <Minus className="size-3.5" />
+            </button>
+          </div>
+        )}
+
+        {/* Content Area / Live Preview */}
+        {isPreview ? (
+          <div className="min-h-[450px] p-5 rounded-lg border border-border/80 bg-card/40">
+            <RichBlogContent content={content} />
+          </div>
+        ) : (
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              placeholder="Tell your story... (Type '/' for block commands)"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full bg-transparent text-base sm:text-lg leading-relaxed text-foreground placeholder:text-muted-foreground/40 outline-hidden resize-none min-h-[450px]"
+            />
+          </div>
+        )}
+
+        {/* Excerpt & Tags */}
+        <div className="mt-10 pt-6 border-t border-border/70 space-y-4">
+          {/* Small Discrete Series Selector */}
+          {userSeries.length > 0 && (
+            <div className="flex items-center gap-2.5 text-xs flex-wrap">
+              <label className="font-semibold text-muted-foreground flex items-center gap-1.5 shrink-0">
+                <Layers className="size-3.5 text-primary" />
+                <span>Add to Series:</span>
+              </label>
+              <select
+                value={selectedSeriesId}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSelectedSeriesId(val === "none" ? "none" : Number(val));
+                }}
+                className="h-7 px-2 rounded-md border border-border bg-background text-xs text-foreground outline-hidden focus:border-primary max-w-[200px]"
+              >
+                <option value="none">None (Standalone)</option>
+                {userSeries.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </select>
+
+              {selectedSeriesId !== "none" && (
+                <div className="flex items-center gap-1">
+                  <span className="text-muted-foreground text-[11px]">Part #:</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={seriesOrder}
+                    onChange={(e) => setSeriesOrder(Math.max(1, Number(e.target.value)))}
+                    className="h-7 w-12 px-1 rounded-md border border-border bg-background text-xs font-bold text-center text-foreground outline-hidden focus:border-primary"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className="text-xs font-bold text-foreground">Excerpt</label>
+            <textarea
+              placeholder="Short summary for feeds (Optional)..."
+              value={excerpt}
+              onChange={(e) => setExcerpt(e.target.value)}
+              rows={2}
+              className="w-full p-2.5 rounded-md border border-border bg-card text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-hidden focus:border-primary resize-none"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">Tags ({tags.length}/5)</label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-bold"
+                >
+                  #{tag}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTag(tag)}
+                    className="hover:text-destructive transition-colors"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              ))}
+
+              {tags.length < 5 && (
+                <input
+                  type="text"
+                  placeholder="Add tag + Enter..."
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={handleAddTag}
+                  className="h-7 px-2.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground outline-hidden focus:border-primary"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
+            <span className="flex items-center gap-1">
+              <Clock className="size-3.5" />
+              <span>{readTime} min read</span>
+            </span>
             <span>·</span>
             <span>{wordCount} words</span>
           </div>
+        </div>
+      </main>
 
-          <div className="h-3 w-px bg-border mx-2" />
+      {/* Slash Menu */}
+      <SlashMenu
+        isOpen={slashMenuOpen}
+        onClose={() => setSlashMenuOpen(false)}
+        onSelect={handleSlashSelect}
+      />
 
-          {/* Tags */}
-          <div className="flex items-center flex-wrap gap-1.5">
-            {tags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-primary/10 text-primary font-semibold text-xs"
+      {/* YouTube Dialog */}
+      <Dialog open={youtubeDialogOpen} onOpenChange={setYoutubeDialogOpen}>
+        <DialogContent className="max-w-md rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold">
+              <Video className="size-4 text-red-500" />
+              <span>Embed YouTube Video</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Paste YouTube video link
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <input
+              type="text"
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={youtubeInput}
+              onChange={(e) => setYoutubeInput(e.target.value)}
+              className="w-full h-9 px-3 rounded-md border border-border bg-background text-xs text-foreground outline-hidden focus:border-primary"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setYoutubeDialogOpen(false)} className="rounded-md h-8 text-xs">
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleInsertYouTube} disabled={!youtubeInput.trim()} className="rounded-md h-8 text-xs">
+              Insert Video
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Twitter Dialog */}
+      <Dialog open={twitterDialogOpen} onOpenChange={setTwitterDialogOpen}>
+        <DialogContent className="max-w-md rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold">
+              <Sparkles className="size-4 text-blue-400" />
+              <span>Embed Tweet from X</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Paste public tweet URL from twitter.com or x.com
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <input
+              type="text"
+              placeholder="https://x.com/username/status/..."
+              value={twitterInput}
+              onChange={(e) => setTwitterInput(e.target.value)}
+              className="w-full h-9 px-3 rounded-md border border-border bg-background text-xs text-foreground outline-hidden focus:border-primary"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setTwitterDialogOpen(false)} className="rounded-md h-8 text-xs">
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleInsertTwitter} disabled={!twitterInput.trim()} className="rounded-md h-8 text-xs">
+              Insert Tweet
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Code Block Dialog */}
+      <Dialog open={codeDialogOpen} onOpenChange={setCodeDialogOpen}>
+        <DialogContent className="max-w-md rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold">
+              <Code2 className="size-4 text-purple-400" />
+              <span>Insert Code Block</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Select language and paste snippet
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2.5 py-2">
+            <div>
+              <label className="text-xs font-bold text-foreground mb-1 block">Language</label>
+              <select
+                value={codeLanguage}
+                onChange={(e) => setCodeLanguage(e.target.value)}
+                className="w-full h-8 px-2.5 rounded-md border border-border bg-background text-xs font-medium text-foreground outline-hidden focus:border-primary"
               >
-                #{tag}
-                <button
-                  type="button"
-                  onClick={() => handleRemoveTag(tag)}
-                  className="hover:text-destructive text-primary/70"
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
-            ))}
-            {tags.length < 5 && (
-              <input
-                type="text"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={handleAddTag}
-                placeholder="+ Add tag (Enter)..."
-                className="text-xs bg-transparent border-0 focus:outline-none text-foreground placeholder:text-muted-foreground/60 w-32"
+                <option value="typescript">TypeScript / JavaScript</option>
+                <option value="php">PHP (Laravel)</option>
+                <option value="python">Python</option>
+                <option value="html">HTML / CSS</option>
+                <option value="sql">SQL</option>
+                <option value="bash">Bash / Shell</option>
+                <option value="json">JSON</option>
+                <option value="go">Go</option>
+                <option value="rust">Rust</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-foreground mb-1 block">Code</label>
+              <textarea
+                placeholder="// Enter code here..."
+                value={codeSnippet}
+                onChange={(e) => setCodeSnippet(e.target.value)}
+                rows={5}
+                className="w-full p-2.5 rounded-md border border-border bg-zinc-950 text-zinc-100 font-mono text-xs outline-hidden focus:border-primary resize-none"
               />
-            )}
-          </div>
-        </div>
-
-        {/* Excerpt optional field */}
-        <div className="mb-6">
-          <input
-            type="text"
-            value={excerpt}
-            onChange={(e) => setExcerpt(e.target.value)}
-            placeholder="Optional subtitle / summary..."
-            className="w-full text-sm sm:text-base text-muted-foreground bg-transparent border-0 focus:outline-none placeholder:text-muted-foreground/40 italic"
-          />
-        </div>
-
-        {/* Formatting Block Toolbar (Sticky in Editor Mode) */}
-        {!isPreview && (
-          <div className="sticky top-16 z-30 mb-4 p-1.5 rounded-md bg-card/90 backdrop-blur-md border border-border/80 shadow-sm flex items-center gap-0.5 flex-wrap">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("# ", "", "Large Heading")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Heading 1"
-            >
-              <Heading1 className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("## ", "", "Medium Heading")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Heading 2"
-            >
-              <Heading2 className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("### ", "", "Small Heading")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Heading 3"
-            >
-              <Heading3 className="size-4" />
-            </Button>
-
-            <div className="w-px h-4 bg-border mx-1 shrink-0" />
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("**", "**", "bold")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Bold"
-            >
-              <Bold className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("*", "*", "italic")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Italic"
-            >
-              <Italic className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("~~", "~~", "strikethrough")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Strikethrough"
-            >
-              <Strikethrough className="size-4" />
-            </Button>
-
-            <div className="w-px h-4 bg-border mx-1 shrink-0" />
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("- ", "", "List item")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Bullet List"
-            >
-              <List className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("1. ", "", "Numbered item")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Numbered List"
-            >
-              <ListOrdered className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("> ", "", "Insightful quote or note")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Quote / Callout"
-            >
-              <Quote className="size-4" />
-            </Button>
-
-            <div className="w-px h-4 bg-border mx-1 shrink-0" />
-
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("```\n", "\n```", "// code snippet")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Code Block"
-            >
-              <Code className="size-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={insertTable}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground gap-1 px-1.5 w-auto"
-              title="Insert Table"
-            >
-              <TableIcon className="size-4" />
-              <span className="text-[11px] font-medium hidden sm:inline">Table</span>
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => insertFormatting("\n---\n", "", "")}
-              className="size-7.5 p-0 rounded text-muted-foreground hover:text-foreground"
-              title="Divider"
-            >
-              <Minus className="size-4" />
-            </Button>
-          </div>
-        )}
-
-        {/* Content Area */}
-        {isPreview ? (
-          <div className="min-h-[500px] p-6 sm:p-8 rounded-lg bg-card/40 border border-border/60 shadow-2xs">
-            <h1 className="text-3xl sm:text-4xl font-bold text-foreground font-[family-name:var(--font-fraunces)] mb-4">
-              {title || "Untitled Post"}
-            </h1>
-            {excerpt && (
-              <p className="text-base text-muted-foreground italic mb-6">
-                {excerpt}
-              </p>
-            )}
-            <div className="article-body">
-              {renderRichContent(content)}
             </div>
           </div>
-        ) : (
-          <textarea
-            ref={textareaRef}
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Type your story here... Use Markdown, Tables, Images, or Code. Type # for headings, | for tables, > for callouts..."
-            className="w-full min-h-[450px] bg-transparent border-0 focus:outline-none placeholder:text-muted-foreground/30 text-foreground text-base sm:text-lg leading-relaxed resize-none font-sans"
-          />
-        )}
-      </main>
+          <DialogFooter>
+            <Button variant="outline" size="sm" onClick={() => setCodeDialogOpen(false)} className="rounded-md h-8 text-xs">
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleInsertCode} className="rounded-md h-8 text-xs">
+              Insert Code
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

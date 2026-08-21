@@ -9,12 +9,13 @@ export function cn(...inputs: ClassValue[]) {
 export function getAvatarUrl(avatar: string | null | undefined): string | undefined {
   if (!avatar) return undefined;
   if (avatar.startsWith("http://") || avatar.startsWith("https://")) {
-    return avatar;
+    return avatar.replace(/\/storage\/\/storage\//g, "/storage/").replace(/\/storage\/storage\//g, "/storage/");
   }
   if (avatar.startsWith("//")) {
     return `https:${avatar}`;
   }
-  return `${BACKEND_URL}${avatar.startsWith("/") ? "" : "/"}${avatar}`;
+  const clean = avatar.replace(/^\/?storage\//, "").replace(/^\//, "");
+  return `${BACKEND_URL}/storage/${clean}`;
 }
 
 export function getInitials(name?: string | null): string {

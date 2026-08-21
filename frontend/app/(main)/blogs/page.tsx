@@ -14,6 +14,7 @@ import {
   TrendingUp,
   Clock,
   ArrowRight,
+  Layers,
 } from "lucide-react";
 import api from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -39,7 +40,7 @@ export default function BlogsPage() {
 
   useEffect(() => {
     document.title = selectedTag
-      ? `#${selectedTag} Articles / BlogX`
+      ? `#${selectedTag} Blogs / BlogX`
       : "Blog & Engineering Stories / BlogX";
   }, [selectedTag]);
 
@@ -138,19 +139,33 @@ export default function BlogsPage() {
               Blog & Stories
             </h1>
             <p className="text-[11px] text-muted-foreground hidden sm:block">
-              In-depth articles, engineering notes, and tutorials
+              In-depth blogs, engineering notes, and tutorials
             </p>
           </div>
         </div>
 
-        {/* Action Button: Full-page editor */}
-        <Button
-          onClick={() => router.push("/blogs/new")}
-          className="rounded-md text-xs font-bold gap-1.5 h-8.5 px-3.5 sm:px-4"
-        >
-          <Plus className="size-3.5" />
-          <span>Write Blog</span>
-        </Button>
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
+          <Link href="/series">
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-lg text-xs font-bold gap-1.5 h-8.5 px-3"
+            >
+              <Layers className="size-3.5 text-primary" />
+              <span className="hidden sm:inline">Browse</span>
+              <span>Series</span>
+            </Button>
+          </Link>
+
+          <Button
+            onClick={() => router.push("/blogs/new")}
+            className="rounded-lg text-xs font-bold gap-1.5 h-8.5 px-3.5 sm:px-4 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+          >
+            <Plus className="size-3.5" />
+            <span>Write Blog</span>
+          </Button>
+        </div>
       </div>
 
       {/* ── 2. Search & Tag Filter Bar ── */}
@@ -161,7 +176,7 @@ export default function BlogsPage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search articles by title, topic, or content..."
+            placeholder="Search blogs by title, topic, or content..."
             className="w-full h-10 pl-9 pr-4 text-xs sm:text-sm bg-background border border-border/80 rounded-md placeholder:text-muted-foreground/70 focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
           />
         </form>
