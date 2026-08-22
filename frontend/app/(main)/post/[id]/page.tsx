@@ -224,7 +224,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
           if (viewRes.data?.views_count) {
             setPost((prev) => prev ? { ...prev, views_count: viewRes.data.views_count } : null);
           }
-        }).catch(() => {});
+        }).catch(() => { });
       })
       .catch((err) => {
         console.error(err);
@@ -247,10 +247,10 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
     setPost((prev) =>
       prev
         ? {
-            ...prev,
-            is_liked: !previousLiked,
-            likes_count: previousLiked ? previousCount - 1 : previousCount + 1,
-          }
+          ...prev,
+          is_liked: !previousLiked,
+          likes_count: previousLiked ? previousCount - 1 : previousCount + 1,
+        }
         : null
     );
     setIsLiking(true);
@@ -262,10 +262,10 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
           setPost((prev) =>
             prev
               ? {
-                  ...prev,
-                  is_liked: res.data.is_liked,
-                  likes_count: res.data.likes_count,
-                }
+                ...prev,
+                is_liked: res.data.is_liked,
+                likes_count: res.data.likes_count,
+              }
               : null
           );
         }
@@ -274,10 +274,10 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         setPost((prev) =>
           prev
             ? {
-                ...prev,
-                is_liked: previousLiked,
-                likes_count: previousCount,
-              }
+              ...prev,
+              is_liked: previousLiked,
+              likes_count: previousCount,
+            }
             : null
         );
       })
@@ -296,9 +296,9 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
     setPost((prev) =>
       prev
         ? {
-            ...prev,
-            is_bookmarked: !previousBookmarked,
-          }
+          ...prev,
+          is_bookmarked: !previousBookmarked,
+        }
         : null
     );
     setIsBookmarking(true);
@@ -309,9 +309,9 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         setPost((prev) =>
           prev
             ? {
-                ...prev,
-                is_bookmarked: res.data.is_bookmarked,
-              }
+              ...prev,
+              is_bookmarked: res.data.is_bookmarked,
+            }
             : null
         );
       }
@@ -319,9 +319,9 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
       setPost((prev) =>
         prev
           ? {
-              ...prev,
-              is_bookmarked: previousBookmarked,
-            }
+            ...prev,
+            is_bookmarked: previousBookmarked,
+          }
           : null
       );
     } finally {
@@ -342,10 +342,10 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         setPost((prev) =>
           prev
             ? {
-                ...prev,
-                comments_count: res.data.comments_count,
-                comments: [res.data.comment, ...prev.comments],
-              }
+              ...prev,
+              comments_count: res.data.comments_count,
+              comments: [res.data.comment, ...prev.comments],
+            }
             : null
         );
         setNewComment("");
@@ -394,10 +394,10 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         setPost((prev) =>
           prev
             ? {
-                ...prev,
-                comments_count: res.data.comments_count,
-                comments: insertReplyIntoComments(prev.comments, parentId, res.data.comment),
-              }
+              ...prev,
+              comments_count: res.data.comments_count,
+              comments: insertReplyIntoComments(prev.comments, parentId, res.data.comment),
+            }
             : null
         );
         setReplyDrafts((prev) => ({ ...prev, [parentId]: "" }));
@@ -747,7 +747,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
       {user ? (
         <form onSubmit={handleAddComment} className="flex items-center gap-3 px-4 py-3 border-b border-border/60">
           <Avatar className="size-8 shrink-0">
-            <AvatarImage src={user.avatar ?? undefined} />
+            <AvatarImage src={getAvatarUrl(user.avatar) ?? undefined} />
             <AvatarFallback className="bg-teal-500/15 text-teal-600 dark:text-teal-400 text-xs">{getInitials(user.name)}</AvatarFallback>
           </Avatar>
           <input
@@ -796,7 +796,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
               <div className="p-4 flex items-start gap-3">
                 <Link href={`/@${comment.author.username}`} className="shrink-0">
                   <Avatar className="size-8 sm:size-9 ring-2 ring-transparent hover:ring-primary/40 transition-all">
-                    <AvatarImage src={comment.author.avatar ?? undefined} />
+                    <AvatarImage src={getAvatarUrl(comment.author.avatar) ?? undefined} />
                     <AvatarFallback className="bg-muted text-xs font-semibold">
                       {getInitials(comment.author.name)}
                     </AvatarFallback>
@@ -898,7 +898,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                     <div key={reply.id} className="p-3 flex items-start gap-2.5">
                       <Link href={`/@${reply.author.username}`} className="shrink-0">
                         <Avatar className="size-7">
-                          <AvatarImage src={reply.author.avatar ?? undefined} />
+                          <AvatarImage src={getAvatarUrl(reply.author.avatar) ?? undefined} />
                           <AvatarFallback className="bg-muted text-[10px] font-semibold">
                             {getInitials(reply.author.name)}
                           </AvatarFallback>
@@ -980,10 +980,10 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
             setPost((prev) =>
               prev
                 ? {
-                    ...prev,
-                    content: updatedPost.content,
-                    images: updatedPost.images || [],
-                  }
+                  ...prev,
+                  content: updatedPost.content,
+                  images: updatedPost.images || [],
+                }
                 : null
             );
           }}

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\CommunityController;
 use App\Http\Controllers\Api\EmailVerificationController;
+use App\Http\Controllers\Api\NoteController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PollController;
@@ -73,6 +74,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Broadcasting Authentication (Sanctum)
     Broadcast::routes(['middleware' => ['auth:sanctum']]);
+
+    // Notes (24h Daily Thoughts - Instagram style)
+    Route::get('/notes', [NoteController::class, 'index']);
+    Route::post('/notes', [NoteController::class, 'store']);
+    Route::delete('/notes', [NoteController::class, 'destroy']);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);

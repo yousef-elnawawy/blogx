@@ -54,6 +54,16 @@ export default function PollCreator({ poll, onChange }: PollCreatorProps) {
         </button>
       </div>
 
+      {/* Poll Question / Title */}
+      <Input
+        type="text"
+        placeholder="Ask a question… (optional)"
+        maxLength={200}
+        value={poll.question ?? ""}
+        onChange={(e) => onChange({ ...poll, question: e.target.value })}
+        className="h-9 rounded-xl border-border bg-background text-xs sm:text-sm px-3 font-semibold"
+      />
+
       {/* Options Inputs (2 to 5) */}
       <div className="space-y-2">
         {poll.options.map((option, index) => (

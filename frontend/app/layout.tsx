@@ -37,6 +37,14 @@ export default function RootLayout({
       className={`${inter.className} ${fraunces.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="bg-background text-foreground min-h-screen antialiased">
         <ThemeProvider
           attribute="class"

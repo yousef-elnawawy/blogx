@@ -250,4 +250,14 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(Notification::class, 'user_id');
     }
+
+    public function notes()
+    {
+        return $this->hasMany(Note::class);
+    }
+
+    public function activeNote()
+    {
+        return $this->hasOne(Note::class)->where('expires_at', '>', now())->latestOfMany();
+    }
 }

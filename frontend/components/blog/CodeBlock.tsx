@@ -117,11 +117,6 @@ export default function CodeBlock({ language = "text", code, className }: CodeBl
       {/* Code Header Bar */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-[#161b22] border-b border-zinc-800 text-xs select-none">
         <div className="flex items-center gap-2 text-zinc-400">
-          <div className="flex items-center gap-1.5 mr-2">
-            <span className="size-2.5 rounded-full bg-rose-500/80 inline-block" />
-            <span className="size-2.5 rounded-full bg-amber-500/80 inline-block" />
-            <span className="size-2.5 rounded-full bg-emerald-500/80 inline-block" />
-          </div>
           <Code2 className="size-3.5 text-primary" />
           <span className="font-semibold uppercase tracking-wider text-[11px] text-zinc-300">
             {cleanLang}
