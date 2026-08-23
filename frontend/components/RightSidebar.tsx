@@ -355,19 +355,8 @@ export default function RightSidebar() {
 
         {/* Footer */}
         <div className="px-1 pb-4">
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <Link href="/about" className="hover:underline hover:text-foreground transition-colors">
-              About
-            </Link>
-            <Link href="/privacy" className="hover:underline hover:text-foreground transition-colors">
-              Privacy Policy
-            </Link>
-            <Link href="/terms" className="hover:underline hover:text-foreground transition-colors">
-              Terms of Service
-            </Link>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-2">
-            <span>© 2025 BlogX Corp.</span>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>© {new Date().getFullYear()} BlogX</span>
           </div>
         </div>
       </div>

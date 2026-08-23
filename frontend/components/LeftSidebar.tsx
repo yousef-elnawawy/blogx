@@ -23,7 +23,6 @@ import {
   Users,
   MessageCircle,
   Layers,
-  Sparkles,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -393,10 +392,6 @@ export default function LeftSidebar() {
                 <DropdownMenuItem onClick={() => router.push(`/@${user.username}?tab=Drafts`)} className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer">
                   <FileText className="size-3.5 text-violet-500" />
                   <span>My Drafts</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push("/about")} className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer">
-                  <Sparkles className="size-3.5 text-amber-500" />
-                  <span>About & Legal</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}

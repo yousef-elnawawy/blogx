@@ -52,21 +52,7 @@ export default function LoginPage() {
         {/* Bottom Footer */}
         <div className="text-center max-w-[440px] mx-auto w-full pt-4">
           <p className="text-[11px] text-muted-foreground">
-            Protected by BlogX. By signing in, you agree to our{" "}
-            <Link
-              href="/terms"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
-            >
-              Terms
-            </Link>{" "}
-            and{" "}
-            <Link
-              href="/privacy"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
-            >
-              Privacy Policy
-            </Link>
-            .
+            © {new Date().getFullYear()} BlogX. All rights reserved.
           </p>
         </div>
       </div>

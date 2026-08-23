@@ -42,21 +42,7 @@ export default function SignUpPage() {
         {/* Bottom Footer */}
         <div className="text-center max-w-[460px] mx-auto w-full pt-4">
           <p className="text-[11px] text-muted-foreground">
-            By creating an account, you agree to our{" "}
-            <Link
-              href="/terms"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
-            >
-              Terms of Service
-            </Link>{" "}
-            and{" "}
-            <Link
-              href="/privacy"
-              className="underline underline-offset-2 hover:text-foreground transition-colors"
-            >
-              Privacy Policy
-            </Link>
-            .
+            © {new Date().getFullYear()} BlogX. All rights reserved.
           </p>
         </div>
       </div>
