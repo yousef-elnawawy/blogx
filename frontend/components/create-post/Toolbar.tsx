@@ -8,6 +8,7 @@ import {
   Smile,
   BookOpen,
   BarChart2,
+  Code2,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ interface ToolbarProps {
   onImageSelect?: (files: FileList) => void;
   onInsertHashtag: () => void;
   onInsertMention?: () => void;
+  onInsertCode?: () => void;
   onInsertEmoji?: (emoji: string) => void;
   onOpenArticleEditor?: () => void;
   onAddPoll?: () => void;
@@ -36,6 +38,7 @@ export default function Toolbar({
   onImageSelect,
   onInsertHashtag,
   onInsertMention,
+  onInsertCode,
   onInsertEmoji,
   onOpenArticleEditor,
   onAddPoll,
@@ -136,7 +139,20 @@ export default function Toolbar({
         </button>
       )}
 
-      {/* 5. Emoji Picker */}
+      {/* 5. Insert Code Snippet */}
+      {onInsertCode && (
+        <button
+          type="button"
+          aria-label="Insert Code Snippet"
+          onClick={onInsertCode}
+          className="size-8 rounded-full flex items-center justify-center text-emerald-500 hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer"
+          title="Insert Code Snippet (```)"
+        >
+          <Code2 className="size-[17px]" />
+        </button>
+      )}
+
+      {/* 6. Emoji Picker */}
       {onInsertEmoji && (
         <div className="relative" ref={emojiRef}>
           <button

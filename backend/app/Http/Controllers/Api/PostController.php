@@ -771,6 +771,11 @@ class PostController extends Controller
             return response()->json(['message' => 'Unauthorized: You can only edit your own posts.'], 403);
         }
 
+        // Posts with polls cannot be edited
+        if ($post->poll()->exists()) {
+            return response()->json(['message' => 'Posts with polls cannot be edited.'], 422);
+        }
+
         // Pure reposts cannot be edited
         if ($post->repost_of_id && empty($post->quote_of_id) && empty($post->content)) {
             return response()->json(['message' => 'Reposts cannot be edited.'], 422);

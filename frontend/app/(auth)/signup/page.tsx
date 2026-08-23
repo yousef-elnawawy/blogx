@@ -44,14 +44,14 @@ export default function SignUpPage() {
           <p className="text-[11px] text-muted-foreground">
             By creating an account, you agree to our{" "}
             <Link
-              href="/"
+              href="/terms"
               className="underline underline-offset-2 hover:text-foreground transition-colors"
             >
               Terms of Service
             </Link>{" "}
             and{" "}
             <Link
-              href="/"
+              href="/privacy"
               className="underline underline-offset-2 hover:text-foreground transition-colors"
             >
               Privacy Policy

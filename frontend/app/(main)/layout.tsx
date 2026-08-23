@@ -4,6 +4,7 @@ import MobileBottomBar from "@/components/MobileBottomBar";
 import TrendingHashtagsSidebar from "@/components/TrendingHashtagsSidebar";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import WelcomeOnboardingModal from "@/components/WelcomeOnboardingModal";
+import AuthRouteGuard from "@/components/auth/AuthRouteGuard";
 
 export default function MainLayout({
   children,
@@ -23,7 +24,7 @@ export default function MainLayout({
         <div className="min-h-screen border-x border-border/50 pb-16 lg:pb-0">
           <MobileHeader />
           <EmailVerificationBanner />
-          {children}
+          <AuthRouteGuard>{children}</AuthRouteGuard>
         </div>
       </main>
 

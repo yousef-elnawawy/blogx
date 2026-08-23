@@ -177,3 +177,25 @@ Route::get('/hashtags/suggest', [SearchController::class, 'suggest']);
 Route::get('/hashtags/{tag}/posts', [SearchController::class, 'hashtagPosts']);
 Route::get('/users/suggest', [SearchController::class, 'suggestUsers']);
 
+// Platform Public Stats
+Route::get('/platform/stats', function () {
+    $usersCount = \App\Models\User::count();
+    $postsCount = \App\Models\Post::count();
+    $blogsCount = \App\Models\Blog::count();
+    $pollsCount = \App\Models\Poll::count();
+    $communitiesCount = \App\Models\Community::count();
+    $likesCount = \App\Models\Like::count();
+    $commentsCount = \App\Models\Comment::count();
+    $votesCount = \App\Models\PollVote::count();
+    $interactionsCount = $likesCount + $commentsCount + $votesCount;
+
+    return response()->json([
+        'users_count' => $usersCount,
+        'posts_count' => $postsCount,
+        'blogs_count' => $blogsCount,
+        'polls_count' => $pollsCount,
+        'communities_count' => $communitiesCount,
+        'interactions_count' => $interactionsCount,
+    ]);
+});
+

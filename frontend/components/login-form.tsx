@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { BACKEND_URL } from "@/lib/config";
@@ -37,6 +37,8 @@ export function LoginForm({
 }: React.ComponentProps<"form">) {
   const { login, refreshUser } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectUrl = searchParams?.get("redirect") || "/";
 
   const [formData, setFormData] = useState({
     login: "",
@@ -84,7 +86,7 @@ export function LoginForm({
       }
 
       toast.success("Welcome back to BlogX!");
-      router.push("/");
+      router.push(redirectUrl);
     } catch (err) {
       if (axios.isAxiosError(err)) {
         if (err.response?.status === 429) {
@@ -125,7 +127,7 @@ export function LoginForm({
 
       await refreshUser();
       toast.success("Identity verified! Welcome back.");
-      router.push("/");
+      router.push(redirectUrl);
     } catch (err) {
       if (axios.isAxiosError(err) && err.response?.data?.errors) {
         setErrors(err.response.data.errors);

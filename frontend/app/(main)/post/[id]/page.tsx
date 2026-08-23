@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import PollWidget, { PollData } from "@/components/post/PollWidget";
+import CodeSnippetBlock from "@/components/post/CodeSnippetBlock";
 import { toast } from "sonner";
 
 interface Author {
@@ -58,30 +59,32 @@ interface CommentItem {
 }
 
 interface PostDetail {
-  id: number | string;
+  id: number;
+  author: Author;
   content: string;
-  created_at: string;
+  images?: string[];
+  mentions?: string[];
   likes_count: number;
   comments_count: number;
+  reposts_count?: number;
   views_count?: number;
-  is_liked: boolean;
-  is_bookmarked: boolean;
-  mentions?: string[];
-  images: string[];
-  author: Author;
-  comments: CommentItem[];
-  community_id?: number | null;
+  created_at: string;
+  is_edited?: boolean;
+  is_liked?: boolean;
+  is_bookmarked?: boolean;
+  is_reposted?: boolean;
+  community_id?: number | string | null;
   community?: {
     id: number;
     name: string;
     slug: string;
     avatar?: string | null;
-    cover?: string | null;
     type?: string;
   } | null;
   poll?: PollData | null;
   repost_of?: any;
   quote_of?: any;
+  comments: CommentItem[];
 }
 
 function formatCount(n: number) {
@@ -89,13 +92,24 @@ function formatCount(n: number) {
   return String(n);
 }
 
-function renderContent(text: string, validMentions?: string[]) {
-  if (!text) return null;
-  const regex = /(https?:\/\/[^\s]+|www\.[^\s]+|@[\w.]+|#[\p{L}\p{N}_]+)/gu;
+function renderInlineContent(text: string, validMentions?: string[]) {
+  const regex = /(```[\s\S]*?```|`[^`\n]+`|https?:\/\/[^\s]+|www\.[^\s]+|@[\w.]+|#[\p{L}\p{N}_]+)/gu;
   const parts = text.split(regex);
 
   return parts.map((part, i) => {
     if (!part) return null;
+
+    if (part.startsWith("`") && part.endsWith("`") && part.length >= 2 && !part.startsWith("```")) {
+      const inlineCode = part.slice(1, -1);
+      return (
+        <code
+          key={i}
+          className="px-1.5 py-0.5 rounded-md bg-muted font-mono text-[14px] text-primary font-semibold border border-border/60 select-all"
+        >
+          {inlineCode}
+        </code>
+      );
+    }
 
     if (part.startsWith("#") && part.length > 1) {
       const tag = part.slice(1);
@@ -158,7 +172,38 @@ function renderContent(text: string, validMentions?: string[]) {
       );
     }
 
-    return <span key={i}>{part}</span>;
+    return <span key={i} style={{ whiteSpace: "pre-wrap" }}>{part}</span>;
+  });
+}
+
+function renderContent(text: string, validMentions?: string[]) {
+  if (!text) return null;
+
+  const normalized = text.replace(/\r\n/g, "\n");
+  const codeBlockRegex = /(```[\s\S]*?```)/g;
+  const sections = normalized.split(codeBlockRegex);
+
+  return sections.map((sec, idx) => {
+    if (!sec) return null;
+
+    if (sec.startsWith("```") && sec.endsWith("```")) {
+      const inner = sec.slice(3, -3);
+      const firstNewline = inner.indexOf("\n");
+      let lang = "";
+      let code = inner;
+
+      if (firstNewline !== -1) {
+        const potentialLang = inner.slice(0, firstNewline).trim();
+        if (/^[a-zA-Z0-9_-]+$/.test(potentialLang)) {
+          lang = potentialLang;
+          code = inner.slice(firstNewline + 1);
+        }
+      }
+
+      return <CodeSnippetBlock key={idx} code={code} language={lang} />;
+    }
+
+    return <span key={idx}>{renderInlineContent(sec, validMentions)}</span>;
   });
 }
 
@@ -620,13 +665,15 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                 }
               />
               <DropdownMenuContent align="end" className="w-40 sm:w-44 p-1">
-                <DropdownMenuItem
-                  onClick={() => setEditDialogOpen(true)}
-                  className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
-                >
-                  <Pencil className="size-3.5 text-muted-foreground" />
-                  <span>Edit</span>
-                </DropdownMenuItem>
+                {!post.poll && (
+                  <DropdownMenuItem
+                    onClick={() => setEditDialogOpen(true)}
+                    className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
+                  >
+                    <Pencil className="size-3.5 text-muted-foreground" />
+                    <span>Edit</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => setDeleteDialogOpen(true)}
@@ -642,9 +689,9 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
 
         {/* Post Content */}
         <div className="mt-4">
-          <p className="text-lg leading-[1.7] text-foreground whitespace-pre-wrap">
+          <div className="text-lg leading-[1.7] text-foreground">
             {renderContent(post.content, post.mentions)}
-          </p>
+          </div>
           {/* Embedded Video (YouTube, Instagram Reels, Direct Video) */}
           <VideoEmbed content={post.content} />
           {/* Rich Link OpenGraph Preview Card */}
@@ -958,7 +1005,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
       )}
 
       <ImageLightbox
-        images={post.images}
+        images={post.images || []}
         open={lightboxOpen}
         index={lightboxIndex}
         onClose={() => setLightboxOpen(false)}
@@ -975,7 +1022,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         <PostEditorDialog
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
-          postToEdit={{ id: post.id, content: post.content, images: post.images }}
+          postToEdit={{ id: post.id, content: post.content, images: post.images || [] }}
           onPostUpdated={(updatedPost) => {
             setPost((prev) =>
               prev

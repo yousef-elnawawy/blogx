@@ -36,6 +36,7 @@ import UserBadges from "@/components/ui/UserBadges";
 import VideoEmbed from "@/components/post/VideoEmbed";
 import LinkPreviewCard from "@/components/post/LinkPreviewCard";
 import PollWidget, { PollData } from "@/components/post/PollWidget";
+import CodeSnippetBlock from "@/components/post/CodeSnippetBlock";
 import api from "@/lib/api";
 
 export interface PostCardProps {
@@ -84,12 +85,25 @@ function formatCount(num: number): string {
   return String(num);
 }
 
-function renderHighlighted(text: string, validMentions?: string[]) {
-  const regex = /(https?:\/\/[^\s]+|www\.[^\s]+|@[a-zA-Z0-9_]+|#[\p{L}\p{N}_]+)/gu;
-  const parts = text.split(regex);
+function renderInlineElements(text: string, validMentions?: string[]) {
+  const inlineRegex = /(```[\s\S]*?```|`[^`\n]+`|https?:\/\/[^\s]+|www\.[^\s]+|@[a-zA-Z0-9_]+|#[\p{L}\p{N}_]+)/gu;
+  const parts = text.split(inlineRegex);
 
   return parts.map((part, i) => {
     if (!part) return null;
+
+    if (part.startsWith("`") && part.endsWith("`") && part.length >= 2 && !part.startsWith("```")) {
+      const inlineCode = part.slice(1, -1);
+      return (
+        <code
+          key={i}
+          onClick={(e) => e.stopPropagation()}
+          className="px-1.5 py-0.5 rounded-md bg-muted font-mono text-[13px] text-primary font-semibold border border-border/60 select-all"
+        >
+          {inlineCode}
+        </code>
+      );
+    }
 
     if (part.startsWith("#") && part.length > 1) {
       const tag = part.slice(1);
@@ -155,6 +169,37 @@ function renderHighlighted(text: string, validMentions?: string[]) {
     }
 
     return <span key={i}>{part}</span>;
+  });
+}
+
+function renderHighlighted(text: string, validMentions?: string[]) {
+  if (!text) return null;
+
+  const normalized = text.replace(/\r\n/g, "\n");
+  const codeBlockRegex = /(```[\s\S]*?```)/g;
+  const sections = normalized.split(codeBlockRegex);
+
+  return sections.map((sec, idx) => {
+    if (!sec) return null;
+
+    if (sec.startsWith("```") && sec.endsWith("```")) {
+      const inner = sec.slice(3, -3);
+      const firstNewline = inner.indexOf("\n");
+      let lang = "";
+      let code = inner;
+
+      if (firstNewline !== -1) {
+        const potentialLang = inner.slice(0, firstNewline).trim();
+        if (/^[a-zA-Z0-9_-]+$/.test(potentialLang)) {
+          lang = potentialLang;
+          code = inner.slice(firstNewline + 1);
+        }
+      }
+
+      return <CodeSnippetBlock key={idx} code={code} language={lang} />;
+    }
+
+    return <span key={idx}>{renderInlineElements(sec, validMentions)}</span>;
   });
 }
 
@@ -232,7 +277,8 @@ export default function PostCard({
   );
 
   const canShowMenu = isReposter || isOriginalAuthor;
-  const canEdit = !repost_of && isOriginalAuthor;
+  const hasPoll = Boolean(poll || effectivePost?.poll);
+  const canEdit = !repost_of && isOriginalAuthor && !hasPoll;
   const hasCommunity = Boolean(community || community_id || effectivePost?.community || effectivePost?.community_id);
   const hasQuote = Boolean(quote_of || quote_of_id || effectivePost?.quote_of || effectivePost?.quote_of_id);
   const hasRepost = Boolean(repost_of || repost_of_id);
@@ -524,9 +570,9 @@ export default function PostCard({
 
               {/* Content */}
               <div className="mt-1.5 relative z-10">
-                <p className="text-[15px] leading-[1.6] text-foreground whitespace-pre-wrap">
+                <div className="text-[15px] leading-[1.6] text-foreground whitespace-pre-wrap">
                   {renderHighlighted(effectivePost.content || "", effectivePost.mentions || mentions)}
-                </p>
+                </div>
                 {/* Embedded Video */}
                 <VideoEmbed content={effectivePost.content || ""} />
                 {/* Rich Link OpenGraph Preview */}

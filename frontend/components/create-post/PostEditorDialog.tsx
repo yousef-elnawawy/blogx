@@ -553,11 +553,26 @@ export default function PostEditorDialog({
     handleInput();
   };
 
+  const insertCodeSnippet = () => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    const codeTemplate = "\n```ts\n// Enter code or command here\nconsole.log('Hello BlogX');\n```\n";
+    document.execCommand("insertText", false, codeTemplate);
+    handleInput();
+  };
+
   const handlePost = async (status: "published" | "draft" = "published") => {
     if (!editorRef.current) return;
     const content = extractPlainText(editorRef.current).trim();
 
-    if (!content && images.length === 0) return;
+    const validPollOptions = pollDraft ? pollDraft.options.filter((o) => o.trim() !== "") : [];
+    const hasValidPoll = Boolean(pollDraft && validPollOptions.length >= 2);
+
+    if (!content && images.length === 0 && !hasValidPoll) {
+      toast.error("Please enter text, attach an image, or add at least 2 options to your poll.");
+      return;
+    }
+
     if (!user) {
       toast.error("You must be logged in to post.");
       return;
@@ -576,16 +591,18 @@ export default function PostEditorDialog({
         }
       });
 
-      if (pollDraft && pollDraft.options.some((o) => o.trim() !== "")) {
-        const validOptions = pollDraft.options.filter((o) => o.trim() !== "");
-        if (validOptions.length < 2) {
+      if (pollDraft) {
+        if (validPollOptions.length < 2) {
           toast.error("A poll requires at least 2 options.");
           setSubmitting(false);
           setSubmittingAction(null);
           return;
         }
-        formData.append("poll[duration_days]", String(pollDraft.duration_days));
-        validOptions.forEach((opt, idx) => {
+        formData.append("poll[duration_days]", String(pollDraft.duration_days || 1));
+        if (pollDraft.question && pollDraft.question.trim()) {
+          formData.append("poll[question]", pollDraft.question.trim());
+        }
+        validPollOptions.forEach((opt, idx) => {
           formData.append(`poll[options][${idx}]`, opt.trim());
         });
       }
@@ -640,7 +657,9 @@ export default function PostEditorDialog({
   };
 
   const avatarSrc = getAvatarUrl(user?.avatar);
-  const canPost = (contentLength > 0 || images.length > 0 || Boolean(pollDraft)) && !submitting;
+  const validPollOptions = pollDraft ? pollDraft.options.filter((o) => o.trim() !== "") : [];
+  const hasPollDraftOrContent = Boolean(pollDraft && (pollDraft.question?.trim() || validPollOptions.length > 0));
+  const canPost = (contentLength > 0 || images.length > 0 || hasPollDraftOrContent) && !submitting;
 
   const containerWidth = containerRef.current?.clientWidth ?? 450;
   const popupWidth = 320;
@@ -776,6 +795,7 @@ export default function PostEditorDialog({
               onImageSelect={handleImageSelect}
               onInsertHashtag={insertHashtag}
               onInsertMention={insertMention}
+              onInsertCode={insertCodeSnippet}
               onInsertEmoji={insertEmoji}
               onAddPoll={() =>
                 setPollDraft(

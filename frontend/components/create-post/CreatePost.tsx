@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Image as ImageIcon, Hash, AtSign, Smile, BookOpen } from "lucide-react";
+import { Image as ImageIcon, Hash, AtSign, Smile, BookOpen, Code2, BarChart2 } from "lucide-react";
 import PostEditorDialog from "./PostEditorDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { PostCardProps } from "@/components/PostCard";
@@ -59,6 +59,14 @@ export default function CreatePost({ communityId, placeholder, onPostCreated }: 
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
+                  className="size-8 rounded-md flex items-center justify-center text-primary hover:bg-primary/10 active:scale-95 transition-all cursor-pointer"
+                  title="Create Poll"
+                >
+                  <BarChart2 className="size-[17px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(true)}
                   className="size-8 rounded-md flex items-center justify-center text-brand-hashtag hover:bg-brand-hashtag-subtle active:scale-95 transition-all cursor-pointer"
                   title="Hashtags (#)"
                 >
@@ -71,6 +79,14 @@ export default function CreatePost({ communityId, placeholder, onPostCreated }: 
                   title="Mention (@)"
                 >
                   <AtSign className="size-[17px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(true)}
+                  className="size-8 rounded-md flex items-center justify-center text-emerald-500 hover:bg-emerald-500/10 active:scale-95 transition-all cursor-pointer"
+                  title="Insert Code (```)"
+                >
+                  <Code2 className="size-[17px]" />
                 </button>
                 <button
                   type="button"
