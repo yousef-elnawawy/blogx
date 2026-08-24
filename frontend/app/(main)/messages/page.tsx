@@ -1,388 +1,474 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Plus, MessageCircle, Edit } from "lucide-react";
+import {
+  Search,
+  Plus,
+  MessageCircle,
+  Edit,
+  Loader2,
+  Users,
+  ShieldCheck,
+  Trash2,
+  Check,
+  CheckCheck,
+  Pin,
+  PinOff,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
-import NotesBar from "@/components/messages/NotesBar";
+import UserBadges from "@/components/ui/UserBadges";
 import { getAvatarUrl, getInitials } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  messagesService,
+  ConversationItem,
+  DirectMessage,
+} from "@/services/messages";
+import { getEcho } from "@/lib/echo";
+import api from "@/lib/api";
 import { toast } from "sonner";
 
-/* ─────────────── shared mock data (exported for /messages/[id]) ─────────────── */
-
-export interface MockMessage {
-  id: string | number;
-  sender_id: string | number;
-  text: string;
-  image?: string;
-  created_at: string;
-  is_seen?: boolean;
-}
-
-export interface MockConversation {
-  id: string | number;
-  user: {
-    id: number;
-    name: string;
-    username: string;
-    avatar: string | null;
-    cover?: string | null;
-    bio?: string | null;
-    location?: string | null;
-    website?: string | null;
-    verified: boolean;
-    is_online: boolean;
-    last_seen: string;
-    followers_count?: number;
-    following_count?: number;
-    posts_count?: number;
-    created_at?: string;
-  };
-  last_message: {
-    text: string;
-    created_at: string;
-    is_seen: boolean;
-    sender_id: number;
-  };
-  unread_count: number;
-  messages: MockMessage[];
-}
-
-export const INITIAL_CONVERSATIONS: MockConversation[] = [
-  {
-    id: 1,
-    user: {
-      id: 101,
-      name: "Sara Ahmed",
-      username: "sara_tech",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-      cover: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800",
-      bio: "Software engineer & tech writer. Passionate about AI and systems design 🚀",
-      location: "Cairo, Egypt",
-      website: "https://saratech.dev",
-      verified: true,
-      is_online: true,
-      last_seen: "Active now",
-      followers_count: 1240,
-      following_count: 320,
-      posts_count: 85,
-      created_at: "2025-01-15T10:00:00Z",
-    },
-    last_message: {
-      text: "Just read your latest article on AI, absolutely brilliant! 🚀",
-      created_at: "5m ago",
-      is_seen: false,
-      sender_id: 101,
-    },
-    unread_count: 2,
-    messages: [
-      {
-        id: 1,
-        sender_id: 101,
-        text: "Hey! How are you doing today?",
-        created_at: "10:30 AM",
-        is_seen: true,
-      },
-      {
-        id: 2,
-        sender_id: 0,
-        text: "Hey Sara! All good, how are your new projects going?",
-        created_at: "10:32 AM",
-        is_seen: true,
-      },
-      {
-        id: 3,
-        sender_id: 101,
-        text: "Just read your latest article on AI, absolutely brilliant! 🚀",
-        created_at: "10:35 AM",
-        is_seen: false,
-      },
-    ],
-  },
-  {
-    id: 2,
-    user: {
-      id: 102,
-      name: "Omar Khalid",
-      username: "omarkhaled",
-      avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200",
-      cover: "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800",
-      bio: "UI/UX Designer & React Enthusiast | Building delightful interfaces",
-      location: "Alexandria, Egypt",
-      website: "https://omarkhaled.design",
-      verified: true,
-      is_online: false,
-      last_seen: "Last seen 2h ago",
-      followers_count: 890,
-      following_count: 140,
-      posts_count: 42,
-      created_at: "2025-02-10T12:00:00Z",
-    },
-    last_message: {
-      text: "Sure, I'll review the code and get back to you soon.",
-      created_at: "2h ago",
-      is_seen: true,
-      sender_id: 102,
-    },
-    unread_count: 0,
-    messages: [
-      {
-        id: 1,
-        sender_id: 0,
-        text: "Hey Omar, did you check out the new article page design?",
-        created_at: "8:00 AM",
-        is_seen: true,
-      },
-      {
-        id: 2,
-        sender_id: 102,
-        text: "Sure, I'll review the code and get back to you soon.",
-        created_at: "8:15 AM",
-        is_seen: true,
-      },
-    ],
-  },
-  {
-    id: 3,
-    user: {
-      id: 103,
-      name: "Layla Hassan",
-      username: "layla_ux",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
-      cover: "https://images.unsplash.com/photo-1557683316-973673baf926?w=800",
-      bio: "Founder of Arab Design Community & tech blogger 🎨",
-      location: "Dubai, UAE",
-      website: "https://layla.me",
-      verified: false,
-      is_online: true,
-      last_seen: "Active now",
-      followers_count: 3100,
-      following_count: 512,
-      posts_count: 190,
-      created_at: "2024-11-20T10:00:00Z",
-    },
-    last_message: {
-      text: "Thank you so much for your support of the community!",
-      created_at: "1d ago",
-      is_seen: true,
-      sender_id: 103,
-    },
-    unread_count: 0,
-    messages: [
-      {
-        id: 1,
-        sender_id: 103,
-        text: "Thank you so much for your support of the community!",
-        created_at: "Yesterday",
-        is_seen: true,
-      },
-    ],
-  },
-  {
-    id: 4,
-    user: {
-      id: 104,
-      name: "Ahmed Mostafa",
-      username: "ahmed_dev",
-      avatar: "https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200",
-      cover: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800",
-      bio: "Full-stack developer | Open source contributor | Coffee addict ☕",
-      location: "Beirut, Lebanon",
-      website: "https://ahmeddev.io",
-      verified: false,
-      is_online: false,
-      last_seen: "Last seen 3d ago",
-      followers_count: 540,
-      following_count: 210,
-      posts_count: 28,
-      created_at: "2025-03-01T09:00:00Z",
-    },
-    last_message: {
-      text: "Loved your post on microservices! Can we collab on something?",
-      created_at: "3d ago",
-      is_seen: true,
-      sender_id: 104,
-    },
-    unread_count: 1,
-    messages: [
-      {
-        id: 1,
-        sender_id: 104,
-        text: "Loved your post on microservices! Can we collab on something?",
-        created_at: "3 days ago",
-        is_seen: false,
-      },
-    ],
-  },
-];
-
-/* ─────────────── component ─────────────── */
-
 export default function MessagesPage() {
-  const { user } = useAuth();
   const router = useRouter();
-  const [search, setSearch] = useState("");
+  const { user: currentUser } = useAuth();
 
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // New Conversation Modal State
+  const [newChatModalOpen, setNewChatModalOpen] = useState(false);
+  const [followingList, setFollowingList] = useState<any[]>([]);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const [followingSearch, setFollowingSearch] = useState("");
+  const [startingChatUserId, setStartingChatUserId] = useState<number | null>(null);
+
+  // Set page title
   useEffect(() => {
     document.title = "Messages / BlogX";
   }, []);
 
-  const filteredConversations = INITIAL_CONVERSATIONS.filter(
-    (c) =>
-      c.user.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.user.username.toLowerCase().includes(search.toLowerCase())
-  );
+  // Fetch real conversations
+  const fetchConversations = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await messagesService.getConversations();
+      setConversations(data.conversations || []);
+    } catch (err: any) {
+      console.error("Failed to load conversations:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const totalUnread = INITIAL_CONVERSATIONS.reduce(
-    (sum, c) => sum + c.unread_count,
-    0
-  );
+  useEffect(() => {
+    if (currentUser) {
+      fetchConversations();
+    }
+  }, [currentUser, fetchConversations]);
+
+  // Real-time listener for incoming messages & seen status via Reverb
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const echo = getEcho();
+    if (!echo) return;
+
+    const userChannel = echo.private(`user.${currentUser.id}`);
+
+    userChannel.listen(".NewMessage", (data: any) => {
+      setConversations((prev) => {
+        const convId = Number(data.conversation_id);
+        const existingIdx = prev.findIndex((c) => Number(c.id) === convId);
+
+        const updatedConv: ConversationItem = data.conversation || {
+          id: convId,
+          user: data.message?.sender || null,
+          last_message: {
+            text: data.message?.text || (data.message?.images?.length ? "📷 Image" : ""),
+            created_at: "Just now",
+            is_seen: false,
+            sender_id: data.message?.sender_id,
+          },
+          unread_count: 1,
+          updated_at: new Date().toISOString(),
+        };
+
+        if (existingIdx !== -1) {
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            ...updatedConv,
+            unread_count: (updated[existingIdx].unread_count || 0) + 1,
+            last_message: {
+              text: data.message?.text || (data.message?.images?.length ? "📷 Image" : ""),
+              created_at: "Just now",
+              is_seen: false,
+              sender_id: data.message?.sender_id,
+            },
+          };
+          // Move to top
+          const [moved] = updated.splice(existingIdx, 1);
+          return [moved, ...updated];
+        } else {
+          return [updatedConv, ...prev];
+        }
+      });
+    });
+
+    userChannel.listen(".MessageSeen", (data: any) => {
+      setConversations((prev) =>
+        prev.map((c) => {
+          if (Number(c.id) === Number(data.conversation_id)) {
+            return {
+              ...c,
+              last_message: c.last_message ? { ...c.last_message, is_seen: true } : null,
+            };
+          }
+          return c;
+        })
+      );
+    });
+
+    return () => {
+      userChannel.stopListening(".NewMessage");
+      userChannel.stopListening(".MessageSeen");
+    };
+  }, [currentUser]);
+
+  // Fetch followed users when opening "New Message" dialog
+  const handleOpenNewChat = async () => {
+    setNewChatModalOpen(true);
+    if (!currentUser) return;
+
+    try {
+      setLoadingFollowing(true);
+      const res = await api.get("/api/user/following");
+      const list = res.data.users || res.data.data || res.data || [];
+      setFollowingList(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error("Failed to load following list:", err);
+      toast.error("Could not load your following list.");
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
+
+  // Start chat with a selected user
+  const handleStartChatWith = async (targetUser: any) => {
+    try {
+      setStartingChatUserId(targetUser.id);
+      const res = await messagesService.startConversation({ recipient_id: targetUser.id });
+      setNewChatModalOpen(false);
+      router.push(`/messages/${res.conversation.id}`);
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Failed to start conversation.";
+      toast.error(msg);
+    } finally {
+      setStartingChatUserId(null);
+    }
+  };
+
+  // Toggle Pin / Unpin Conversation
+  const handleTogglePin = async (e: React.MouseEvent, convId: number) => {
+    e.stopPropagation();
+    try {
+      const res = await messagesService.togglePin(convId);
+      setConversations((prev) => {
+        const updated = prev.map((c) =>
+          c.id === convId ? { ...c, is_pinned: res.is_pinned } : c
+        );
+        return [...updated].sort((a, b) => {
+          if (a.is_pinned && !b.is_pinned) return -1;
+          if (!a.is_pinned && b.is_pinned) return 1;
+          return 0;
+        });
+      });
+      toast.success(res.is_pinned ? "Conversation pinned to top" : "Conversation unpinned");
+    } catch {
+      toast.error("Failed to update pin status");
+    }
+  };
+
+  // Filter conversations
+  const filteredConversations = conversations.filter((c) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      c.user?.name?.toLowerCase().includes(q) ||
+      c.user?.username?.toLowerCase().includes(q) ||
+      c.last_message?.text?.toLowerCase().includes(q)
+    );
+  });
+
+  // Filter following list in modal
+  const filteredFollowing = followingList.filter((u) => {
+    if (!followingSearch.trim()) return true;
+    const q = followingSearch.toLowerCase();
+    return u.name?.toLowerCase().includes(q) || u.username?.toLowerCase().includes(q);
+  });
 
   return (
-    <div className="w-full">
+    <div className="min-h-screen pb-16">
       {/* ── Sticky Header ── */}
-      <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/60">
-        <div className="flex items-center justify-between px-4 pt-4 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="relative">
-              <MessageCircle className="size-5 text-foreground" strokeWidth={2.2} />
-              {totalUnread > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 size-3.5 rounded-full bg-primary border-2 border-background" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-foreground tracking-tight leading-none font-[family-name:var(--font-fraunces)]">
-                  Messages
-                </h1>
-                {totalUnread > 0 && (
-                  <span className="inline-flex items-center justify-center px-2 h-5 rounded-full bg-primary text-primary-foreground text-[11px] font-bold leading-none">
-                    {totalUnread > 9 ? "9+" : totalUnread} new
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5 leading-none">
-                Your direct conversations
-              </p>
-            </div>
+      <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md border-b border-border/60">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-bold text-foreground font-[family-name:var(--font-fraunces)]">
+              Messages
+            </h1>
           </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              toast.info("Visit someone's profile to start a new chat!")
-            }
-            className="size-8 rounded-full flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95 transition-all cursor-pointer shadow-xs"
-            title="New message"
+          <Button
+            size="sm"
+            onClick={handleOpenNewChat}
+            className="h-9 px-3.5 gap-2 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-semibold shadow-xs"
           >
-            <Edit className="size-3.5" />
-          </button>
+            <Edit className="size-4" />
+            <span>New Message</span>
+          </Button>
         </div>
 
         {/* Search */}
         <div className="px-4 pb-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
               placeholder="Search conversations..."
-              className="pl-9 rounded-xl border-border bg-muted/30 text-xs h-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 h-9 rounded-xl text-xs bg-muted/50 border-border/70 focus:bg-background"
             />
           </div>
         </div>
       </div>
 
-      {/* ── Daily Notes (24h Expiration - Instagram Style) ── */}
-      <NotesBar />
-
       {/* ── Conversation List ── */}
       <div className="divide-y divide-border/40">
-        {filteredConversations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-28 px-6 text-center">
-            <div className="size-20 rounded-full bg-muted/70 flex items-center justify-center mb-4">
-              <MessageCircle className="size-9 text-muted-foreground/30" />
+        {loading ? (
+          <div className="py-16 text-center">
+            <Loader2 className="size-7 animate-spin mx-auto text-primary" />
+            <p className="mt-3 text-xs text-muted-foreground">Loading conversations...</p>
+          </div>
+        ) : filteredConversations.length === 0 ? (
+          <div className="py-20 px-4 text-center">
+            <div className="size-16 rounded-3xl bg-muted/60 flex items-center justify-center mx-auto mb-4 border border-border/60">
+              <MessageCircle className="size-8 text-muted-foreground/60" />
             </div>
-            <h3 className="text-base font-bold text-foreground mb-1.5">
-              No conversations found
+            <h3 className="text-base font-bold text-foreground mb-1">
+              {searchQuery ? "No matching conversations" : "No messages yet"}
             </h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              {search ? `No results for "${search}"` : "Start a conversation by visiting someone's profile."}
+            <p className="text-xs text-muted-foreground max-w-sm mx-auto mb-5 leading-relaxed">
+              {searchQuery
+                ? "Try searching for a different name or keyword."
+                : "Connect with creators and friends you follow. Start a private conversation now!"}
             </p>
+            {!searchQuery && (
+              <Button
+                onClick={handleOpenNewChat}
+                className="rounded-xl text-xs font-semibold h-9 px-4 gap-2"
+              >
+                <Plus className="size-4" />
+                <span>Start a conversation</span>
+              </Button>
+            )}
           </div>
         ) : (
           filteredConversations.map((conv) => {
-            const avatarSrc = getAvatarUrl(conv.user.avatar);
+            const otherUser = conv.user;
+            const avatarSrc = getAvatarUrl(otherUser?.avatar);
             const isUnread = conv.unread_count > 0;
 
             return (
-              <button
+              <div
                 key={conv.id}
-                type="button"
                 onClick={() => router.push(`/messages/${conv.id}`)}
-                className="w-full flex items-center gap-3.5 px-4 py-3.5 hover:bg-muted/40 active:bg-muted/60 transition-colors text-left cursor-pointer group"
+                className={`flex items-center gap-3.5 px-4 py-3.5 cursor-pointer hover:bg-muted/40 transition-colors relative ${
+                  isUnread ? "bg-primary/[0.03]" : ""
+                }`}
               >
-                {/* Avatar with online dot */}
+                {/* Avatar */}
                 <div className="relative shrink-0">
-                  <Avatar className="size-14 ring-2 ring-border/40 shadow-xs">
-                    <AvatarImage src={avatarSrc} alt={conv.user.name} />
-                    <AvatarFallback className="text-sm font-bold bg-muted">
-                      {getInitials(conv.user.name)}
+                  <Avatar className="size-12 ring-1 ring-border/50">
+                    <AvatarImage src={avatarSrc} alt={otherUser?.name || "User"} />
+                    <AvatarFallback className="text-xs font-bold bg-muted">
+                      {getInitials(otherUser?.name || "U")}
                     </AvatarFallback>
                   </Avatar>
-                  {conv.user.is_online && (
-                    <span className="absolute bottom-0.5 right-0.5 size-3.5 rounded-full bg-emerald-500 ring-2 ring-background" />
-                  )}
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-0.5">
-                    <div className="flex items-center gap-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {conv.is_pinned && (
+                        <span title="Pinned conversation" className="text-primary shrink-0">
+                          <Pin className="size-3.5 fill-primary/20 rotate-45" />
+                        </span>
+                      )}
                       <span
                         className={`text-sm truncate ${
                           isUnread ? "font-bold text-foreground" : "font-semibold text-foreground/90"
                         }`}
                       >
-                        {conv.user.name}
+                        {otherUser?.name || "User"}
                       </span>
-                      {conv.user.verified && <VerifiedBadge size="xs" />}
+                      {otherUser?.verified && <VerifiedBadge size="xs" />}
+                      <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+                        @{otherUser?.username}
+                      </span>
                     </div>
-                    <span className="text-[11px] text-muted-foreground shrink-0">
-                      {conv.last_message.created_at}
-                    </span>
+
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className="text-[11px] text-muted-foreground">
+                        {conv.last_message?.created_at || ""}
+                      </span>
+
+                      {/* Pin / Unpin Action */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleTogglePin(e, conv.id)}
+                        className="size-6 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors"
+                        title={conv.is_pinned ? "Unpin conversation" : "Pin conversation to top"}
+                      >
+                        {conv.is_pinned ? (
+                          <PinOff className="size-3.5" />
+                        ) : (
+                          <Pin className="size-3.5 opacity-60 hover:opacity-100" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-2">
                     <p
                       className={`text-xs truncate ${
                         isUnread
-                          ? "font-semibold text-foreground"
+                          ? "text-foreground font-semibold"
                           : "text-muted-foreground"
                       }`}
                     >
-                      {conv.last_message.sender_id === 0 ? "You: " : ""}
-                      {conv.last_message.text}
+                      {conv.last_message?.sender_id === currentUser?.id && (
+                        <span className="text-muted-foreground/80 mr-1">You:</span>
+                      )}
+                      {conv.last_message?.text || "No messages yet"}
                     </p>
-                    {isUnread && (
+
+                    {/* Unread Badge */}
+                    {conv.unread_count > 0 && (
                       <span className="size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shrink-0 shadow-xs">
-                        {conv.unread_count}
+                        {conv.unread_count > 9 ? "9+" : conv.unread_count}
                       </span>
                     )}
                   </div>
                 </div>
-              </button>
+              </div>
             );
           })
         )}
       </div>
 
-      {/* Bottom padding */}
-      <div className="h-8" />
+      {/* ── Dialog: New Message (Following Only) ── */}
+      <Dialog open={newChatModalOpen} onOpenChange={setNewChatModalOpen}>
+        <DialogContent className="sm:max-w-md p-6 rounded-3xl">
+          <DialogHeader className="mb-2">
+            <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <MessageCircle className="size-5 text-primary" />
+              <span>New Message</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
+            You can send direct messages to anyone you <strong>follow</strong>. Select a user to start chatting.
+          </p>
+
+          {/* Search Following */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+            <Input
+              placeholder="Search people you follow..."
+              value={followingSearch}
+              onChange={(e) => setFollowingSearch(e.target.value)}
+              className="pl-9 h-9 rounded-xl text-xs bg-muted/50 border-border/70"
+            />
+          </div>
+
+          {/* Following List */}
+          <div className="max-h-72 overflow-y-auto divide-y divide-border/40 -mx-2 px-2">
+            {loadingFollowing ? (
+              <div className="py-8 text-center">
+                <Loader2 className="size-6 animate-spin mx-auto text-primary" />
+                <p className="mt-2 text-xs text-muted-foreground">Loading your following list...</p>
+              </div>
+            ) : filteredFollowing.length === 0 ? (
+              <div className="py-8 text-center">
+                <Users className="size-8 text-muted-foreground/50 mx-auto mb-2" />
+                <p className="text-xs font-semibold text-foreground mb-1">
+                  {followingSearch ? "No users found" : "You aren't following anyone yet"}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Follow users on BlogX to unlock direct messaging with them.
+                </p>
+              </div>
+            ) : (
+              filteredFollowing.map((targetUser) => {
+                const avatarSrc = getAvatarUrl(targetUser.avatar);
+                const isStarting = startingChatUserId === targetUser.id;
+
+                return (
+                  <div
+                    key={targetUser.id}
+                    className="flex items-center justify-between py-2.5 px-2 hover:bg-muted/40 rounded-xl transition-colors cursor-pointer"
+                    onClick={() => !isStarting && handleStartChatWith(targetUser)}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar className="size-10 ring-1 ring-border/50 shrink-0">
+                        <AvatarImage src={avatarSrc} alt={targetUser.name} />
+                        <AvatarFallback className="text-xs font-bold bg-muted">
+                          {getInitials(targetUser.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-foreground truncate">
+                            {targetUser.name}
+                          </span>
+                          {targetUser.verified && <VerifiedBadge size="xs" />}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          @{targetUser.username}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isStarting}
+                      className="rounded-xl text-xs h-8 px-3 font-semibold shrink-0"
+                    >
+                      {isStarting ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        "Chat"
+                      )}
+                    </Button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

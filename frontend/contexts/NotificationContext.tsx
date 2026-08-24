@@ -19,6 +19,7 @@ import {
   AtSign,
   Eye,
   Bell,
+  MessageCircle,
 } from "lucide-react";
 import api from "@/lib/api";
 import { getEcho, disconnectEcho } from "@/lib/echo";
@@ -225,6 +226,63 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     [router]
   );
 
+  // Toast popup alert for incoming direct messages (Only shows popup, does NOT add to regular notifications)
+  const showMessageToast = useCallback(
+    (msg: any, conversationId: number | string) => {
+      const senderName = msg?.sender?.name || "Someone";
+      const avatarSrc = msg?.sender?.avatar || undefined;
+      const snippet = msg?.text || (msg?.images?.length ? "📷 Sent an image" : "New message");
+
+      // Don't show popup if user is already in that specific chat room
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname === `/messages/${conversationId}`
+      ) {
+        return;
+      }
+
+      toast.custom(
+        (t) => (
+          <div
+            onClick={() => {
+              toast.dismiss(t);
+              router.push(`/messages/${conversationId}`);
+            }}
+            className="flex items-center gap-3 p-3.5 bg-card/95 backdrop-blur-md border border-border/80 shadow-2xl rounded-2xl cursor-pointer hover:border-primary/50 transition-all duration-200 group w-full max-w-sm"
+          >
+            <div className="relative shrink-0">
+              <Avatar className="size-10 ring-2 ring-primary/30">
+                <AvatarImage src={avatarSrc} alt={senderName} />
+                <AvatarFallback className="bg-muted text-xs font-bold">
+                  {getInitials(senderName)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute -bottom-1 -right-1 size-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xs">
+                <MessageCircle className="size-3" />
+              </div>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-xs font-bold text-foreground truncate">
+                  {senderName}
+                </p>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  Just now
+                </span>
+              </div>
+              <p className="text-xs text-foreground/80 line-clamp-2 mt-0.5 leading-snug">
+                {snippet}
+              </p>
+            </div>
+          </div>
+        ),
+        { duration: 4500 }
+      );
+    },
+    [router]
+  );
+
   // Fetch unread count
   const refreshUnreadCount = useCallback(async () => {
     if (!user) return;
@@ -398,12 +456,20 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       showNotificationToast(incoming);
     };
 
+    const handleIncomingDirectMessage = (data: any) => {
+      if (data?.message && Number(data.message.sender_id) !== Number(user.id)) {
+        showMessageToast(data.message, data.conversation_id || data.message.conversation_id);
+      }
+    };
+
     // Listen on all standard naming conventions
     channel
       .listen(".NewNotification", handleNewNotification)
       .listen("NewNotification", handleNewNotification)
       .listen(".App\\Events\\NewNotification", handleNewNotification)
-      .listen("App\\Events\\NewNotification", handleNewNotification);
+      .listen("App\\Events\\NewNotification", handleNewNotification)
+      .listen(".NewMessage", handleIncomingDirectMessage)
+      .listen("NewMessage", handleIncomingDirectMessage);
 
     return () => {
       try {
@@ -411,12 +477,14 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
         channel.stopListening("NewNotification");
         channel.stopListening(".App\\Events\\NewNotification");
         channel.stopListening("App\\Events\\NewNotification");
+        channel.stopListening(".NewMessage");
+        channel.stopListening("NewMessage");
         echo.leave(channelName);
       } catch {
         // Cleanup error ignored
       }
     };
-  }, [user, showNotificationToast, refreshUnreadCount, fetchPreferences]);
+  }, [user, showNotificationToast, showMessageToast, refreshUnreadCount, fetchPreferences]);
 
   return (
     <NotificationContext.Provider

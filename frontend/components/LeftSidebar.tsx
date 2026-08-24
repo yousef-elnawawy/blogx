@@ -23,6 +23,7 @@ import {
   Users,
   MessageCircle,
   Layers,
+  Video,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useTheme } from "next-themes";
 import { getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
+import { getEcho } from "@/lib/echo";
+import { messagesService } from "@/services/messages";
 import { toast } from "sonner";
 
 interface NavItem {
@@ -81,6 +84,15 @@ const mainNavItems: NavItem[] = [
     activeClass: "nav-item-blogs-active",
     hoverClass: "nav-item-blogs-hover",
     iconActiveClass: "nav-item-blogs stroke-[2.5]",
+  },
+  {
+    label: "Videos",
+    href: "/videos",
+    icon: Video,
+    colorClass: "nav-item-feed text-red-500",
+    activeClass: "nav-item-feed-active",
+    hoverClass: "nav-item-feed-hover",
+    iconActiveClass: "stroke-[2.5] text-red-500",
   },
   {
     label: "Series",
@@ -197,6 +209,7 @@ export default function LeftSidebar() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
   const { unreadCount } = useNotifications();
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const { setTheme, resolvedTheme } = useTheme();
   const [createPostOpen, setCreatePostOpen] = useState(false);
   const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
@@ -205,6 +218,43 @@ export default function LeftSidebar() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fetch initial unread messages count
+  useEffect(() => {
+    if (!user) return;
+    messagesService
+      .getUnreadCount()
+      .then((res) => setUnreadMessagesCount(res.unread_count || 0))
+      .catch(() => {});
+  }, [user, pathname]);
+
+  // Listen for real-time messages count via Echo
+  useEffect(() => {
+    if (!user) return;
+    const echo = getEcho();
+    if (!echo) return;
+
+    const channel = echo.private(`user.${user.id}`);
+    channel.listen(".NewMessage", (data: any) => {
+      if (typeof data.unread_count === "number") {
+        setUnreadMessagesCount(data.unread_count);
+      } else {
+        setUnreadMessagesCount((prev) => prev + 1);
+      }
+    });
+
+    channel.listen(".MessageSeen", () => {
+      messagesService
+        .getUnreadCount()
+        .then((res) => setUnreadMessagesCount(res.unread_count || 0))
+        .catch(() => {});
+    });
+
+    return () => {
+      channel.stopListening(".NewMessage");
+      channel.stopListening(".MessageSeen");
+    };
+  }, [user]);
 
   const handleLogout = async () => {
     try {
@@ -242,6 +292,7 @@ export default function LeftSidebar() {
     const active = isActive(item.href);
     const Icon = item.icon;
     const isNotifications = item.href === "/notifications";
+    const isMessages = item.href === "/messages";
 
     return (
       <li key={item.href}>
@@ -261,12 +312,21 @@ export default function LeftSidebar() {
             {isNotifications && unreadCount > 0 && (
               <span className="absolute -top-1 -right-1 size-2 rounded-full bg-red-500 ring-2 ring-background" />
             )}
+            {isMessages && unreadMessagesCount > 0 && (
+              <span className="absolute -top-1 -right-1 size-2 rounded-full bg-primary ring-2 ring-background" />
+            )}
           </div>
           <span className="truncate">{item.label}</span>
 
           {isNotifications && unreadCount > 0 && (
             <span className="ml-auto text-[10px] font-black px-1.5 py-0.2 rounded-full bg-red-500 text-white shadow-2xs">
               {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+
+          {isMessages && unreadMessagesCount > 0 && (
+            <span className="ml-auto text-[10px] font-black px-1.5 py-0.2 rounded-full bg-primary text-primary-foreground shadow-2xs">
+              {unreadMessagesCount > 99 ? "99+" : unreadMessagesCount}
             </span>
           )}
         </Link>

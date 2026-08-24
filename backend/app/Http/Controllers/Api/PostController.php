@@ -65,6 +65,32 @@ class PostController extends Controller
     }
 
     /**
+     * Return feed of posts that have videos attached.
+     */
+    public function videos(Request $request)
+    {
+        $user = $request->user() ?? auth('sanctum')->user();
+
+        $query = Post::published()
+            ->whereNotNull('video_url')
+            ->with([
+                'user',
+                'images',
+                'poll.options',
+                'community',
+            ])
+            ->latest();
+
+        $posts = $query->paginate(12);
+
+        $posts->getCollection()->transform(function ($post) use ($user) {
+            return $this->formatPost($post, $user);
+        });
+
+        return response()->json($posts);
+    }
+
+    /**
      * Return a single post by ID with comments (public).
      */
     public function show(Request $request, $id)
@@ -351,9 +377,12 @@ class PostController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'content'           => ['required_without_all:images,poll', 'nullable', 'string', 'max:5000'],
+            'content'           => ['required_without_all:images,poll,video', 'nullable', 'string', 'max:50000'],
             'images'            => ['nullable', 'array', 'max:10'],
-            'images.*'          => ['image', 'mimes:jpeg,png,jpg,webp,gif', 'max:10240'], // Up to 10 MB per image
+            'images.*'          => ['image', 'mimes:jpeg,png,jpg,webp,gif', 'max:51200'], // Up to 50 MB per image
+            'video'             => ['nullable', 'file', 'max:1048576'], // Up to 1 GB video
+            'video_duration'    => ['nullable', 'integer'],
+            'video_thumbnail'   => ['nullable', 'file', 'max:51200'],
             'comments_enabled'  => ['nullable', 'boolean'],
             'scheduled_at'      => ['nullable', 'date'],
             'status'            => ['nullable', 'in:published,draft'],
@@ -398,6 +427,26 @@ class PostController extends Controller
 
         if ($communityId) {
             \App\Models\Community::where('id', $communityId)->increment('posts_count');
+        }
+
+        // Upload and store video
+        if ($request->hasFile('video') && $request->file('video')->isValid()) {
+            $videoFile = $request->file('video');
+            $ext = $videoFile->getClientOriginalExtension() ?: 'mp4';
+            $vName = 'vid_' . uniqid() . '_' . time() . '.' . $ext;
+            $vPath = $videoFile->storeAs('posts_videos', $vName, 'public');
+            
+            $thumbPath = null;
+            if ($request->hasFile('video_thumbnail') && $request->file('video_thumbnail')->isValid()) {
+                $tPath = $request->file('video_thumbnail')->store('posts_videos', 'public');
+                $thumbPath = '/storage/' . $tPath;
+            }
+
+            $post->update([
+                'video_url' => '/storage/' . $vPath,
+                'video_thumbnail' => $thumbPath,
+                'video_duration' => $request->input('video_duration') ? (int) $request->input('video_duration') : null,
+            ]);
         }
 
         // Upload and store images
@@ -1078,6 +1127,11 @@ class PostController extends Controller
             'community'       => $community,
             'mentions'        => $mentions,
             'poll'            => $pollData,
+            'video'           => $post->video_url ? [
+                'url'       => str_starts_with($post->video_url, 'http') ? $post->video_url : config('app.url') . $post->video_url,
+                'thumbnail' => $post->video_thumbnail ? (str_starts_with($post->video_thumbnail, 'http') ? $post->video_thumbnail : config('app.url') . $post->video_thumbnail) : null,
+                'duration'  => $post->video_duration,
+            ] : null,
             'images'          => $post->images->map(function ($img) {
                 $path = $img->image_path;
                 if ($path && !str_starts_with($path, 'http')) {

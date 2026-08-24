@@ -102,6 +102,9 @@ export default function PostEditorDialog({
   const [contentLength, setContentLength] = useState(0);
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
   const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<"published" | "draft" | null>(null);
@@ -561,6 +564,30 @@ export default function PostEditorDialog({
     handleInput();
   };
 
+  const handleVideoSelect = (file: File) => {
+    const url = URL.createObjectURL(file);
+    setVideoFile(file);
+    setVideoPreviewUrl(url);
+
+    // Extract duration
+    const tempVid = document.createElement("video");
+    tempVid.src = url;
+    tempVid.onloadedmetadata = () => {
+      if (tempVid.duration && !isNaN(tempVid.duration)) {
+        setVideoDuration(Math.round(tempVid.duration));
+      }
+    };
+  };
+
+  const removeVideo = () => {
+    if (videoPreviewUrl) {
+      URL.revokeObjectURL(videoPreviewUrl);
+    }
+    setVideoFile(null);
+    setVideoPreviewUrl(null);
+    setVideoDuration(null);
+  };
+
   const handlePost = async (status: "published" | "draft" = "published") => {
     if (!editorRef.current) return;
     const content = extractPlainText(editorRef.current).trim();
@@ -568,8 +595,8 @@ export default function PostEditorDialog({
     const validPollOptions = pollDraft ? pollDraft.options.filter((o) => o.trim() !== "") : [];
     const hasValidPoll = Boolean(pollDraft && validPollOptions.length >= 2);
 
-    if (!content && images.length === 0 && !hasValidPoll) {
-      toast.error("Please enter text, attach an image, or add at least 2 options to your poll.");
+    if (!content && images.length === 0 && !videoFile && !hasValidPoll) {
+      toast.error("Please enter text, attach an image/video, or add at least 2 options to your poll.");
       return;
     }
 
@@ -584,6 +611,13 @@ export default function PostEditorDialog({
       const formData = new FormData();
       formData.append("content", content);
       formData.append("status", status);
+
+      if (videoFile) {
+        formData.append("video", videoFile);
+        if (videoDuration) {
+          formData.append("video_duration", String(videoDuration));
+        }
+      }
 
       images.forEach((entry) => {
         if (entry.file) {
@@ -659,7 +693,7 @@ export default function PostEditorDialog({
   const avatarSrc = getAvatarUrl(user?.avatar);
   const validPollOptions = pollDraft ? pollDraft.options.filter((o) => o.trim() !== "") : [];
   const hasPollDraftOrContent = Boolean(pollDraft && (pollDraft.question?.trim() || validPollOptions.length > 0));
-  const canPost = (contentLength > 0 || images.length > 0 || hasPollDraftOrContent) && !submitting;
+  const canPost = (contentLength > 0 || images.length > 0 || Boolean(videoFile) || hasPollDraftOrContent) && !submitting;
 
   const containerWidth = containerRef.current?.clientWidth ?? 450;
   const popupWidth = 320;
@@ -674,9 +708,10 @@ export default function PostEditorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="
-          flex flex-col
-          w-[100vw]
+          flex
+          flex-col
           h-[100dvh]
+          w-screen
           max-w-none
           rounded-none
           p-0
@@ -781,6 +816,27 @@ export default function PostEditorDialog({
           </div>
         )}
 
+        {/* Video Preview */}
+        {videoPreviewUrl && (
+          <div className="shrink-0 px-4 sm:px-6 mb-3 relative">
+            <div className="relative rounded-2xl overflow-hidden bg-black/90 aspect-video max-h-56 border border-border/70 group">
+              <video
+                src={videoPreviewUrl}
+                controls
+                className="size-full object-contain"
+              />
+              <button
+                type="button"
+                onClick={removeVideo}
+                className="absolute top-2 right-2 size-8 rounded-full bg-black/70 hover:bg-red-600 text-white flex items-center justify-center transition-colors cursor-pointer"
+                title="Remove video"
+              >
+                <span className="text-sm font-bold">✕</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Poll Creator */}
         {pollDraft && (
           <div className="shrink-0 px-4 sm:px-6 mb-3">
@@ -793,6 +849,8 @@ export default function PostEditorDialog({
           <div className="flex items-center gap-1 sm:gap-2">
             <Toolbar
               onImageSelect={handleImageSelect}
+              onVideoSelect={handleVideoSelect}
+              hasVideo={Boolean(videoFile)}
               onInsertHashtag={insertHashtag}
               onInsertMention={insertMention}
               onInsertCode={insertCodeSnippet}
@@ -820,24 +878,24 @@ export default function PostEditorDialog({
               onClick={() => handlePost("draft")}
               disabled={!canPost}
               size="sm"
-              className="h-8 rounded-md px-3 sm:px-3.5 text-xs font-semibold"
+              className="rounded-xl px-3 sm:px-4 h-9 text-xs sm:text-sm font-semibold border-border text-foreground hover:bg-muted transition-all cursor-pointer"
             >
               {submitting && submittingAction === "draft" ? (
-                <Loader2 className="size-3.5 animate-spin mr-1" />
-              ) : null}
-              Save Draft
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              ) : (
+                "Save Draft"
+              )}
             </Button>
 
             <Button
+              type="button"
               onClick={() => handlePost("published")}
               disabled={!canPost}
               size="sm"
-              className="h-8 rounded-md px-4.5 sm:px-5 text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90 min-w-[68px] cursor-pointer font-bold shadow-xs hover:shadow-sm transition-all"
+              className="rounded-xl px-4 sm:px-5 h-9 text-xs sm:text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-all cursor-pointer shadow-xs hover:shadow-sm"
             >
               {submitting && submittingAction === "published" ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : postToEdit ? (
-                "Publish"
+                <Loader2 className="size-4 animate-spin" />
               ) : (
                 "Post"
               )}

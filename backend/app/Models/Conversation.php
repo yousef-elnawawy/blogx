@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Crypt;
 
 class Conversation extends Model
 {
@@ -17,11 +19,36 @@ class Conversation extends Model
         'user_two_id',
         'last_message_text',
         'last_message_at',
+        'user_one_pinned',
+        'user_two_pinned',
     ];
 
     protected $casts = [
         'last_message_at' => 'datetime',
+        'user_one_pinned' => 'boolean',
+        'user_two_pinned' => 'boolean',
     ];
+
+    /**
+     * Transparently encrypt last message text at rest.
+     */
+    protected function lastMessageText(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value) {
+                if (empty($value)) return '';
+                try {
+                    return Crypt::decryptString($value);
+                } catch (\Exception $e) {
+                    return $value;
+                }
+            },
+            set: function ($value) {
+                if (empty($value)) return '';
+                return Crypt::encryptString($value);
+            }
+        );
+    }
 
     public function userOne(): BelongsTo
     {
@@ -71,7 +98,7 @@ class Conversation extends Model
      */
     public function getOtherUser(int $currentUserId): ?User
     {
-        if ($this->user_one_id === $currentUserId) {
+        if ((int) $this->user_one_id === (int) $currentUserId) {
             return $this->userTwo;
         }
         return $this->userOne;
@@ -89,6 +116,38 @@ class Conversation extends Model
     }
 
     /**
+     * Check if this conversation is pinned by the given user.
+     */
+    public function isPinnedFor(int $userId): bool
+    {
+        if ((int) $this->user_one_id === (int) $userId) {
+            return (bool) $this->user_one_pinned;
+        }
+        if ((int) $this->user_two_id === (int) $userId) {
+            return (bool) $this->user_two_pinned;
+        }
+        return false;
+    }
+
+    /**
+     * Toggle pinned status for the given user.
+     */
+    public function togglePinFor(int $userId): bool
+    {
+        if ((int) $this->user_one_id === (int) $userId) {
+            $this->user_one_pinned = !$this->user_one_pinned;
+            $this->save();
+            return (bool) $this->user_one_pinned;
+        }
+        if ((int) $this->user_two_id === (int) $userId) {
+            $this->user_two_pinned = !$this->user_two_pinned;
+            $this->save();
+            return (bool) $this->user_two_pinned;
+        }
+        return false;
+    }
+
+    /**
      * Format conversation for frontend JSON response.
      */
     public function format(int $currentUserId): array
@@ -96,14 +155,25 @@ class Conversation extends Model
         $otherUser = $this->getOtherUser($currentUserId);
         $latestMsg = $this->latestMessage;
 
+        $avatarUrl = $otherUser?->avatar;
+        if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
+            $avatarUrl = config('app.url') . $avatarUrl;
+        }
+
+        $coverUrl = $otherUser?->cover;
+        if ($coverUrl && !str_starts_with($coverUrl, 'http')) {
+            $coverUrl = config('app.url') . $coverUrl;
+        }
+
         return [
             'id' => $this->id,
+            'is_pinned' => $this->isPinnedFor($currentUserId),
             'user' => $otherUser ? [
                 'id' => $otherUser->id,
                 'name' => $otherUser->name,
                 'username' => $otherUser->username,
-                'avatar' => $otherUser->avatar,
-                'cover' => $otherUser->cover,
+                'avatar' => $avatarUrl,
+                'cover' => $coverUrl,
                 'bio' => $otherUser->bio,
                 'location' => $otherUser->location,
                 'website' => $otherUser->website,
@@ -118,7 +188,13 @@ class Conversation extends Model
             ] : null,
             'last_message' => $latestMsg ? [
                 'id' => $latestMsg->id,
-                'text' => $latestMsg->text ?? (count($latestMsg->images ?? []) > 0 ? '📷 Image' : ''),
+                'text' => !empty($latestMsg->text)
+                    ? $latestMsg->text
+                    : (!empty($latestMsg->audio_url)
+                        ? '🎙️ Voice message'
+                        : (!empty($latestMsg->shared_data)
+                            ? '🔗 Shared ' . ($latestMsg->shared_data['type'] ?? 'content')
+                            : (count($latestMsg->images ?? []) > 0 ? '📷 Image' : ''))),
                 'created_at' => $latestMsg->created_at->diffForHumans(),
                 'created_at_iso' => $latestMsg->created_at->toIso8601String(),
                 'is_seen' => (bool) $latestMsg->is_seen,

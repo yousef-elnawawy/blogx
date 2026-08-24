@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 
 interface ToolbarProps {
   onImageSelect?: (files: FileList) => void;
+  onVideoSelect?: (file: File) => void;
+  hasVideo?: boolean;
   onInsertHashtag: () => void;
   onInsertMention?: () => void;
   onInsertCode?: () => void;
@@ -36,6 +38,8 @@ const POPULAR_EMOJIS = [
 
 export default function Toolbar({
   onImageSelect,
+  onVideoSelect,
+  hasVideo = false,
   onInsertHashtag,
   onInsertMention,
   onInsertCode,
@@ -48,6 +52,7 @@ export default function Toolbar({
   maxContentLength = 1000,
 }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [emojiOpen, setEmojiOpen] = useState(false);
   const emojiRef = useRef<HTMLDivElement>(null);
   const maxImages = 10;
@@ -72,7 +77,7 @@ export default function Toolbar({
 
   return (
     <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap relative">
-      {/* Hidden file input */}
+      {/* Hidden file input for images */}
       <input
         ref={fileInputRef}
         type="file"
@@ -85,11 +90,23 @@ export default function Toolbar({
         }}
       />
 
+      {/* Hidden file input for video */}
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/mp4,video/webm,video/quicktime,video/ogg"
+        hidden
+        onChange={(e) => {
+          if (e.target.files?.[0]) onVideoSelect?.(e.target.files[0]);
+          e.target.value = "";
+        }}
+      />
+
       {/* 1. Add Image */}
       <button
         type="button"
         aria-label="Add image"
-        disabled={!canAddMore}
+        disabled={!canAddMore || hasVideo}
         onClick={() => fileInputRef.current?.click()}
         className="size-8 rounded-full flex items-center justify-center text-primary hover:bg-primary/10 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         title="Add Photos / Media"
@@ -97,7 +114,27 @@ export default function Toolbar({
         <ImageIcon className="size-[17px]" />
       </button>
 
-      {/* 2. Add Poll */}
+      {/* 2. Add Video */}
+      {onVideoSelect && (
+        <button
+          type="button"
+          aria-label="Add video"
+          onClick={() => videoInputRef.current?.click()}
+          className={cn(
+            "size-8 rounded-full flex items-center justify-center transition-all cursor-pointer",
+            hasVideo
+              ? "bg-red-500 text-white shadow-xs"
+              : "text-red-500 hover:bg-red-500/10 active:scale-95"
+          )}
+          title={hasVideo ? "Video attached" : "Upload Video (.mp4, .webm)"}
+        >
+          <svg className="size-[17px] fill-current" viewBox="0 0 24 24">
+            <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z" />
+          </svg>
+        </button>
+      )}
+
+      {/* 3. Add Poll */}
       {onAddPoll && (
         <button
           type="button"

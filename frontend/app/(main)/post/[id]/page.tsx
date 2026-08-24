@@ -36,6 +36,7 @@ import {
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import PollWidget, { PollData } from "@/components/post/PollWidget";
 import CodeSnippetBlock from "@/components/post/CodeSnippetBlock";
+import CustomVideoPlayer from "@/components/video/CustomVideoPlayer";
 import { toast } from "sonner";
 
 interface Author {
@@ -63,6 +64,11 @@ interface PostDetail {
   author: Author;
   content: string;
   images?: string[];
+  video?: {
+    url: string;
+    thumbnail?: string | null;
+    duration?: number | null;
+  } | null;
   mentions?: string[];
   likes_count: number;
   comments_count: number;
@@ -707,6 +713,62 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
               />
             </div>
           )}
+
+          {/* Embedded Quote Post Card */}
+          {post.quote_of && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/post/${post.quote_of.id}`);
+              }}
+              className="mt-4 w-full rounded-2xl border border-border/80 bg-card/75 hover:bg-muted/40 p-4 transition-all duration-200 cursor-pointer space-y-2.5 group/quote shadow-sm hover:shadow-md"
+            >
+              <div className="flex items-center gap-2.5">
+                <Avatar className="size-6 ring-1 ring-border/40">
+                  <AvatarImage src={getAvatarUrl(post.quote_of.author?.avatar)} alt={post.quote_of.author?.name} />
+                  <AvatarFallback className="text-[10px] font-bold">
+                    {getInitials(post.quote_of.author?.name || "U")}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                  <span className="text-sm font-bold text-foreground group-hover/quote:underline truncate">
+                    {post.quote_of.author?.name}
+                  </span>
+                  {Boolean(post.quote_of.author?.verified) && <VerifiedBadge size="xs" />}
+                  <span className="text-xs text-muted-foreground truncate">
+                    @{post.quote_of.author?.username}
+                  </span>
+                </div>
+              </div>
+              {post.quote_of.content && (
+                <div className="text-sm text-foreground/90 leading-relaxed">
+                  {renderContent(post.quote_of.content, post.quote_of.mentions)}
+                </div>
+              )}
+              {post.quote_of.poll && (
+                <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                  <PollWidget
+                    poll={post.quote_of.poll}
+                    onVoteSuccess={() => {}}
+                  />
+                </div>
+              )}
+              {post.quote_of.images && post.quote_of.images.length > 0 && (
+                <div className="mt-2.5 rounded-xl overflow-hidden pointer-events-none">
+                  <PostImageGrid images={post.quote_of.images} onImageClick={() => {}} />
+                </div>
+              )}
+              {post.quote_of.video && post.quote_of.video.url && (
+                <div className="mt-2.5 rounded-xl overflow-hidden">
+                  <CustomVideoPlayer
+                    src={post.quote_of.video.url}
+                    poster={post.quote_of.video.thumbnail}
+                    duration={post.quote_of.video.duration}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Images */}
@@ -718,6 +780,17 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                 setLightboxIndex(idx);
                 setLightboxOpen(true);
               }}
+            />
+          </div>
+        )}
+
+        {/* Uploaded Video */}
+        {post.video && post.video.url && (
+          <div className="mt-4">
+            <CustomVideoPlayer
+              src={post.video.url}
+              poster={post.video.thumbnail}
+              duration={post.video.duration}
             />
           </div>
         )}

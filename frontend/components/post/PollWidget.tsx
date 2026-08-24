@@ -89,6 +89,7 @@ export default function PollWidget({ poll: initialPoll, onVoteSuccess }: PollWid
         {poll.options.map((option) => {
           const isSelected = poll.user_voted_option_id === option.id;
           const isVotingThis = votingOptionId === option.id;
+          const percent = Math.round(Number(option.percentage) || 0);
 
           if (showResults) {
             // YouTube / Twitter Style Percentage Progress Bar
@@ -103,16 +104,18 @@ export default function PollWidget({ poll: initialPoll, onVoteSuccess }: PollWid
                     : "border-border/70 bg-muted/40 hover:bg-muted/60 text-foreground/90"
                 )}
               >
-                {/* Progress bar background fill */}
-                <div
-                  className={cn(
-                    "absolute top-0 bottom-0 left-0 transition-all duration-500 ease-out -z-0",
-                    isSelected
-                      ? "bg-primary/20 dark:bg-primary/25"
-                      : "bg-muted-foreground/15 dark:bg-muted-foreground/20"
-                  )}
-                  style={{ width: `${Math.max(2, option.percentage)}%` }}
-                />
+                {/* Progress bar background fill (Only if percent > 0) */}
+                {percent > 0 && (
+                  <div
+                    className={cn(
+                      "absolute top-0 bottom-0 left-0 transition-all duration-500 ease-out -z-0",
+                      isSelected
+                        ? "bg-primary/20 dark:bg-primary/25"
+                        : "bg-muted-foreground/15 dark:bg-muted-foreground/20"
+                    )}
+                    style={{ width: `${percent}%` }}
+                  />
+                )}
 
                 <div className="relative z-10 flex items-center justify-between gap-3 text-xs sm:text-sm">
                   <div className="flex items-center gap-2 min-w-0">
@@ -125,7 +128,7 @@ export default function PollWidget({ poll: initialPoll, onVoteSuccess }: PollWid
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0 font-semibold">
-                    <span className="font-mono">{option.percentage}%</span>
+                    <span className="font-mono">{percent}%</span>
                   </div>
                 </div>
               </div>

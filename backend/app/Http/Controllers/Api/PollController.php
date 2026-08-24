@@ -87,7 +87,7 @@ class PollController extends Controller
             'total_votes'          => $totalVotes,
             'user_voted_option_id' => $userVotedOptionId,
             'options'              => $poll->options->map(function ($opt) use ($totalVotes, $userVotedOptionId) {
-                $percentage = $totalVotes > 0 ? round(($opt->votes_count / $totalVotes) * 100, 1) : 0;
+                $percentage = $totalVotes > 0 ? (int) round(($opt->votes_count / $totalVotes) * 100) : 0;
                 return [
                     'id'          => $opt->id,
                     'text'        => $opt->option_text,

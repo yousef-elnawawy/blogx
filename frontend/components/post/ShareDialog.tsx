@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,16 +8,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link2, Check, Share2, Send, BookOpen } from "lucide-react";
+import { Link2, Check, Share2, Send, BookOpen, MessageCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
+import { useAuth } from "@/contexts/AuthContext";
+import { messagesService } from "@/services/messages";
 import api from "@/lib/api";
 
 export interface ShareItem {
   id: string | number;
-  type?: "post" | "blog";
+  type?: "post" | "blog" | "video" | "snippet";
   title?: string;
   slug?: string;
   author: {
@@ -44,7 +46,27 @@ export default function ShareDialog({
   onOpenChange,
   post,
 }: ShareDialogProps) {
+  const { user: currentUser } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [followingUsers, setFollowingUsers] = useState<any[]>([]);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
+  const [sendingToUserId, setSendingToUserId] = useState<number | null>(null);
+  const [sentUserIds, setSentUserIds] = useState<Set<number>>(new Set());
+
+  // Fetch following users when dialog opens
+  useEffect(() => {
+    if (open && currentUser) {
+      setLoadingFollowing(true);
+      api
+        .get("/api/user/following")
+        .then((res) => {
+          const list = res.data.users || res.data.data || res.data || [];
+          setFollowingUsers(Array.isArray(list) ? list : []);
+        })
+        .catch(() => {})
+        .finally(() => setLoadingFollowing(false));
+    }
+  }, [open, currentUser]);
 
   const isBlog = post.type === "blog" || Boolean(post.slug);
   const slugOrId = post.slug || post.id;
@@ -186,11 +208,43 @@ export default function ShareDialog({
     window.open(url, "_blank", "noopener,noreferrer");
   };
 
+  const handleSendDirectMessage = async (recipient: any) => {
+    if (!currentUser) return;
+    try {
+      setSendingToUserId(recipient.id);
+      const startRes = await messagesService.startConversation({ recipient_id: recipient.id });
+      const convId = startRes.conversation.id;
+
+      await messagesService.sendMessage(convId, {
+        shared_data: {
+          type: (post.type as any) || (isBlog ? "blog" : "post"),
+          id: slugOrId,
+          title: post.title,
+          author_name: post.author.name,
+          author_username: post.author.username,
+          author_avatar: post.author.avatar,
+          author_verified: post.author.verified,
+          excerpt: postText.slice(0, 120),
+          image: post.cover_image || post.images?.[0] || null,
+          url: shareUrl,
+        },
+      });
+
+      setSentUserIds((prev) => new Set(prev).add(recipient.id));
+      toast.success(`Sent to ${recipient.name} in direct messages!`);
+      notifyShare("Direct Message");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to send direct message");
+    } finally {
+      setSendingToUserId(null);
+    }
+  };
+
   const avatarSrc = getAvatarUrl(post.author.avatar);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md rounded-3xl p-5 sm:p-6 gap-5 bg-card border-border shadow-2xl">
+      <DialogContent className="sm:max-w-md rounded-3xl p-5 sm:p-6 gap-4 bg-card border-border shadow-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex items-center justify-between pb-2 border-b border-border/60">
           <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
             {isBlog ? (
@@ -202,25 +256,75 @@ export default function ShareDialog({
           </DialogTitle>
         </DialogHeader>
 
+        {/* 1. Direct Message Quick Share Row (If user is signed in) */}
+        {currentUser && followingUsers.length > 0 && (
+          <div className="space-y-2 pb-2 border-b border-border/50">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <MessageCircle className="size-3.5 text-primary" />
+                <span>Send via Direct Message</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 overflow-x-auto py-1 scrollbar-none">
+              {followingUsers.map((fUser) => {
+                const isSending = sendingToUserId === fUser.id;
+                const hasSent = sentUserIds.has(fUser.id);
+
+                return (
+                  <button
+                    key={fUser.id}
+                    type="button"
+                    onClick={() => !hasSent && !isSending && handleSendDirectMessage(fUser)}
+                    disabled={hasSent || isSending}
+                    className="flex flex-col items-center gap-1 min-w-[56px] max-w-[64px] group focus:outline-none cursor-pointer disabled:cursor-default"
+                  >
+                    <div className="relative">
+                      <Avatar className="size-11 ring-2 ring-primary/20 group-hover:ring-primary transition-all">
+                        <AvatarImage src={getAvatarUrl(fUser.avatar)} />
+                        <AvatarFallback className={`text-xs font-bold ${getAvatarGradient(fUser.username || fUser.name)}`}>
+                          {getInitials(fUser.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {hasSent && (
+                        <div className="absolute -bottom-1 -right-1 size-5 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-xs">
+                          <Check className="size-3 stroke-[3]" />
+                        </div>
+                      )}
+                      {isSending && (
+                        <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+                          <Loader2 className="size-4 animate-spin text-white" />
+                        </div>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-medium text-foreground truncate w-full text-center">
+                      {hasSent ? "Sent ✓" : fUser.name.split(" ")[0]}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Card Preview Container */}
-        <div className="relative rounded-2xl p-4 sm:p-5 border border-border/70 bg-muted/30 backdrop-blur-sm overflow-hidden shadow-inner space-y-3">
+        <div className="relative rounded-2xl p-3.5 sm:p-4 border border-border/70 bg-muted/30 backdrop-blur-sm overflow-hidden shadow-inner space-y-2.5">
           {/* Author Header */}
-          <div className="flex items-center gap-3">
-            <Avatar className="size-10 ring-2 ring-primary/20">
+          <div className="flex items-center gap-2.5">
+            <Avatar className="size-8 ring-1 ring-primary/20">
               <AvatarImage src={avatarSrc} />
-              <AvatarFallback className={`text-xs font-bold ${getAvatarGradient(post.author.username || post.author.name)}`}>
+              <AvatarFallback className={`text-[10px] font-bold ${getAvatarGradient(post.author.username || post.author.name)}`}>
                 {getInitials(post.author.name)}
               </AvatarFallback>
             </Avatar>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <h4 className="text-sm font-semibold text-foreground truncate">
+              <div className="flex items-center gap-1 flex-wrap">
+                <h4 className="text-xs font-semibold text-foreground truncate">
                   {post.author.name}
                 </h4>
-                {Boolean(post.author.verified) && <VerifiedBadge size="sm" />}
-                <UserBadges equippedBadges={post.author.equipped_badges} size="xs" />
+                {Boolean(post.author.verified) && <VerifiedBadge size="xs" />}
               </div>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-[11px] text-muted-foreground truncate">
                 @{post.author.username}
               </p>
             </div>
@@ -228,20 +332,20 @@ export default function ShareDialog({
 
           {/* Blog Title or Content Excerpt */}
           {post.title && (
-            <h3 className="text-base font-bold text-foreground leading-snug font-[family-name:var(--font-fraunces)] line-clamp-2">
+            <h3 className="text-sm font-bold text-foreground leading-snug font-[family-name:var(--font-fraunces)] line-clamp-2">
               {post.title}
             </h3>
           )}
 
           {postText && (
-            <p className="text-sm text-foreground/90 leading-relaxed line-clamp-3 whitespace-pre-wrap">
+            <p className="text-xs text-foreground/90 leading-relaxed line-clamp-2 whitespace-pre-wrap">
               {postText}
             </p>
           )}
 
           {/* Cover image if blog or post has image */}
           {(post.cover_image || (post.images && post.images.length > 0)) && (
-            <div className="rounded-xl overflow-hidden max-h-36 border border-border/50 bg-muted">
+            <div className="rounded-xl overflow-hidden max-h-28 border border-border/50 bg-muted">
               <img
                 src={getAvatarUrl(post.cover_image || post.images?.[0])}
                 alt="Preview"

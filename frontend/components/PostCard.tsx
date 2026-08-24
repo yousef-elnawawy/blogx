@@ -37,6 +37,7 @@ import VideoEmbed from "@/components/post/VideoEmbed";
 import LinkPreviewCard from "@/components/post/LinkPreviewCard";
 import PollWidget, { PollData } from "@/components/post/PollWidget";
 import CodeSnippetBlock from "@/components/post/CodeSnippetBlock";
+import CustomVideoPlayer from "@/components/video/CustomVideoPlayer";
 import api from "@/lib/api";
 
 export interface PostCardProps {
@@ -51,6 +52,11 @@ export interface PostCardProps {
   };
   content: string;
   images?: string[];
+  video?: {
+    url: string;
+    thumbnail?: string | null;
+    duration?: number | null;
+  } | null;
   mentions?: string[];
   poll?: PollData | null;
   likes_count: number;
@@ -78,6 +84,7 @@ export interface PostCardProps {
     avatar?: string | null;
     type?: string;
   } | null;
+  onDelete?: () => void;
 }
 
 function formatCount(num: number): string {
@@ -208,6 +215,7 @@ export default function PostCard({
   author,
   content,
   images = [],
+  video,
   mentions = [],
   poll,
   likes_count,
@@ -227,6 +235,7 @@ export default function PostCard({
   quote_of,
   community_id,
   community,
+  onDelete,
 }: PostCardProps) {
   const { user } = useAuth();
   const router = useRouter();
@@ -259,6 +268,7 @@ export default function PostCard({
     author,
     content: postContent,
     images: postImages,
+    video,
     mentions,
     poll,
     community,
@@ -401,6 +411,7 @@ export default function PostCard({
     try {
       await api.delete(`/api/posts/${id}`);
       toast.success("Post deleted successfully");
+      onDelete?.();
       window.dispatchEvent(new CustomEvent("post-deleted", { detail: { id } }));
     } catch {
       toast.error("Failed to delete post.");
@@ -590,6 +601,17 @@ export default function PostCard({
                 </div>
               )}
 
+              {/* Uploaded Native Video */}
+              {effectivePost.video && effectivePost.video.url && (
+                <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                  <CustomVideoPlayer
+                    src={effectivePost.video.url}
+                    poster={effectivePost.video.thumbnail}
+                    duration={effectivePost.video.duration}
+                  />
+                </div>
+              )}
+
               {/* Embedded Quote Post Card */}
               {quote_of && (
                 <div
@@ -597,30 +619,32 @@ export default function PostCard({
                     e.stopPropagation();
                     router.push(`/post/${quote_of.id}`);
                   }}
-                  className="mt-3 rounded-2xl border border-border/80 bg-card/70 hover:bg-muted/40 p-3.5 transition-colors cursor-pointer space-y-2 group/quote"
+                  className="mt-3.5 w-full rounded-2xl border border-border/80 bg-card/75 hover:bg-muted/40 p-4 transition-all duration-200 cursor-pointer space-y-2.5 group/quote shadow-sm hover:shadow-md"
                 >
-                  <div className="flex items-center gap-2">
-                    <Avatar className="size-5 ring-1 ring-border/40">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar className="size-6 ring-1 ring-border/40">
                       <AvatarImage src={getAvatarUrl(quote_of.author?.avatar)} alt={quote_of.author?.name} />
-                      <AvatarFallback className="text-[9px] font-bold">
+                      <AvatarFallback className="text-[10px] font-bold">
                         {getInitials(quote_of.author?.name || "U")}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="text-xs font-bold text-foreground group-hover/quote:underline">
-                      {quote_of.author?.name}
-                    </span>
-                    {Boolean(quote_of.author?.verified) && <VerifiedBadge size="xs" />}
-                    <span className="text-xs text-muted-foreground">
-                      @{quote_of.author?.username}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                      <span className="text-sm font-bold text-foreground group-hover/quote:underline truncate">
+                        {quote_of.author?.name}
+                      </span>
+                      {Boolean(quote_of.author?.verified) && <VerifiedBadge size="xs" />}
+                      <span className="text-xs text-muted-foreground truncate">
+                        @{quote_of.author?.username}
+                      </span>
+                    </div>
                   </div>
                   {quote_of.content && (
-                    <p className="text-xs text-foreground/90 leading-relaxed line-clamp-3">
+                    <p className="text-sm text-foreground/90 leading-relaxed line-clamp-4">
                       {quote_of.content}
                     </p>
                   )}
                   {quote_of.images && quote_of.images.length > 0 && (
-                    <div className="mt-2 rounded-xl overflow-hidden max-h-44 pointer-events-none">
+                    <div className="mt-2.5 rounded-xl overflow-hidden pointer-events-none">
                       <PostImageGrid images={quote_of.images} onImageClick={() => {}} />
                     </div>
                   )}

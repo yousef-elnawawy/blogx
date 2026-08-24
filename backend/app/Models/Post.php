@@ -15,6 +15,9 @@ class Post extends Model
         'repost_of_id',
         'quote_of_id',
         'content',
+        'video_url',
+        'video_thumbnail',
+        'video_duration',
         'comments_enabled',
         'views_count',
         'is_edited',
@@ -26,6 +29,7 @@ class Post extends Model
     protected $casts = [
         'comments_enabled' => 'boolean',
         'views_count'      => 'integer',
+        'video_duration'   => 'integer',
         'is_edited'        => 'boolean',
         'is_pinned'        => 'boolean',
         'scheduled_at'     => 'datetime',

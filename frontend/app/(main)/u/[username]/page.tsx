@@ -36,12 +36,14 @@ import {
   Pencil,
   Trash2,
   Info,
+  MessageCircle,
 } from "lucide-react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
 import BlogCard, { BlogItem } from "@/components/blog/BlogCard";
 import SeriesCard, { SeriesCardProps } from "@/components/blog/SeriesCard";
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import AccountInfoDialog from "@/components/profile/AccountInfoDialog";
+import { messagesService } from "@/services/messages";
 import api from "@/lib/api";
 import { cn, getAvatarUrl, getAvatarGradient, getDefaultBannerGradient, getInitials, detectSocialPlatform } from "@/lib/utils";
 import { toast } from "sonner";
@@ -534,16 +536,39 @@ function UserProfileContent() {
                 Edit Profile
               </Button>
             ) : (
-              <Button
-                onClick={handleFollowToggle}
-                className={`rounded-full text-sm font-bold h-9 px-5 transition-all ${
-                  profileUser.is_following
-                    ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive border border-border"
-                    : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-                }`}
-              >
-                {profileUser.is_following ? "Following" : "Follow"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-9 rounded-full cursor-pointer hover:border-primary/50"
+                  title="Direct Message"
+                  onClick={async () => {
+                    if (!profileUser.is_following) {
+                      toast.error(`You must follow @${profileUser.username} to send them a message.`);
+                      return;
+                    }
+                    try {
+                      const res = await messagesService.startConversation({ recipient_id: profileUser.id });
+                      router.push(`/messages/${res.conversation.id}`);
+                    } catch (err: any) {
+                      toast.error(err.response?.data?.message || "Failed to start conversation.");
+                    }
+                  }}
+                >
+                  <MessageCircle className="size-4 text-foreground" />
+                </Button>
+
+                <Button
+                  onClick={handleFollowToggle}
+                  className={`rounded-full text-sm font-bold h-9 px-5 transition-all ${
+                    profileUser.is_following
+                      ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive border border-border"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+                  }`}
+                >
+                  {profileUser.is_following ? "Following" : "Follow"}
+                </Button>
+              </div>
             )}
           </div>
         </div>

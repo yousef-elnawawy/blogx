@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\CommunityController;
 use App\Http\Controllers\Api\EmailVerificationController;
-use App\Http\Controllers\Api\NoteController;
+use App\Http\Controllers\Api\MessageController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PollController;
@@ -75,10 +75,18 @@ Route::middleware('auth:sanctum')->group(function () {
     // Broadcasting Authentication (Sanctum)
     Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
-    // Notes (24h Daily Thoughts - Instagram style)
-    Route::get('/notes', [NoteController::class, 'index']);
-    Route::post('/notes', [NoteController::class, 'store']);
-    Route::delete('/notes', [NoteController::class, 'destroy']);
+    // Direct Messages & Conversations (Encrypted & Following-gated)
+    Route::get('/conversations', [MessageController::class, 'index']);
+    Route::post('/conversations/start', [MessageController::class, 'start']);
+    Route::get('/conversations/{id}', [MessageController::class, 'show']);
+    Route::post('/conversations/{id}/messages', [MessageController::class, 'sendMessage']);
+    Route::delete('/conversations/{id}/messages/{messageId}', [MessageController::class, 'deleteMessage']);
+    Route::post('/conversations/{id}/typing', [MessageController::class, 'typing']);
+    Route::post('/conversations/{id}/messages/{messageId}/react', [MessageController::class, 'toggleReaction']);
+    Route::post('/conversations/{id}/pin', [MessageController::class, 'togglePin']);
+    Route::post('/conversations/{id}/read', [MessageController::class, 'markAsRead']);
+    Route::delete('/conversations/{id}', [MessageController::class, 'destroy']);
+    Route::get('/messages/unread-count', [MessageController::class, 'unreadCount']);
 
     // Notifications
     Route::get('/notifications', [NotificationController::class, 'index']);
@@ -140,6 +148,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // Public routes — enriched when auth token is present
 Route::get('/posts/preview-link', [PostController::class, 'previewLink']);
 Route::get('/posts', [PostController::class, 'index']);
+Route::get('/posts/videos', [PostController::class, 'videos']);
 Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::post('/posts/{id}/share', [PostController::class, 'recordShare']);
 Route::post('/posts/{id}/view', [PostController::class, 'recordImpression']);
