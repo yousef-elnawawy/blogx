@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\ConversationPinnedUpdated;
 use App\Events\MessageDeleted;
 use App\Events\MessageReactionUpdated;
 use App\Events\MessageSeen;
+use App\Events\MessageUpdated;
 use App\Events\NewMessage;
 use App\Events\UserTyping;
 use App\Http\Controllers\Controller;
+use App\Models\ContactNickname;
 use App\Models\Conversation;
 use App\Models\Message;
+use App\Models\StarredMessage;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -52,12 +56,12 @@ class MessageController extends Controller
         $conversation = Conversation::with(['userOne', 'userTwo'])->find($id);
 
         if (!$conversation) {
-            return response()->json(['message' => 'المحادثة غير موجودة'], 404);
+            return response()->json(['message' => 'Conversation not found.'], 404);
         }
 
         // Strict Authorization: Must be participant
         if ((int) $conversation->user_one_id !== (int) $user->id && (int) $conversation->user_two_id !== (int) $user->id) {
-            return response()->json(['message' => 'غير مصرح لك بالوصول إلى هذه المحادثة.'], 403);
+            return response()->json(['message' => 'Unauthorized: You are not a participant in this conversation.'], 403);
         }
 
         $otherUser = $conversation->getOtherUser($user->id);
@@ -98,68 +102,63 @@ class MessageController extends Controller
             ->get();
 
         $hasMore = $rawMessages->count() > $limit;
-        $pagedMessages = $rawMessages->take($limit)->reverse()->values();
+        $messages = $rawMessages->slice(0, $limit)->reverse()->values();
 
-        $messages = $pagedMessages->map(fn($m) => $m->format($user->id));
+        $formattedMessages = $messages->map(fn($m) => $m->format($user->id));
 
         return response()->json([
             'conversation' => $conversation->format($user->id),
-            'messages' => $messages,
+            'messages' => $formattedMessages,
             'has_more' => $hasMore,
             'is_following' => $isFollowing,
         ]);
     }
 
     /**
-     * Start or get an existing conversation with a user.
-     * Enforces the rule: Sender MUST be following the recipient!
+     * Start a conversation with a specific user (or retrieve existing).
      */
     public function start(Request $request)
     {
         $user = $request->user();
 
         $request->validate([
-            'recipient_id' => 'required_without:username|integer|exists:users,id',
-            'username' => 'required_without:recipient_id|string|exists:users,username',
+            'recipient_id' => 'required|exists:users,id',
         ]);
 
-        if ($request->filled('recipient_id')) {
-            $recipient = User::find($request->recipient_id);
-        } else {
-            $recipient = User::where('username', $request->username)->first();
+        $recipientId = (int) $request->input('recipient_id');
+
+        if ($user->id === $recipientId) {
+            return response()->json(['message' => 'You cannot start a conversation with yourself.'], 422);
         }
 
+        $recipient = User::find($recipientId);
         if (!$recipient) {
-            return response()->json(['message' => 'المستخدم غير موجود.'], 404);
+            return response()->json(['message' => 'User not found.'], 404);
         }
 
-        if ($recipient->id === $user->id) {
-            return response()->json(['message' => 'لا يمكنك مراسلة نفسك.'], 422);
+        // Check if recipient requires following to receive DMs
+        $isFollowing = $user->isFollowing($recipient);
+        $requireFollow = false;
+        if (isset($recipient->preferences['dm_require_follow']) && $recipient->preferences['dm_require_follow']) {
+            if (!$isFollowing) {
+                return response()->json([
+                    'message' => 'This user only receives direct messages from accounts they follow or that follow them.',
+                    'requires_follow' => true,
+                ], 403);
+            }
         }
 
-        // STRICT RULE: Must be following recipient to message them
-        if (!$user->isFollowing($recipient)) {
-            return response()->json([
-                'message' => 'يجب أن تتابع هذا المستخدم لتتمكن من مراسلته.',
-                'requires_follow' => true,
-                'user' => [
-                    'id' => $recipient->id,
-                    'name' => $recipient->name,
-                    'username' => $recipient->username,
-                ],
-            ], 403);
-        }
-
-        $conversation = Conversation::findOrCreateBetween($user->id, $recipient->id);
+        $conversation = Conversation::findOrCreateBetween($user->id, $recipientId);
+        $conversation->load(['userOne', 'userTwo', 'latestMessage.sender']);
 
         return response()->json([
             'conversation' => $conversation->format($user->id),
-        ]);
+            'is_following' => $isFollowing,
+        ], 200);
     }
 
     /**
      * Send a new message in a conversation.
-     * Enforces strict authorization, encrypted storage, following rule, and reply support.
      */
     public function sendMessage(Request $request, $id)
     {
@@ -168,34 +167,38 @@ class MessageController extends Controller
         $conversation = Conversation::with(['userOne', 'userTwo'])->find($id);
 
         if (!$conversation) {
-            return response()->json(['message' => 'المحادثة غير موجودة.'], 404);
+            return response()->json(['message' => 'Conversation not found.'], 404);
         }
 
         // Strict Authorization: Must be participant
         if ((int) $conversation->user_one_id !== (int) $user->id && (int) $conversation->user_two_id !== (int) $user->id) {
-            return response()->json(['message' => 'غير مصرح لك بالإرسال في هذه المحادثة.'], 403);
+            return response()->json(['message' => 'Unauthorized: You are not a participant in this conversation.'], 403);
         }
 
         $recipient = $conversation->getOtherUser($user->id);
         if (!$recipient) {
-            return response()->json(['message' => 'المستلم غير موجود.'], 404);
+            return response()->json(['message' => 'Recipient not found.'], 404);
         }
 
-        // STRICT RULE: Must be following recipient to message them
-        if (!$user->isFollowing($recipient)) {
-            return response()->json([
-                'message' => 'يجب أن تتابع هذا المستخدم لتتمكن من مراسلته.',
-                'requires_follow' => true,
-            ], 403);
+        // Permission check: Follower-only DMs
+        if (isset($recipient->preferences['dm_require_follow']) && $recipient->preferences['dm_require_follow']) {
+            if (!$user->isFollowing($recipient)) {
+                return response()->json([
+                    'message' => 'You must follow this user to send them direct messages.',
+                    'requires_follow' => true,
+                ], 403);
+            }
         }
 
         $request->validate([
-            'text' => 'nullable|string|max:20000',
-            'reply_to_id' => 'nullable|integer|exists:messages,id',
-            'images' => 'nullable|array',
-            'images.*' => 'nullable|image|max:51200',
-            'audio' => 'nullable|file|max:1048576', // Up to 1GB audio
-            'audio_duration' => 'nullable',
+            'text' => 'nullable|string|max:5000',
+            'images' => 'nullable|array|max:5',
+            'images.*' => 'image|mimes:jpeg,png,jpg,webp,gif|max:10240',
+            'audio' => 'nullable|file|mimes:webm,ogg,wav,mp3,m4a,mp4|max:20480',
+            'audio_duration' => 'nullable|integer',
+            'video' => 'nullable|file|mimes:mp4,mov,webm,mkv|max:1048576',
+            'file' => 'nullable|file|max:51200', // 50MB documents / zip
+            'reply_to_id' => 'nullable|exists:messages,id',
             'shared_data' => 'nullable',
         ]);
 
@@ -203,13 +206,11 @@ class MessageController extends Controller
         $replyToId = $request->input('reply_to_id');
         $audioDuration = $request->input('audio_duration') ? (int) $request->input('audio_duration') : null;
 
-        // Parse shared_data if string
         $sharedData = $request->input('shared_data');
         if (is_string($sharedData)) {
             $sharedData = json_decode($sharedData, true);
         }
 
-        // Validate reply_to_id belongs to the same conversation
         if ($replyToId) {
             $parent = Message::where('id', $replyToId)->where('conversation_id', $conversation->id)->first();
             if (!$parent) {
@@ -236,8 +237,31 @@ class MessageController extends Controller
             $uploadedAudioPath = '/storage/' . $path;
         }
 
-        if (empty($text) && empty($uploadedImagePaths) && empty($uploadedAudioPath) && empty($sharedData)) {
-            return response()->json(['message' => 'يرجى كتابة نص أو إرفاق ملف أو تسجيل صوتي.'], 422);
+        $uploadedVideoPath = null;
+        if ($request->hasFile('video') && $request->file('video')->isValid()) {
+            $videoFile = $request->file('video');
+            $ext = $videoFile->getClientOriginalExtension() ?: 'mp4';
+            $vName = 'chat_vid_' . uniqid() . '_' . time() . '.' . $ext;
+            $path = $videoFile->storeAs('chat_videos', $vName, 'public');
+            $uploadedVideoPath = '/storage/' . $path;
+        }
+
+        $uploadedFilePath = null;
+        $uploadedFileName = null;
+        $uploadedFileSize = null;
+        $uploadedFileType = null;
+        if ($request->hasFile('file') && $request->file('file')->isValid()) {
+            $docFile = $request->file('file');
+            $uploadedFileName = $docFile->getClientOriginalName();
+            $uploadedFileSize = $docFile->getSize();
+            $uploadedFileType = $docFile->getClientOriginalExtension() ?: 'file';
+            $fName = 'doc_' . uniqid() . '_' . time() . '.' . $uploadedFileType;
+            $path = $docFile->storeAs('chat_files', $fName, 'public');
+            $uploadedFilePath = '/storage/' . $path;
+        }
+
+        if (empty($text) && empty($uploadedImagePaths) && empty($uploadedAudioPath) && empty($uploadedVideoPath) && empty($uploadedFilePath) && empty($sharedData)) {
+            return response()->json(['message' => 'Please enter text, record audio, or attach a file.'], 422);
         }
 
         // Create Message with automatic AES-256 encrypted text
@@ -250,6 +274,11 @@ class MessageController extends Controller
             'images' => $uploadedImagePaths,
             'audio_url' => $uploadedAudioPath,
             'audio_duration' => $audioDuration,
+            'video_url' => $uploadedVideoPath,
+            'file_url' => $uploadedFilePath,
+            'file_name' => $uploadedFileName,
+            'file_size' => $uploadedFileSize,
+            'file_type' => $uploadedFileType,
             'shared_data' => $sharedData,
             'is_seen' => false,
         ]);
@@ -258,9 +287,13 @@ class MessageController extends Controller
             ? $text
             : (!empty($uploadedAudioPath)
                 ? '🎙️ Voice message'
-                : (!empty($sharedData)
-                    ? '🔗 Shared ' . ($sharedData['type'] ?? 'content')
-                    : (count($uploadedImagePaths) > 0 ? '📷 Image' : '')));
+                : (!empty($uploadedFilePath)
+                    ? '📎 ' . ($uploadedFileName ?: 'File')
+                    : (!empty($uploadedVideoPath)
+                        ? '🎥 Video'
+                        : (!empty($sharedData)
+                            ? '🔗 Shared ' . ($sharedData['type'] ?? 'content')
+                            : (count($uploadedImagePaths) > 0 ? '📷 Image' : '')))));
 
         $conversation->update([
             'last_message_text' => $lastText,
@@ -274,7 +307,7 @@ class MessageController extends Controller
 
         return response()->json([
             'message' => $message->format($user->id),
-            'conversation' => $conversation->format($user->id),
+            'conversation' => $conversation->fresh()->format($user->id),
         ], 201);
     }
 
@@ -510,6 +543,276 @@ class MessageController extends Controller
             'success' => true,
             'message_id' => $msgId,
             'conversation' => $conversation->fresh()->format($user->id),
+        ]);
+    }
+
+    /**
+     * Edit a sent message within 15 minutes of sending.
+     */
+    public function editMessage(Request $request, $id)
+    {
+        $user = $request->user();
+
+        $message = Message::with(['sender', 'replyTo.sender'])->find($id);
+        if (!$message) {
+            return response()->json(['message' => 'Message not found.'], 404);
+        }
+
+        if ((int) $message->sender_id !== (int) $user->id) {
+            return response()->json(['message' => 'Unauthorized: You can only edit your own messages.'], 403);
+        }
+
+        // Must be within 15 minutes
+        if ($message->created_at && $message->created_at->lessThan(now()->subMinutes(15))) {
+            return response()->json(['message' => 'Messages can only be edited within 15 minutes of sending.'], 422);
+        }
+
+        $request->validate([
+            'text' => 'required|string|max:5000',
+        ]);
+
+        $newText = trim($request->input('text'));
+
+        $message->update([
+            'text' => $newText,
+            'is_edited' => true,
+            'edited_at' => now(),
+        ]);
+
+        // Update conversation last_message if this was the latest message
+        $conversation = Conversation::find($message->conversation_id);
+        if ($conversation) {
+            $latest = Message::where('conversation_id', $conversation->id)->orderBy('id', 'desc')->first();
+            if ($latest && (int) $latest->id === (int) $message->id) {
+                $conversation->update([
+                    'last_message_text' => $newText,
+                ]);
+            }
+        }
+
+        // Broadcast to conversation participants
+        broadcast(new MessageUpdated($message))->toOthers();
+
+        return response()->json([
+            'success' => true,
+            'message' => $message->format($user->id),
+            'conversation' => $conversation ? $conversation->fresh()->format($user->id) : null,
+        ]);
+    }
+
+    /**
+     * Toggle starred bookmark status on a message.
+     */
+    public function toggleStar(Request $request, $id)
+    {
+        $user = $request->user();
+
+        $message = Message::with(['sender', 'replyTo.sender'])->find($id);
+        if (!$message) {
+            return response()->json(['message' => 'Message not found.'], 404);
+        }
+
+        $conversation = Conversation::find($message->conversation_id);
+        if (!$conversation) {
+            return response()->json(['message' => 'Conversation not found.'], 404);
+        }
+
+        if ((int) $conversation->user_one_id !== (int) $user->id && (int) $conversation->user_two_id !== (int) $user->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $starred = StarredMessage::where('user_id', $user->id)->where('message_id', $message->id)->first();
+        if ($starred) {
+            $starred->delete();
+            $isStarred = false;
+        } else {
+            StarredMessage::create([
+                'user_id' => $user->id,
+                'message_id' => $message->id,
+            ]);
+            $isStarred = true;
+        }
+
+        return response()->json([
+            'success' => true,
+            'is_starred' => $isStarred,
+            'message' => $message->format($user->id),
+        ]);
+    }
+
+    /**
+     * Pin or unpin a specific message in the conversation.
+     */
+    public function togglePinMessage(Request $request, $conversationId, $messageId)
+    {
+        $user = $request->user();
+
+        $conversation = Conversation::find($conversationId);
+        if (!$conversation) {
+            return response()->json(['message' => 'Conversation not found.'], 404);
+        }
+
+        if ((int) $conversation->user_one_id !== (int) $user->id && (int) $conversation->user_two_id !== (int) $user->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        if ((int) $conversation->pinned_message_id === (int) $messageId) {
+            // Unpin
+            $conversation->update(['pinned_message_id' => null]);
+        } else {
+            $message = Message::where('conversation_id', $conversation->id)->find($messageId);
+            if (!$message) {
+                return response()->json(['message' => 'Message not found in this conversation.'], 404);
+            }
+            $conversation->update(['pinned_message_id' => $messageId]);
+        }
+
+        $conversation->load('pinnedMessage.sender');
+        broadcast(new ConversationPinnedUpdated($conversation))->toOthers();
+
+        return response()->json([
+            'success' => true,
+            'conversation' => $conversation->fresh()->format($user->id),
+        ]);
+    }
+
+    /**
+     * Get shared media, files, and links in a conversation.
+     */
+    public function getMediaGallery(Request $request, $id)
+    {
+        $user = $request->user();
+
+        $conversation = Conversation::find($id);
+        if (!$conversation) {
+            return response()->json(['message' => 'Conversation not found.'], 404);
+        }
+
+        if ((int) $conversation->user_one_id !== (int) $user->id && (int) $conversation->user_two_id !== (int) $user->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $messages = Message::where('conversation_id', $conversation->id)
+            ->with(['sender'])
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $media = [];
+        $files = [];
+        $links = [];
+
+        foreach ($messages as $msg) {
+            $formatted = $msg->format($user->id);
+
+            // Images & Videos
+            if (!empty($formatted['images']) || !empty($formatted['video_url'])) {
+                $media[] = $formatted;
+            }
+
+            // Documents & Files
+            if (!empty($formatted['file_url'])) {
+                $files[] = $formatted;
+            }
+
+            // Links / Shared data
+            if (!empty($formatted['shared_data']) || preg_match('/https?:\/\/[^\s]+/', $formatted['text'] ?? '')) {
+                $links[] = $formatted;
+            }
+        }
+
+        return response()->json([
+            'media' => $media,
+            'files' => $files,
+            'links' => $links,
+        ]);
+    }
+
+    /**
+     * Set, update, or remove private contact nickname.
+     */
+    public function setContactNickname(Request $request, $contactId)
+    {
+        $user = $request->user();
+
+        $contact = User::find($contactId);
+        if (!$contact) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
+        if ((int) $contactId === (int) $user->id) {
+            return response()->json(['message' => 'You cannot set a nickname for yourself.'], 422);
+        }
+
+        $request->validate([
+            'nickname' => 'nullable|string|max:100',
+        ]);
+
+        $nickname = trim($request->input('nickname', ''));
+
+        if (empty($nickname)) {
+            ContactNickname::where('user_id', $user->id)->where('contact_id', $contactId)->delete();
+            return response()->json([
+                'success' => true,
+                'nickname' => null,
+                'display_name' => $contact->name,
+            ]);
+        }
+
+        $entry = ContactNickname::updateOrCreate(
+            ['user_id' => $user->id, 'contact_id' => $contactId],
+            ['nickname' => $nickname]
+        );
+
+        return response()->json([
+            'success' => true,
+            'nickname' => $entry->nickname,
+            'display_name' => $entry->nickname,
+        ]);
+    }
+
+    /**
+     * Search within a conversation by query keyword.
+     */
+    public function search(Request $request, $id)
+    {
+        $user = $request->user();
+
+        $conversation = Conversation::find($id);
+        if (!$conversation) {
+            return response()->json(['message' => 'Conversation not found.'], 404);
+        }
+
+        if ((int) $conversation->user_one_id !== (int) $user->id && (int) $conversation->user_two_id !== (int) $user->id) {
+            return response()->json(['message' => 'Unauthorized.'], 403);
+        }
+
+        $q = trim($request->query('q', ''));
+        if (empty($q)) {
+            return response()->json(['results' => []]);
+        }
+
+        // Fetch all messages and filter against decrypted text or file names
+        $messages = Message::where('conversation_id', $conversation->id)
+            ->with(['sender'])
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $matches = [];
+        $lowerQ = mb_strtolower($q);
+
+        foreach ($messages as $msg) {
+            $formatted = $msg->format($user->id);
+            $text = mb_strtolower($formatted['text'] ?? '');
+            $fileName = mb_strtolower($formatted['file_name'] ?? '');
+
+            if (str_contains($text, $lowerQ) || str_contains($fileName, $lowerQ)) {
+                $matches[] = $formatted;
+            }
+        }
+
+        return response()->json([
+            'results' => $matches,
+            'count' => count($matches),
         ]);
     }
 }

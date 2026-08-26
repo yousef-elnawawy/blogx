@@ -21,12 +21,14 @@ class Conversation extends Model
         'last_message_at',
         'user_one_pinned',
         'user_two_pinned',
+        'pinned_message_id',
     ];
 
     protected $casts = [
         'last_message_at' => 'datetime',
         'user_one_pinned' => 'boolean',
         'user_two_pinned' => 'boolean',
+        'pinned_message_id' => 'integer',
     ];
 
     /**
@@ -63,6 +65,11 @@ class Conversation extends Model
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class, 'conversation_id')->orderBy('created_at', 'asc');
+    }
+
+    public function pinnedMessage(): BelongsTo
+    {
+        return $this->belongsTo(Message::class, 'pinned_message_id');
     }
 
     public function latestMessage(): HasOne
@@ -155,6 +162,13 @@ class Conversation extends Model
         $otherUser = $this->getOtherUser($currentUserId);
         $latestMsg = $this->latestMessage;
 
+        $customNickname = null;
+        if ($otherUser && $currentUserId) {
+            $customNickname = ContactNickname::where('user_id', $currentUserId)
+                ->where('contact_id', $otherUser->id)
+                ->value('nickname');
+        }
+
         $avatarUrl = $otherUser?->avatar;
         if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
             $avatarUrl = config('app.url') . $avatarUrl;
@@ -165,12 +179,23 @@ class Conversation extends Model
             $coverUrl = config('app.url') . $coverUrl;
         }
 
+        $pinnedMsgFormatted = null;
+        if ($this->pinned_message_id) {
+            $pinned = $this->relationLoaded('pinnedMessage') ? $this->pinnedMessage : $this->pinnedMessage()->with('sender')->first();
+            if ($pinned) {
+                $pinnedMsgFormatted = $pinned->format($currentUserId);
+            }
+        }
+
         return [
             'id' => $this->id,
             'is_pinned' => $this->isPinnedFor($currentUserId),
+            'pinned_message' => $pinnedMsgFormatted,
             'user' => $otherUser ? [
                 'id' => $otherUser->id,
                 'name' => $otherUser->name,
+                'custom_nickname' => $customNickname,
+                'display_name' => $customNickname ?: $otherUser->name,
                 'username' => $otherUser->username,
                 'avatar' => $avatarUrl,
                 'cover' => $coverUrl,
@@ -192,9 +217,13 @@ class Conversation extends Model
                     ? $latestMsg->text
                     : (!empty($latestMsg->audio_url)
                         ? '🎙️ Voice message'
-                        : (!empty($latestMsg->shared_data)
-                            ? '🔗 Shared ' . ($latestMsg->shared_data['type'] ?? 'content')
-                            : (count($latestMsg->images ?? []) > 0 ? '📷 Image' : ''))),
+                        : (!empty($latestMsg->file_url)
+                            ? '📎 ' . ($latestMsg->file_name ?: 'File')
+                            : (!empty($latestMsg->video_url)
+                                ? '🎥 Video'
+                                : (!empty($latestMsg->shared_data)
+                                    ? '🔗 Shared ' . ($latestMsg->shared_data['type'] ?? 'content')
+                                    : (count($latestMsg->images ?? []) > 0 ? '📷 Image' : ''))))),
                 'created_at' => $latestMsg->created_at->diffForHumans(),
                 'created_at_iso' => $latestMsg->created_at->toIso8601String(),
                 'is_seen' => (bool) $latestMsg->is_seen,

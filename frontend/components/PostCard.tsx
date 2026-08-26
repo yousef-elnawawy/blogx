@@ -92,12 +92,42 @@ function formatCount(num: number): string {
   return String(num);
 }
 
+function parseTimeToSeconds(timeStr: string): number {
+  const parts = timeStr.split(":").map(Number);
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return 0;
+}
+
 function renderInlineElements(text: string, validMentions?: string[]) {
-  const inlineRegex = /(```[\s\S]*?```|`[^`\n]+`|https?:\/\/[^\s]+|www\.[^\s]+|@[a-zA-Z0-9_]+|#[\p{L}\p{N}_]+)/gu;
+  const inlineRegex = /(```[\s\S]*?```|`[^`\n]+`|https?:\/\/[^\s]+|www\.[^\s]+|@[a-zA-Z0-9_]+|#[\p{L}\p{N}_]+|\b\d{1,2}:\d{2}(?::\d{2})?\b)/gu;
   const parts = text.split(inlineRegex);
 
   return parts.map((part, i) => {
     if (!part) return null;
+
+    if (/^\d{1,2}:\d{2}(?::\d{2})?$/.test(part)) {
+      const seconds = parseTimeToSeconds(part);
+      return (
+        <button
+          key={i}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent("blogx-video-seek", { detail: { time: seconds } }));
+          }}
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary font-mono text-xs font-bold transition-colors cursor-pointer relative z-10"
+          title={`Jump video to ${part}`}
+        >
+          <span className="text-[10px]">▶</span>
+          <span>{part}</span>
+        </button>
+      );
+    }
 
     if (part.startsWith("`") && part.endsWith("`") && part.length >= 2 && !part.startsWith("```")) {
       const inlineCode = part.slice(1, -1);
@@ -845,6 +875,7 @@ export default function PostCard({
           id: effectivePost.id || id,
           content: effectivePost.content || "",
           images: effectivePost.images || [],
+          video: effectivePost.video || null,
         }}
       />
 

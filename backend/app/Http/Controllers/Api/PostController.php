@@ -831,11 +831,15 @@ class PostController extends Controller
         }
 
         $validated = $request->validate([
-            'content'          => ['nullable', 'string', 'max:5000'],
+            'content'          => ['nullable', 'string', 'max:50000'],
             'images'           => ['nullable', 'array', 'max:10'],
-            'images.*'         => ['image', 'mimes:jpeg,png,jpg,webp,gif', 'max:10240'], // Up to 10 MB per image
+            'images.*'         => ['image', 'mimes:jpeg,png,jpg,webp,gif', 'max:51200'],
             'removed_images'   => ['nullable', 'array'],
             'removed_images.*' => ['string'],
+            'video'            => ['nullable', 'file', 'max:1048576'],
+            'video_thumbnail'  => ['nullable', 'file', 'max:51200'],
+            'video_duration'   => ['nullable', 'numeric'],
+            'remove_video'     => ['nullable'],
             'status'           => ['nullable', 'in:published,draft,scheduled'],
         ]);
 
@@ -848,6 +852,61 @@ class PostController extends Controller
         }
 
         $post->update($updateData);
+
+        // Handle video removal
+        if ($request->boolean('remove_video') || $request->input('remove_video') === '1' || $request->input('remove_video') === 'true') {
+            if ($post->video_url) {
+                $cleanPath = str_replace('/storage/', '', $post->video_url);
+                Storage::disk('public')->delete($cleanPath);
+            }
+            if ($post->video_thumbnail) {
+                $cleanThumb = str_replace('/storage/', '', $post->video_thumbnail);
+                Storage::disk('public')->delete($cleanThumb);
+            }
+            $post->update([
+                'video_url'       => null,
+                'video_thumbnail' => null,
+                'video_duration'  => null,
+            ]);
+        }
+
+        // Handle newly uploaded video
+        if ($request->hasFile('video') && $request->file('video')->isValid()) {
+            if ($post->video_url) {
+                $cleanPath = str_replace('/storage/', '', $post->video_url);
+                Storage::disk('public')->delete($cleanPath);
+            }
+            $videoFile = $request->file('video');
+            $ext = $videoFile->getClientOriginalExtension() ?: 'mp4';
+            $vName = 'vid_' . uniqid() . '_' . time() . '.' . $ext;
+            $vPath = $videoFile->storeAs('posts_videos', $vName, 'public');
+
+            $thumbPath = $post->video_thumbnail;
+            if ($request->hasFile('video_thumbnail') && $request->file('video_thumbnail')->isValid()) {
+                if ($post->video_thumbnail) {
+                    $cleanThumb = str_replace('/storage/', '', $post->video_thumbnail);
+                    Storage::disk('public')->delete($cleanThumb);
+                }
+                $tPath = $request->file('video_thumbnail')->store('posts_videos', 'public');
+                $thumbPath = '/storage/' . $tPath;
+            }
+
+            $post->update([
+                'video_url'       => '/storage/' . $vPath,
+                'video_thumbnail' => $thumbPath,
+                'video_duration'  => $request->filled('video_duration') ? (int) $request->input('video_duration') : null,
+            ]);
+        } elseif ($request->hasFile('video_thumbnail') && $request->file('video_thumbnail')->isValid()) {
+            // Only updating thumbnail for existing video
+            if ($post->video_thumbnail) {
+                $cleanThumb = str_replace('/storage/', '', $post->video_thumbnail);
+                Storage::disk('public')->delete($cleanThumb);
+            }
+            $tPath = $request->file('video_thumbnail')->store('posts_videos', 'public');
+            $post->update([
+                'video_thumbnail' => '/storage/' . $tPath,
+            ]);
+        }
 
         // Handle removed images
         if ($request->has('removed_images') && is_array($request->removed_images)) {

@@ -21,8 +21,15 @@ class Message extends Model
         'images',
         'audio_url',
         'audio_duration',
+        'file_url',
+        'file_name',
+        'file_size',
+        'file_type',
+        'video_url',
         'shared_data',
         'reactions',
+        'is_edited',
+        'edited_at',
         'is_seen',
         'seen_at',
     ];
@@ -32,6 +39,9 @@ class Message extends Model
         'shared_data' => 'array',
         'reactions' => 'array',
         'audio_duration' => 'integer',
+        'file_size' => 'integer',
+        'is_edited' => 'boolean',
+        'edited_at' => 'datetime',
         'is_seen' => 'boolean',
         'seen_at' => 'datetime',
     ];
@@ -139,6 +149,35 @@ class Message extends Model
             $audioUrl = config('app.url') . $audioUrl;
         }
 
+        $fileUrl = $this->file_url;
+        if ($fileUrl && !str_starts_with($fileUrl, 'http')) {
+            $fileUrl = config('app.url') . $fileUrl;
+        }
+
+        $videoUrl = $this->video_url;
+        if ($videoUrl && !str_starts_with($videoUrl, 'http')) {
+            $videoUrl = config('app.url') . $videoUrl;
+        }
+
+        $isStarred = false;
+        if ($currentUserId) {
+            $isStarred = StarredMessage::where('user_id', $currentUserId)
+                ->where('message_id', $this->id)
+                ->exists();
+        }
+
+        $canEdit = false;
+        if ($currentUserId && (int) $this->sender_id === (int) $currentUserId) {
+            $canEdit = $this->created_at && $this->created_at->greaterThanOrEqualTo(now()->subMinutes(15));
+        }
+
+        $senderNickname = null;
+        if ($currentUserId && $this->sender && (int) $this->sender_id !== (int) $currentUserId) {
+            $senderNickname = ContactNickname::where('user_id', $currentUserId)
+                ->where('contact_id', $this->sender_id)
+                ->value('nickname');
+        }
+
         return [
             'id' => $this->id,
             'conversation_id' => $this->conversation_id,
@@ -151,8 +190,17 @@ class Message extends Model
             'images' => $formattedImages,
             'audio_url' => $audioUrl,
             'audio_duration' => $this->audio_duration,
+            'file_url' => $fileUrl,
+            'file_name' => $this->file_name,
+            'file_size' => $this->file_size,
+            'file_type' => $this->file_type,
+            'video_url' => $videoUrl,
             'shared_data' => $this->shared_data,
             'reactions' => array_values($reactionsSummary),
+            'is_edited' => (bool) $this->is_edited,
+            'edited_at' => $this->edited_at?->toIso8601String(),
+            'can_edit' => $canEdit,
+            'is_starred' => $isStarred,
             'is_seen' => (bool) $this->is_seen,
             'seen_at' => $this->seen_at?->toIso8601String(),
             'created_at' => $this->created_at ? $this->created_at->toIso8601String() : now()->toIso8601String(),
@@ -160,6 +208,8 @@ class Message extends Model
             'sender' => $this->relationLoaded('sender') && $this->sender ? [
                 'id' => $this->sender->id,
                 'name' => $this->sender->name,
+                'custom_nickname' => $senderNickname,
+                'display_name' => $senderNickname ?: $this->sender->name,
                 'username' => $this->sender->username,
                 'avatar' => $senderAvatar,
                 'verified' => (bool) $this->sender->verified,

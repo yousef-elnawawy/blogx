@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Loader2, PenSquare, Check } from "lucide-react";
+import { Loader2, PenSquare, Check, Image as ImageIcon, RotateCcw, Camera, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import Toolbar from "./Toolbar";
@@ -25,12 +25,18 @@ import api from "@/lib/api";
 import { PostCardProps } from "@/components/PostCard";
 import { getAvatarUrl } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
+import { captureVideoFirstFrame } from "@/lib/video-thumbnail";
 import { useRouter } from "next/navigation";
 
 export interface PostToEdit {
   id: string | number;
   content: string;
   images?: string[];
+  video?: {
+    url: string;
+    thumbnail?: string | null;
+    duration?: number | null;
+  } | null;
 }
 
 interface PostEditorDialogProps {
@@ -102,9 +108,22 @@ export default function PostEditorDialog({
   const [contentLength, setContentLength] = useState(0);
   const [images, setImages] = useState<ImageEntry[]>([]);
   const [removedImages, setRemovedImages] = useState<string[]>([]);
+  const [existingVideo, setExistingVideo] = useState<{
+    url: string;
+    thumbnail?: string | null;
+    duration?: number | null;
+  } | null>(null);
+  const [videoRemoved, setVideoRemoved] = useState(false);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [videoDuration, setVideoDuration] = useState<number | null>(null);
+  const [videoThumbnailFile, setVideoThumbnailFile] = useState<File | null>(null);
+  const [videoThumbnailPreviewUrl, setVideoThumbnailPreviewUrl] = useState<string | null>(null);
+  const [autoThumbnailFile, setAutoThumbnailFile] = useState<File | null>(null);
+  const [autoThumbnailPreviewUrl, setAutoThumbnailPreviewUrl] = useState<string | null>(null);
+  const [isCustomThumbnail, setIsCustomThumbnail] = useState(false);
+  const [extractingThumbnail, setExtractingThumbnail] = useState(false);
+  const thumbnailInputRef = useRef<HTMLInputElement>(null);
   const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<"published" | "draft" | null>(null);
@@ -181,9 +200,35 @@ export default function PostEditorDialog({
             }))
           );
           setRemovedImages([]);
+
+          if (postToEdit.video && postToEdit.video.url) {
+            setExistingVideo(postToEdit.video);
+            setVideoPreviewUrl(postToEdit.video.url);
+            setVideoThumbnailPreviewUrl(postToEdit.video.thumbnail || null);
+            setVideoDuration(postToEdit.video.duration || null);
+            setIsCustomThumbnail(Boolean(postToEdit.video.thumbnail));
+            setVideoRemoved(false);
+          } else {
+            setExistingVideo(null);
+            setVideoFile(null);
+            setVideoPreviewUrl(null);
+            setVideoThumbnailFile(null);
+            setVideoThumbnailPreviewUrl(null);
+            setVideoDuration(null);
+            setIsCustomThumbnail(false);
+            setVideoRemoved(false);
+          }
         } else {
           setImages([]);
           setRemovedImages([]);
+          setExistingVideo(null);
+          setVideoFile(null);
+          setVideoPreviewUrl(null);
+          setVideoThumbnailFile(null);
+          setVideoThumbnailPreviewUrl(null);
+          setVideoDuration(null);
+          setIsCustomThumbnail(false);
+          setVideoRemoved(false);
         }
         setHashtagVisible(false);
         setHashtagSuggestions([]);
@@ -564,7 +609,7 @@ export default function PostEditorDialog({
     handleInput();
   };
 
-  const handleVideoSelect = (file: File) => {
+  const handleVideoSelect = async (file: File) => {
     const url = URL.createObjectURL(file);
     setVideoFile(file);
     setVideoPreviewUrl(url);
@@ -577,15 +622,73 @@ export default function PostEditorDialog({
         setVideoDuration(Math.round(tempVid.duration));
       }
     };
+
+    // Automatically extract first frame as default thumbnail
+    setExtractingThumbnail(true);
+    try {
+      const extracted = await captureVideoFirstFrame(file);
+      setAutoThumbnailFile(extracted.file);
+      setAutoThumbnailPreviewUrl(extracted.previewUrl);
+      setVideoThumbnailFile(extracted.file);
+      setVideoThumbnailPreviewUrl(extracted.previewUrl);
+      setIsCustomThumbnail(false);
+    } catch (err) {
+      console.warn("Could not auto-extract video thumbnail:", err);
+    } finally {
+      setExtractingThumbnail(false);
+    }
+  };
+
+  const handleCustomThumbnailSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    try {
+      const compressed = await compressImage(file, {
+        maxWidth: 1920,
+        maxHeight: 1080,
+        quality: 0.88,
+      });
+      const preview = URL.createObjectURL(compressed);
+      setVideoThumbnailFile(compressed);
+      setVideoThumbnailPreviewUrl(preview);
+      setIsCustomThumbnail(true);
+      toast.success("Custom thumbnail uploaded!");
+    } catch {
+      toast.error("Failed to process custom thumbnail");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const handleResetToAutoThumbnail = () => {
+    if (autoThumbnailFile && autoThumbnailPreviewUrl) {
+      setVideoThumbnailFile(autoThumbnailFile);
+      setVideoThumbnailPreviewUrl(autoThumbnailPreviewUrl);
+      setIsCustomThumbnail(false);
+      toast.info("Reverted to automatic video frame thumbnail");
+    }
   };
 
   const removeVideo = () => {
-    if (videoPreviewUrl) {
+    if (videoPreviewUrl && !existingVideo) {
       URL.revokeObjectURL(videoPreviewUrl);
+    }
+    if (videoThumbnailPreviewUrl && !isCustomThumbnail && !existingVideo) {
+      URL.revokeObjectURL(videoThumbnailPreviewUrl);
+    }
+    if (existingVideo) {
+      setVideoRemoved(true);
+      setExistingVideo(null);
     }
     setVideoFile(null);
     setVideoPreviewUrl(null);
     setVideoDuration(null);
+    setVideoThumbnailFile(null);
+    setVideoThumbnailPreviewUrl(null);
+    setAutoThumbnailFile(null);
+    setAutoThumbnailPreviewUrl(null);
+    setIsCustomThumbnail(false);
   };
 
   const handlePost = async (status: "published" | "draft" = "published") => {
@@ -595,7 +698,7 @@ export default function PostEditorDialog({
     const validPollOptions = pollDraft ? pollDraft.options.filter((o) => o.trim() !== "") : [];
     const hasValidPoll = Boolean(pollDraft && validPollOptions.length >= 2);
 
-    if (!content && images.length === 0 && !videoFile && !hasValidPoll) {
+    if (!content && images.length === 0 && !videoFile && !existingVideo && !hasValidPoll) {
       toast.error("Please enter text, attach an image/video, or add at least 2 options to your poll.");
       return;
     }
@@ -617,6 +720,16 @@ export default function PostEditorDialog({
         if (videoDuration) {
           formData.append("video_duration", String(videoDuration));
         }
+        if (videoThumbnailFile) {
+          formData.append("video_thumbnail", videoThumbnailFile);
+        }
+      } else if (existingVideo && videoThumbnailFile) {
+        // Thumbnail updated for existing video
+        formData.append("video_thumbnail", videoThumbnailFile);
+      }
+
+      if (videoRemoved) {
+        formData.append("remove_video", "1");
       }
 
       images.forEach((entry) => {
@@ -650,7 +763,7 @@ export default function PostEditorDialog({
           headers: { "Content-Type": "multipart/form-data" },
         });
 
-        toast.success(status === "draft" ? "Draft updated!" : "Post published!");
+        toast.success(status === "draft" ? "Draft updated!" : "Post updated successfully!");
         onPostUpdated?.(res.data.post);
         window.dispatchEvent(new CustomEvent("post-updated", { detail: res.data.post }));
       } else {
@@ -678,6 +791,12 @@ export default function PostEditorDialog({
       if (editorRef.current) editorRef.current.innerHTML = "";
       setImages([]);
       setRemovedImages([]);
+      setExistingVideo(null);
+      setVideoRemoved(false);
+      setVideoFile(null);
+      setVideoPreviewUrl(null);
+      setVideoThumbnailFile(null);
+      setVideoThumbnailPreviewUrl(null);
       setPollDraft(null);
       setDraftSaved(false);
       onOpenChange(false);
@@ -816,9 +935,9 @@ export default function PostEditorDialog({
           </div>
         )}
 
-        {/* Video Preview */}
+        {/* Video Preview & Thumbnail Selection */}
         {videoPreviewUrl && (
-          <div className="shrink-0 px-4 sm:px-6 mb-3 relative">
+          <div className="shrink-0 px-4 sm:px-6 mb-3 space-y-2">
             <div className="relative rounded-2xl overflow-hidden bg-black/90 aspect-video max-h-56 border border-border/70 group">
               <video
                 src={videoPreviewUrl}
@@ -828,11 +947,88 @@ export default function PostEditorDialog({
               <button
                 type="button"
                 onClick={removeVideo}
-                className="absolute top-2 right-2 size-8 rounded-full bg-black/70 hover:bg-red-600 text-white flex items-center justify-center transition-colors cursor-pointer"
+                className="absolute top-2 right-2 size-8 rounded-full bg-black/70 hover:bg-red-600 text-white flex items-center justify-center transition-colors cursor-pointer z-10"
                 title="Remove video"
               >
                 <span className="text-sm font-bold">✕</span>
               </button>
+            </div>
+
+            {/* Thumbnail Controls Bar */}
+            <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-card border border-border/80 text-xs shadow-2xs">
+              <div className="flex items-center gap-2.5 min-w-0">
+                {/* Thumbnail Preview Box */}
+                <div className="relative size-11 rounded-lg overflow-hidden border border-border/80 shrink-0 bg-muted flex items-center justify-center shadow-inner">
+                  {extractingThumbnail ? (
+                    <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                  ) : videoThumbnailPreviewUrl ? (
+                    <img
+                      src={videoThumbnailPreviewUrl}
+                      alt="Thumbnail"
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <Camera className="size-4 text-muted-foreground" />
+                  )}
+                </div>
+
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-foreground text-xs">Video Thumbnail</span>
+                    {isCustomThumbnail ? (
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-medium border border-emerald-500/20">
+                        Custom
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-primary bg-primary/10 px-1.5 py-0.5 rounded font-medium border border-primary/20">
+                        Auto 1st Frame
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-muted-foreground truncate">
+                    {isCustomThumbnail
+                      ? "Custom cover image selected"
+                      : "First frame captured automatically as cover"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Hidden File Input for Custom Thumbnail */}
+              <input
+                ref={thumbnailInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCustomThumbnailSelect}
+              />
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isCustomThumbnail && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleResetToAutoThumbnail}
+                    className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground gap-1 cursor-pointer"
+                    title="Reset to automatic video frame"
+                  >
+                    <RotateCcw className="size-3" />
+                    <span className="hidden sm:inline">Reset Auto</span>
+                  </Button>
+                )}
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => thumbnailInputRef.current?.click()}
+                  className="h-7 px-2.5 text-[11px] font-semibold gap-1.5 border-border hover:bg-muted cursor-pointer"
+                >
+                  <ImageIcon className="size-3 text-primary" />
+                  <span>{isCustomThumbnail ? "Change Thumbnail" : "Upload Thumbnail"}</span>
+                </Button>
+              </div>
             </div>
           </div>
         )}

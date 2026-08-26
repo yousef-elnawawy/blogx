@@ -320,7 +320,7 @@ export default function MessagesPage() {
                           isUnread ? "font-bold text-foreground" : "font-semibold text-foreground/90"
                         }`}
                       >
-                        {otherUser?.name || "User"}
+                        {otherUser?.display_name || otherUser?.custom_nickname || otherUser?.name || "User"}
                       </span>
                       {otherUser?.verified && <VerifiedBadge size="xs" />}
                       <span className="text-xs text-muted-foreground truncate hidden sm:inline">

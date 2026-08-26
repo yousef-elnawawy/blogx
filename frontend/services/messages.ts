@@ -3,6 +3,8 @@ import api from "@/lib/api";
 export interface MessageUser {
   id: number;
   name: string;
+  display_name?: string;
+  custom_nickname?: string | null;
   username: string;
   avatar: string | null;
   cover?: string | null;
@@ -58,15 +60,27 @@ export interface DirectMessage {
   images?: string[];
   audio_url?: string | null;
   audio_duration?: number | null;
+  file_url?: string | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  file_type?: string | null;
+  video_url?: string | null;
   shared_data?: DirectMessageSharedData | null;
   reactions?: MessageReaction[];
+  is_edited?: boolean;
+  edited_at?: string | null;
+  can_edit?: boolean;
+  is_starred?: boolean;
   is_seen: boolean;
   seen_at?: string | null;
   created_at: string;
   created_at_human?: string;
+  is_pending?: boolean;
   sender?: {
     id: number;
     name: string;
+    display_name?: string;
+    custom_nickname?: string | null;
     username: string;
     avatar: string | null;
     verified: boolean;
@@ -76,6 +90,7 @@ export interface DirectMessage {
 export interface ConversationItem {
   id: number;
   is_pinned?: boolean;
+  pinned_message?: DirectMessage | null;
   user: MessageUser | null;
   last_message: {
     id?: number;
@@ -94,6 +109,12 @@ export interface ConversationDetailResponse {
   messages: DirectMessage[];
   has_more: boolean;
   is_following: boolean;
+}
+
+export interface MediaGalleryResponse {
+  media: DirectMessage[];
+  files: DirectMessage[];
+  links: DirectMessage[];
 }
 
 export const messagesService = {
@@ -120,6 +141,8 @@ export const messagesService = {
     payload: {
       text?: string;
       images?: File[];
+      video?: File | null;
+      file?: File | null;
       reply_to_id?: number | null;
       audio?: Blob | File | null;
       audio_duration?: number | null;
@@ -148,12 +171,64 @@ export const messagesService = {
         formData.append("images[]", file);
       });
     }
+    if (payload.video) {
+      formData.append("video", payload.video);
+    }
+    if (payload.file) {
+      formData.append("file", payload.file);
+    }
 
     const res = await api.post(`/api/conversations/${conversationId}/messages`, formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     });
+    return res.data;
+  },
+
+  async editMessage(
+    messageId: number | string,
+    text: string
+  ): Promise<{ success: boolean; message: DirectMessage; conversation?: ConversationItem }> {
+    const res = await api.put(`/api/messages/${messageId}`, { text });
+    return res.data;
+  },
+
+  async toggleStar(
+    messageId: number | string
+  ): Promise<{ success: boolean; is_starred: boolean; message: DirectMessage }> {
+    const res = await api.post(`/api/messages/${messageId}/star`);
+    return res.data;
+  },
+
+  async togglePinMessage(
+    conversationId: number | string,
+    messageId: number | string
+  ): Promise<{ success: boolean; conversation: ConversationItem }> {
+    const res = await api.post(`/api/conversations/${conversationId}/pin/${messageId}`);
+    return res.data;
+  },
+
+  async getMediaGallery(
+    conversationId: number | string
+  ): Promise<MediaGalleryResponse> {
+    const res = await api.get(`/api/conversations/${conversationId}/media`);
+    return res.data;
+  },
+
+  async setContactNickname(
+    userId: number | string,
+    nickname: string | null
+  ): Promise<{ success: boolean; nickname: string | null; display_name: string }> {
+    const res = await api.post(`/api/contacts/${userId}/nickname`, { nickname });
+    return res.data;
+  },
+
+  async searchMessages(
+    conversationId: number | string,
+    query: string
+  ): Promise<{ results: DirectMessage[]; count: number }> {
+    const res = await api.get(`/api/conversations/${conversationId}/search`, { params: { q: query } });
     return res.data;
   },
 

@@ -98,12 +98,42 @@ function formatCount(n: number) {
   return String(n);
 }
 
+function parseTimeToSeconds(timeStr: string): number {
+  const parts = timeStr.split(":").map(Number);
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return 0;
+}
+
 function renderInlineContent(text: string, validMentions?: string[]) {
-  const regex = /(```[\s\S]*?```|`[^`\n]+`|https?:\/\/[^\s]+|www\.[^\s]+|@[\w.]+|#[\p{L}\p{N}_]+)/gu;
+  const regex = /(```[\s\S]*?```|`[^`\n]+`|https?:\/\/[^\s]+|www\.[^\s]+|@[\w.]+|#[\p{L}\p{N}_]+|\b\d{1,2}:\d{2}(?::\d{2})?\b)/gu;
   const parts = text.split(regex);
 
   return parts.map((part, i) => {
     if (!part) return null;
+
+    if (/^\d{1,2}:\d{2}(?::\d{2})?$/.test(part)) {
+      const seconds = parseTimeToSeconds(part);
+      return (
+        <button
+          key={i}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent("blogx-video-seek", { detail: { time: seconds } }));
+          }}
+          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-primary/10 hover:bg-primary/20 text-primary font-mono text-xs font-bold transition-colors cursor-pointer relative z-10"
+          title={`Jump video to ${part}`}
+        >
+          <span className="text-[10px]">▶</span>
+          <span>{part}</span>
+        </button>
+      );
+    }
 
     if (part.startsWith("`") && part.endsWith("`") && part.length >= 2 && !part.startsWith("```")) {
       const inlineCode = part.slice(1, -1);
@@ -1095,7 +1125,12 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         <PostEditorDialog
           open={editDialogOpen}
           onOpenChange={setEditDialogOpen}
-          postToEdit={{ id: post.id, content: post.content, images: post.images || [] }}
+          postToEdit={{
+            id: post.id,
+            content: post.content,
+            images: post.images || [],
+            video: post.video || null,
+          }}
           onPostUpdated={(updatedPost) => {
             setPost((prev) =>
               prev
@@ -1103,6 +1138,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                   ...prev,
                   content: updatedPost.content,
                   images: updatedPost.images || [],
+                  video: updatedPost.video || null,
                 }
                 : null
             );

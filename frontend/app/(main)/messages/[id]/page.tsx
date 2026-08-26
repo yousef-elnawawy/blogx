@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Check,
   CheckCheck,
+  Clock,
   X,
   MessageCircle,
   Loader2,
@@ -19,7 +20,17 @@ import {
   Reply,
   Copy,
   ChevronDown,
+  ChevronUp,
   MoreVertical,
+  Search,
+  Pin,
+  Star,
+  Pencil,
+  FileText,
+  Video,
+  Paperclip,
+  Tag,
+  FolderOpen,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -32,10 +43,15 @@ import LinkPreviewCard from "@/components/post/LinkPreviewCard";
 import AudioWaveformPlayer from "@/components/messages/AudioWaveformPlayer";
 import VoiceRecorder from "@/components/messages/VoiceRecorder";
 import SharedContentCard from "@/components/messages/SharedContentCard";
+import PinnedMessageBanner from "@/components/messages/PinnedMessageBanner";
+import ContactNicknameDialog from "@/components/messages/ContactNicknameDialog";
+import SharedMediaDrawer from "@/components/messages/SharedMediaDrawer";
+import ChatFileCard from "@/components/messages/ChatFileCard";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -102,10 +118,28 @@ function formatMessageDateHeader(dateStr?: string): string {
   });
 }
 
+function formatMessageTime(dateStr?: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+function parseTimeToSeconds(timeStr: string): number {
+  const parts = timeStr.split(":").map(Number);
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  }
+  if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return 0;
+}
+
 function renderMessageContent(text: string, router: any, isMe: boolean) {
   if (!text) return null;
 
-  const tokenRegex = /(https?:\/\/[^\s<>"'{}|\\^`]+)|(@[a-zA-Z0-9_]+)|(#[^\s#]+)/g;
+  const tokenRegex = /(https?:\/\/[^\s<>"'{}|\\^`]+)|(@[a-zA-Z0-9_]+)|(#[^\s#]+)|(\b\d{1,2}:\d{2}(?::\d{2})?\b)/gu;
   const parts = [];
   let lastIndex = 0;
   let match;
@@ -116,7 +150,28 @@ function renderMessageContent(text: string, router: any, isMe: boolean) {
     }
 
     const token = match[0];
-    if (token.startsWith("http://") || token.startsWith("https://")) {
+    if (/^\d{1,2}:\d{2}(?::\d{2})?$/.test(token)) {
+      const seconds = parseTimeToSeconds(token);
+      parts.push(
+        <button
+          key={match.index}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent("blogx-video-seek", { detail: { time: seconds } }));
+          }}
+          className={`inline-flex items-center gap-0.5 px-1 py-0.2 rounded font-mono text-[11px] font-bold cursor-pointer transition-colors ${
+            isMe
+              ? "bg-white/20 hover:bg-white/30 text-white"
+              : "bg-primary/15 hover:bg-primary/25 text-primary"
+          }`}
+          title={`Jump to ${token}`}
+        >
+          <span className="text-[9px]">▶</span>
+          <span>{token}</span>
+        </button>
+      );
+    } else if (token.startsWith("http://") || token.startsWith("https://")) {
       parts.push(
         <a
           key={match.index}
@@ -165,7 +220,7 @@ function renderMessageContent(text: string, router: any, isMe: boolean) {
       );
     }
 
-    lastIndex = match.index + token.length;
+    lastIndex = tokenRegex.lastIndex;
   }
 
   if (lastIndex < text.length) {
@@ -177,26 +232,36 @@ function renderMessageContent(text: string, router: any, isMe: boolean) {
 
 export default function ConversationDetailPage() {
   const params = useParams();
+  const convId = params.id as string;
   const router = useRouter();
   const { user: currentUser } = useAuth();
 
-  const convId = params?.id as string;
-
   const [conversation, setConversation] = useState<ConversationItem | null>(null);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
-  const [hasMore, setHasMore] = useState<boolean>(false);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
-  const [isFollowing, setIsFollowing] = useState<boolean>(true);
   const [loading, setLoading] = useState(true);
-
+  const [sending, setSending] = useState(false);
   const [messageText, setMessageText] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [filePreviews, setFilePreviews] = useState<string[]>([]);
-  const [sending, setSending] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<File | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<File | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(true);
   const [followingLoading, setFollowingLoading] = useState(false);
 
-  // Reply State
+  // Message reply target
   const [replyingTo, setReplyingTo] = useState<DirectMessage | null>(null);
+
+  // Message inline editing
+  const [editingMessage, setEditingMessage] = useState<DirectMessage | null>(null);
+  const [editingText, setEditingText] = useState("");
+  const [editingLoading, setEditingLoading] = useState(false);
+
+  // In-conversation search state
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
   // Typing state
   const [isOtherTyping, setIsOtherTyping] = useState(false);
@@ -208,42 +273,45 @@ export default function ConversationDetailPage() {
   const [showScrollBottomButton, setShowScrollBottomButton] = useState(false);
   const [newMessagesWhileScrolled, setNewMessagesWhileScrolled] = useState(0);
 
-  // Image Lightbox State
+  // Lightbox State
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
 
-  // Highlight message on scroll
+  // Highlight message on scroll / search jump
   const [highlightedMsgId, setHighlightedMsgId] = useState<number | null>(null);
 
-  // Emoji popover & dialog states
+  // Dialogs
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [accountInfoOpen, setAccountInfoOpen] = useState(false);
+  const [nicknameDialogOpen, setNicknameDialogOpen] = useState(false);
+  const [sharedMediaOpen, setSharedMediaOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-  // Single Message Delete Confirmation Dialog
   const [messageToDelete, setMessageToDelete] = useState<DirectMessage | null>(null);
-
-  // Hovered message for actions
   const [activeMessageMenuId, setActiveMessageMenuId] = useState<number | null>(null);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLInputElement>(null);
   const isInitialLoadedRef = useRef(false);
 
+  const otherUser = conversation?.user;
+  const otherDisplayName = otherUser?.display_name || otherUser?.custom_nickname || otherUser?.name || "User";
+
   // Dynamic document title
   useEffect(() => {
-    if (conversation?.user) {
-      document.title = `Chat with ${conversation.user.name} / BlogX`;
+    if (otherDisplayName) {
+      document.title = `Chat with ${otherDisplayName} / BlogX`;
     } else {
       document.title = "Conversation / BlogX";
     }
-  }, [conversation]);
+  }, [otherDisplayName]);
 
-  // Reliable scroll helper
+  // Scroll helper
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "instant") => {
     const container = messagesContainerRef.current;
     if (container) {
@@ -296,7 +364,6 @@ export default function ConversationDetailPage() {
         });
         setHasMore(Boolean(data.has_more));
 
-        // Restore scroll position cleanly
         requestAnimationFrame(() => {
           if (container) {
             const newScrollHeight = container.scrollHeight;
@@ -313,17 +380,14 @@ export default function ConversationDetailPage() {
     }
   }, [hasMore, loadingMore, messages, convId]);
 
-  // Scroll listener
   const handleScroll = () => {
     const container = messagesContainerRef.current;
     if (!container || !isInitialLoadedRef.current) return;
 
-    // Infinite scroll up
     if (container.scrollTop <= 60 && hasMore && !loadingMore) {
       loadOlderMessages();
     }
 
-    // Scroll to bottom button visibility check
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
     if (distanceFromBottom > 220) {
@@ -341,45 +405,51 @@ export default function ConversationDetailPage() {
     }
   }, [currentUser, convId, loadConversation]);
 
-  // Initial scroll to bottom when conversation is first loaded
   useEffect(() => {
     if (!loading && messages.length > 0) {
       scrollToBottom("instant");
       const t1 = setTimeout(() => scrollToBottom("instant"), 50);
       const t2 = setTimeout(() => scrollToBottom("instant"), 150);
-      const t3 = setTimeout(() => scrollToBottom("instant"), 400);
       return () => {
         clearTimeout(t1);
         clearTimeout(t2);
-        clearTimeout(t3);
       };
     }
-  }, [loading, conversation?.id, scrollToBottom]);
+  }, [loading, scrollToBottom]);
 
-  // Real-time listener for this conversation via Reverb
+  // Real-time Echo listeners
   useEffect(() => {
-    if (!convId || !currentUser) return;
+    if (!currentUser || !convId) return;
 
     const echo = getEcho();
     if (!echo) return;
 
     const convChannel = echo.private(`conversation.${convId}`);
 
-    // Listen for new messages
     convChannel.listen(".NewMessage", (data: any) => {
       if (data.message) {
         const newMsg: DirectMessage = data.message;
         setMessages((prev) => {
           if (prev.some((m) => Number(m.id) === Number(newMsg.id))) {
-            return prev;
+            return prev.map((m) =>
+              Number(m.id) === Number(newMsg.id) ? { ...newMsg, is_pending: false } : m
+            );
           }
+
+          if (Number(newMsg.sender_id) === Number(currentUser.id)) {
+            const pendingIndex = prev.findIndex((m) => m.is_pending || Number(m.id) < 0);
+            if (pendingIndex !== -1) {
+              const updated = [...prev];
+              updated[pendingIndex] = { ...newMsg, is_pending: false };
+              return updated;
+            }
+          }
+
           return [...prev, newMsg];
         });
 
-        // Clear typing indicator
         setIsOtherTyping(false);
 
-        // Check if user is scrolled up
         const container = messagesContainerRef.current;
         if (container) {
           const dist =
@@ -391,14 +461,35 @@ export default function ConversationDetailPage() {
           }
         }
 
-        // Acknowledge read if received from other user
         if (Number(newMsg.sender_id) !== Number(currentUser.id)) {
           messagesService.markAsRead(convId).catch(() => {});
         }
       }
     });
 
-    // Listen for deleted messages
+    convChannel.listen(".MessageUpdated", (data: any) => {
+      if (data.message) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            Number(m.id) === Number(data.message.id)
+              ? { ...m, ...data.message }
+              : m
+          )
+        );
+      }
+    });
+
+    convChannel.listen(".ConversationPinnedUpdated", (data: any) => {
+      setConversation((prev) =>
+        prev
+          ? {
+              ...prev,
+              pinned_message: data.pinned_message || null,
+            }
+          : null
+      );
+    });
+
     convChannel.listen(".MessageDeleted", (data: any) => {
       if (data.message_id) {
         setMessages((prev) =>
@@ -407,8 +498,7 @@ export default function ConversationDetailPage() {
       }
     });
 
-    // Listen for read receipts
-    convChannel.listen(".MessageSeen", (data: any) => {
+    convChannel.listen(".MessageSeen", () => {
       setMessages((prev) =>
         prev.map((m) => ({
           ...m,
@@ -417,7 +507,6 @@ export default function ConversationDetailPage() {
       );
     });
 
-    // Listen for typing indicator
     convChannel.listen(".UserTyping", (data: any) => {
       if (Number(data.user_id) !== Number(currentUser.id)) {
         if (data.is_typing) {
@@ -434,7 +523,6 @@ export default function ConversationDetailPage() {
       }
     });
 
-    // Listen for reaction updates
     convChannel.listen(".MessageReactionUpdated", (data: any) => {
       if (data.message_id) {
         setMessages((prev) =>
@@ -453,20 +541,21 @@ export default function ConversationDetailPage() {
 
     return () => {
       convChannel.stopListening(".NewMessage");
+      convChannel.stopListening(".MessageUpdated");
+      convChannel.stopListening(".ConversationPinnedUpdated");
       convChannel.stopListening(".MessageDeleted");
       convChannel.stopListening(".MessageSeen");
       convChannel.stopListening(".UserTyping");
       convChannel.stopListening(".MessageReactionUpdated");
       if (otherTypingTimeoutRef.current) clearTimeout(otherTypingTimeoutRef.current);
     };
-  }, [convId, currentUser, scrollToBottom]);
+  }, [currentUser, convId, scrollToBottom]);
 
-  // Handle typing debounce
+  // Typing trigger helper
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setMessageText(val);
+    setMessageText(e.target.value);
 
-    if (!isMyTypingRef.current && val.trim().length > 0) {
+    if (!isMyTypingRef.current) {
       isMyTypingRef.current = true;
       messagesService.sendTyping(convId, true).catch(() => {});
     }
@@ -476,409 +565,558 @@ export default function ConversationDetailPage() {
     }
 
     myTypingTimerRef.current = setTimeout(() => {
-      if (isMyTypingRef.current) {
-        isMyTypingRef.current = false;
-        messagesService.sendTyping(convId, false).catch(() => {});
-      }
-    }, 2000);
+      isMyTypingRef.current = false;
+      messagesService.sendTyping(convId, false).catch(() => {});
+    }, 2500);
   };
 
-  // Close emoji on outside click
-  useEffect(() => {
-    function handleOutside(e: MouseEvent) {
-      if (
-        emojiPickerRef.current &&
-        !emojiPickerRef.current.contains(e.target as Node)
-      ) {
-        setEmojiOpen(false);
-      }
-    }
-    if (emojiOpen) document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
-  }, [emojiOpen]);
-
-  // Handle image files selection
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const newFiles = Array.from(files);
-      setSelectedFiles((prev) => [...prev, ...newFiles]);
-
-      const newPreviews = newFiles.map((f) => URL.createObjectURL(f));
-      setFilePreviews((prev) => [...prev, ...newPreviews]);
-    }
-    e.target.value = "";
+  // Attachments Handlers
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const newFiles = [...selectedFiles, ...files].slice(0, 5);
+    setSelectedFiles(newFiles);
+    const newPreviews = newFiles.map((file) => URL.createObjectURL(file));
+    setFilePreviews(newPreviews);
   };
 
-  const removeFile = (index: number) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
-    setFilePreviews((prev) => {
-      URL.revokeObjectURL(prev[index]);
-      return prev.filter((_, i) => i !== index);
-    });
-  };
-
-  // Send a recorded voice note
-  const handleSendVoiceNote = async (audioBlob: Blob, duration: number) => {
-    if (!convId || !isFollowing) return;
-    try {
-      setSending(true);
-      const res = await messagesService.sendMessage(convId, {
-        audio: audioBlob,
-        audio_duration: duration,
-        reply_to_id: replyingTo?.id || null,
-      });
-      setMessages((prev) => [...prev, res.message]);
-      setReplyingTo(null);
-      scrollToBottom("smooth");
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to send voice message");
-    } finally {
-      setSending(false);
+  const handleVideoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedVideo(file);
     }
   };
 
-  // Follow other user if not following
+  const handleDocSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedDoc(file);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    const updatedFiles = selectedFiles.filter((_, i) => i !== index);
+    setSelectedFiles(updatedFiles);
+    const updatedPreviews = filePreviews.filter((_, i) => i !== index);
+    setFilePreviews(updatedPreviews);
+  };
+
+  // Follow User
   const handleFollowUser = async () => {
-    if (!conversation?.user) return;
+    if (!otherUser?.id) return;
     try {
       setFollowingLoading(true);
-      await api.post(`/api/users/${conversation.user.id}/follow`);
+      await api.post(`/api/users/${otherUser.id}/follow`);
       setIsFollowing(true);
-      toast.success(`You are now following ${conversation.user.name}`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to follow user.");
+      toast.success(`You are now following ${otherDisplayName}`);
+    } catch {
+      toast.error("Failed to follow user.");
     } finally {
       setFollowingLoading(false);
     }
   };
 
-  // Scroll to a specific message
+  // Send message
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const textToSend = messageText.trim();
+    if (!textToSend && selectedFiles.length === 0 && !selectedVideo && !selectedDoc) return;
+    if (!currentUser || !convId) return;
+
+    if (myTypingTimerRef.current) clearTimeout(myTypingTimerRef.current);
+    if (isMyTypingRef.current) {
+      isMyTypingRef.current = false;
+      messagesService.sendTyping(convId, false).catch(() => {});
+    }
+
+    const tempId = -Date.now();
+    const optimisticMessage: DirectMessage = {
+      id: tempId,
+      conversation_id: Number(convId),
+      sender_id: currentUser.id,
+      recipient_id: otherUser?.id || 0,
+      reply_to_id: replyingTo?.id || null,
+      reply_to: replyingTo
+        ? {
+            id: replyingTo.id,
+            sender_id: replyingTo.sender_id,
+            sender_name: replyingTo.sender?.display_name || replyingTo.sender?.name || "User",
+            text: replyingTo.text || "",
+          }
+        : null,
+      text: textToSend,
+      images: filePreviews.length > 0 ? [...filePreviews] : undefined,
+      video_url: selectedVideo ? URL.createObjectURL(selectedVideo) : null,
+      file_url: selectedDoc ? URL.createObjectURL(selectedDoc) : null,
+      file_name: selectedDoc?.name || null,
+      file_size: selectedDoc?.size || null,
+      file_type: selectedDoc?.name?.split(".").pop() || null,
+      reactions: [],
+      is_seen: false,
+      created_at: new Date().toISOString(),
+      created_at_human: "Just now",
+      is_pending: true,
+      can_edit: true,
+      sender: {
+        id: currentUser.id,
+        name: currentUser.name,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+        verified: currentUser.verified || false,
+      },
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setMessageText("");
+    const filesToSend = [...selectedFiles];
+    const videoToSend = selectedVideo;
+    const docToSend = selectedDoc;
+    const replyTarget = replyingTo;
+
+    setSelectedFiles([]);
+    setFilePreviews([]);
+    setSelectedVideo(null);
+    setSelectedDoc(null);
+    setReplyingTo(null);
+    setEmojiOpen(false);
+
+    requestAnimationFrame(() => scrollToBottom("smooth"));
+
+    try {
+      setSending(true);
+      const res = await messagesService.sendMessage(convId, {
+        text: textToSend || undefined,
+        images: filesToSend.length > 0 ? filesToSend : undefined,
+        video: videoToSend || undefined,
+        file: docToSend || undefined,
+        reply_to_id: replyTarget?.id || undefined,
+      });
+
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...res.message, is_pending: false } : m))
+      );
+
+      if (res.conversation) {
+        setConversation(res.conversation);
+      }
+    } catch (err: any) {
+      console.error("Send message error:", err);
+      toast.error(err.response?.data?.message || "Failed to send message.");
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setMessageText(textToSend);
+      setSelectedFiles(filesToSend);
+      setSelectedVideo(videoToSend);
+      setSelectedDoc(docToSend);
+      setReplyingTo(replyTarget);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Send Voice Note
+  const handleSendVoiceNote = async (audioBlob: Blob, duration: number) => {
+    if (!currentUser || !convId) return;
+    const tempId = -Date.now();
+    const optimisticMessage: DirectMessage = {
+      id: tempId,
+      conversation_id: Number(convId),
+      sender_id: currentUser.id,
+      recipient_id: otherUser?.id || 0,
+      text: "",
+      audio_url: URL.createObjectURL(audioBlob),
+      audio_duration: duration,
+      reactions: [],
+      is_seen: false,
+      created_at: new Date().toISOString(),
+      created_at_human: "Just now",
+      is_pending: true,
+      can_edit: false,
+      sender: {
+        id: currentUser.id,
+        name: currentUser.name,
+        username: currentUser.username,
+        avatar: currentUser.avatar,
+        verified: currentUser.verified || false,
+      },
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    requestAnimationFrame(() => scrollToBottom("smooth"));
+
+    try {
+      setSending(true);
+      const res = await messagesService.sendMessage(convId, {
+        audio: audioBlob,
+        audio_duration: duration,
+      });
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...res.message, is_pending: false } : m))
+      );
+      if (res.conversation) {
+        setConversation(res.conversation);
+      }
+    } catch {
+      toast.error("Failed to send voice note.");
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // Edit Message
+  const handleStartEdit = (msg: DirectMessage) => {
+    setEditingMessage(msg);
+    setEditingText(msg.text || "");
+    setActiveMessageMenuId(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingMessage) return;
+    const trimmed = editingText.trim();
+    if (!trimmed) {
+      toast.error("Message text cannot be empty.");
+      return;
+    }
+
+    try {
+      setEditingLoading(true);
+      const res = await messagesService.editMessage(editingMessage.id, trimmed);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === editingMessage.id ? { ...m, ...res.message } : m))
+      );
+      toast.success("Message updated");
+      setEditingMessage(null);
+      setEditingText("");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to edit message");
+    } finally {
+      setEditingLoading(false);
+    }
+  };
+
+  // Toggle Star
+  const handleToggleStar = async (msgId: number) => {
+    try {
+      const res = await messagesService.toggleStar(msgId);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === msgId ? { ...m, is_starred: res.is_starred } : m))
+      );
+      toast.success(res.is_starred ? "Message starred ⭐" : "Star removed");
+    } catch {
+      toast.error("Failed to star message");
+    }
+  };
+
+  // Toggle Pin Message
+  const handleTogglePinMessage = async (msgId: number) => {
+    try {
+      const res = await messagesService.togglePinMessage(convId, msgId);
+      setConversation(res.conversation);
+      toast.success(
+        res.conversation.pinned_message?.id === msgId
+          ? "Message pinned to top 📌"
+          : "Message unpinned"
+      );
+    } catch {
+      toast.error("Failed to pin message");
+    }
+  };
+
+  // Reaction
+  const handleToggleReaction = async (messageId: number, emoji: string) => {
+    try {
+      const res = await messagesService.toggleReaction(convId, messageId, emoji);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === messageId ? { ...m, reactions: res.message.reactions } : m))
+      );
+    } catch {
+      toast.error("Failed to update reaction.");
+    }
+  };
+
+  // Delete message
+  const handleDeleteMessage = async (msg: DirectMessage) => {
+    try {
+      await messagesService.deleteMessage(convId, msg.id);
+      setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+      toast.success("Message deleted");
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to delete message");
+    } finally {
+      setMessageToDelete(null);
+    }
+  };
+
+  // Scroll to Message
   const scrollToMessage = (messageId: number) => {
     const el = document.getElementById(`msg-${messageId}`);
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       setHighlightedMsgId(messageId);
-      setTimeout(() => setHighlightedMsgId(null), 2000);
+      setTimeout(() => setHighlightedMsgId(null), 2500);
+    } else {
+      toast.info("Message is further up in history.");
     }
   };
 
-  // Copy message text
-  const handleCopyMessageText = (text: string) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    toast.success("Message copied to clipboard");
+  // In-Chat Search Matches
+  const searchMatches = useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.toLowerCase();
+    return messages
+      .filter((m) => (m.text && m.text.toLowerCase().includes(q)) || (m.file_name && m.file_name.toLowerCase().includes(q)))
+      .map((m) => m.id);
+  }, [messages, searchQuery]);
+
+  const handleSearchNavigate = (direction: "next" | "prev") => {
+    if (searchMatches.length === 0) return;
+    let nextIdx = direction === "next" ? currentMatchIndex + 1 : currentMatchIndex - 1;
+    if (nextIdx >= searchMatches.length) nextIdx = 0;
+    if (nextIdx < 0) nextIdx = searchMatches.length - 1;
+    setCurrentMatchIndex(nextIdx);
+    scrollToMessage(searchMatches[nextIdx]);
   };
 
-  // Delete a single message
-  const handleDeleteSingleMessage = async (msg: DirectMessage) => {
-    // Optimistically remove from state
-    setMessages((prev) => prev.filter((m) => m.id !== msg.id));
-    setMessageToDelete(null);
-
-    try {
-      await messagesService.deleteMessage(convId, msg.id);
-      toast.success("Message deleted");
-    } catch (err: any) {
-      toast.error("Failed to delete message");
-      loadConversation();
-    }
-  };
-
-  // Toggle reaction on a message
-  const handleToggleReaction = async (messageId: number, emoji: string) => {
-    setMessages((prev) =>
-      prev.map((m) => {
-        if (m.id === messageId) {
-          const currentReactions = m.reactions || [];
-          const existingIdx = currentReactions.findIndex((r) => r.emoji === emoji);
-
-          let updated: MessageReaction[] = [];
-          if (existingIdx !== -1) {
-            const item = currentReactions[existingIdx];
-            if (item.has_reacted) {
-              const newCount = item.count - 1;
-              if (newCount > 0) {
-                updated = currentReactions.map((r, i) =>
-                  i === existingIdx
-                    ? { ...r, count: newCount, has_reacted: false }
-                    : r
-                );
-              } else {
-                updated = currentReactions.filter((_, i) => i !== existingIdx);
-              }
-            } else {
-              updated = currentReactions.map((r, i) =>
-                i === existingIdx
-                  ? { ...r, count: r.count + 1, has_reacted: true }
-                  : r
-              );
-            }
-          } else {
-            updated = [
-              ...currentReactions,
-              {
-                emoji,
-                count: 1,
-                users: currentUser?.id ? [Number(currentUser.id)] : [],
-                has_reacted: true,
-              },
-            ];
-          }
-          return { ...m, reactions: updated };
-        }
-        return m;
-      })
-    );
-
-    setActiveMessageMenuId(null);
-
-    try {
-      const res = await messagesService.toggleReaction(convId, messageId, emoji);
-      if (res.message) {
-        setMessages((prev) =>
-          prev.map((m) => (m.id === messageId ? res.message : m))
-        );
-      }
-    } catch (err: any) {
-      console.error("Failed to toggle reaction:", err);
-    }
-  };
-
-  // Send message
-  const handleSendMessage = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-
-    const trimmed = messageText.trim();
-    if ((!trimmed && selectedFiles.length === 0) || sending) return;
-
-    if (!isFollowing) {
-      toast.error("You must follow this user to send them a message.");
-      return;
-    }
-
-    try {
-      setSending(true);
-
-      if (isMyTypingRef.current) {
-        isMyTypingRef.current = false;
-        messagesService.sendTyping(convId, false).catch(() => {});
-      }
-
-      const res = await messagesService.sendMessage(convId, {
-        text: trimmed || undefined,
-        images: selectedFiles.length > 0 ? selectedFiles : undefined,
-        reply_to_id: replyingTo ? replyingTo.id : null,
-      });
-
-      setMessages((prev) => {
-        if (prev.some((m) => Number(m.id) === Number(res.message.id))) {
-          return prev;
-        }
-        return [...prev, res.message];
-      });
-
-      setMessageText("");
-      setReplyingTo(null);
-      setSelectedFiles([]);
-      filePreviews.forEach((p) => URL.revokeObjectURL(p));
-      setFilePreviews([]);
-      setEmojiOpen(false);
-
-      requestAnimationFrame(() => scrollToBottom("smooth"));
-    } catch (err: any) {
-      console.error("Failed to send message:", err);
-      const errorMsg = err.response?.data?.message || "Failed to send message.";
-      toast.error(errorMsg);
-      if (err.response?.data?.requires_follow) {
-        setIsFollowing(false);
-      }
-    } finally {
-      setSending(false);
-      textareaRef.current?.focus();
-    }
-  };
-
-  // Delete conversation
-  const handleDeleteConversation = async () => {
-    try {
-      await messagesService.deleteConversation(convId);
-      toast.success("Conversation deleted.");
-      router.push("/messages");
-    } catch (err: any) {
-      toast.error("Failed to delete conversation.");
-    }
-  };
-
-  const otherUser = conversation?.user;
   const avatarSrc = getAvatarUrl(otherUser?.avatar);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center py-20">
-        <Loader2 className="size-8 animate-spin text-primary mb-3" />
-        <p className="text-xs text-muted-foreground">Loading conversation...</p>
-      </div>
-    );
-  }
-
-  if (!conversation) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center py-20 px-4 text-center">
-        <div className="size-14 rounded-2xl bg-muted flex items-center justify-center mb-3">
-          <MessageCircle className="size-7 text-muted-foreground" />
-        </div>
-        <h2 className="text-base font-bold text-foreground mb-1">Conversation Not Found</h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          This conversation does not exist or you do not have permission to view it.
-        </p>
-        <Link href="/messages">
-          <Button size="sm" className="rounded-xl text-xs font-semibold">
-            Back to Messages
-          </Button>
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col h-[100dvh] max-h-[100dvh] bg-background select-none relative">
-      {/* ── Chat Header ── */}
-      <div className="sticky top-0 z-30 bg-background/80 backdrop-blur-md border-b border-border/60 shrink-0">
-        <div className="flex items-center justify-between px-3 sm:px-4 py-2.5">
-          {/* Left: Back + User Info */}
-          <div className="flex items-center gap-2.5 min-w-0">
-            <button
-              type="button"
-              onClick={() => router.push("/messages")}
-              className="p-1.5 -ml-1 rounded-full hover:bg-muted transition-colors active:scale-95 text-foreground"
-            >
-              <ArrowLeft className="size-5" />
-            </button>
+    <div className="flex flex-col h-screen max-h-[100dvh] bg-background relative overflow-hidden">
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border/70 bg-card/80 backdrop-blur-md shrink-0 z-30 shadow-2xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => router.push("/messages")}
+            className="p-1.5 size-8 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground shrink-0"
+          >
+            <ArrowLeft className="size-5" />
+          </Button>
 
-            <div
-              className="flex items-center gap-2.5 cursor-pointer hover:opacity-85 transition-opacity min-w-0"
-              onClick={() => setAccountInfoOpen(true)}
-            >
-              <Avatar className="size-9 ring-1 ring-border/50 shrink-0">
-                <AvatarImage src={avatarSrc} alt={otherUser?.name || "User"} />
-                <AvatarFallback className="text-xs font-bold bg-muted">
-                  {getInitials(otherUser?.name || "U")}
+          {/* User Profile Trigger */}
+          <div
+            onClick={() => setAccountInfoOpen(true)}
+            className="flex items-center gap-2.5 cursor-pointer min-w-0 group"
+          >
+            <div className="relative shrink-0">
+              <Avatar className="size-9 ring-1 ring-border group-hover:ring-primary transition-all">
+                <AvatarImage src={avatarSrc} alt={otherDisplayName} />
+                <AvatarFallback className="text-xs font-bold">
+                  {getInitials(otherDisplayName)}
                 </AvatarFallback>
               </Avatar>
+            </div>
 
-              <div className="min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="text-sm font-bold text-foreground truncate">
-                    {otherUser?.name || "User"}
-                  </span>
-                  {otherUser?.verified && <VerifiedBadge size="xs" />}
-                </div>
-                <p className="text-[11px] text-muted-foreground truncate">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">
+                  {otherDisplayName}
+                </span>
+                {otherUser?.verified && <VerifiedBadge size="sm" />}
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground truncate">
+                {otherUser?.custom_nickname && (
+                  <span className="truncate">@{otherUser.username} •</span>
+                )}
+                <span>
                   {isOtherTyping ? (
-                    <span className="text-primary font-semibold animate-pulse">
-                      typing...
-                    </span>
+                    <span className="text-primary font-bold animate-pulse">Typing...</span>
+                  ) : otherUser?.last_seen ? (
+                    `Active ${otherUser.last_seen}`
                   ) : (
-                    `@${otherUser?.username}`
+                    `@${otherUser?.username || "user"}`
                   )}
-                </p>
+                </span>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Right: Actions */}
-          <div className="flex items-center gap-1 shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setAccountInfoOpen(true)}
-              className="size-8 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
-              title="View Profile Details"
-            >
-              <Info className="size-4" />
-            </Button>
+        {/* Header Actions */}
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Search Toggle Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearchOpen(!searchOpen);
+              if (!searchOpen) setCurrentMatchIndex(0);
+            }}
+            className={`size-8 p-0 rounded-full cursor-pointer transition-colors ${
+              searchOpen ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground"
+            }`}
+            title="Search in conversation"
+          >
+            <Search className="size-4" />
+          </Button>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="size-8 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted"
-                  >
-                    <Trash2 className="size-4 text-destructive" />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent align="end" className="w-44 p-1 rounded-2xl">
-                <DropdownMenuItem
-                  onClick={() => setDeleteDialogOpen(true)}
-                  className="gap-2 px-2.5 py-1.5 text-xs font-semibold text-destructive cursor-pointer"
+          {/* Shared Media & Files Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSharedMediaOpen(true)}
+            className="size-8 p-0 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
+            title="Shared Media & Files"
+          >
+            <FolderOpen className="size-4" />
+          </Button>
+
+          {/* More Options Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="size-8 p-0 rounded-full text-muted-foreground hover:text-foreground cursor-pointer"
                 >
-                  <Trash2 className="size-3.5" />
-                  <span>Delete Conversation</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  <MoreVertical className="size-4" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" className="w-52 rounded-xl">
+              <DropdownMenuItem
+                onClick={() => setNicknameDialogOpen(true)}
+                className="gap-2 text-xs font-semibold cursor-pointer"
+              >
+                <Tag className="size-3.5 text-primary" />
+                <span>{otherUser?.custom_nickname ? "Edit Nickname" : "Set Nickname"}</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => setSharedMediaOpen(true)}
+                className="gap-2 text-xs font-semibold cursor-pointer"
+              >
+                <FolderOpen className="size-3.5" />
+                <span>Shared Media & Links</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => setAccountInfoOpen(true)}
+                className="gap-2 text-xs font-semibold cursor-pointer"
+              >
+                <Info className="size-3.5" />
+                <span>View Profile Info</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem
+                onClick={() => setDeleteDialogOpen(true)}
+                className="gap-2 text-xs font-semibold text-destructive focus:text-destructive cursor-pointer"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Delete Conversation</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {/* ── Messages Stream ── */}
+      {/* ── Search Bar Overlay ── */}
+      {searchOpen && (
+        <div className="bg-card/95 backdrop-blur-md border-b border-border px-4 py-2 flex items-center justify-between gap-3 text-xs animate-in slide-in-from-top-2 duration-150 z-25 shadow-sm">
+          <div className="relative flex-1 max-w-md">
+            <Search className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search in chat..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentMatchIndex(0);
+              }}
+              autoFocus
+              className="h-8 pl-8 pr-3 text-xs rounded-xl bg-muted/60"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            {searchMatches.length > 0 ? (
+              <span className="text-[11px] font-medium text-muted-foreground mr-1">
+                {currentMatchIndex + 1} of {searchMatches.length}
+              </span>
+            ) : searchQuery.trim() ? (
+              <span className="text-[11px] text-muted-foreground mr-1">No matches</span>
+            ) : null}
+
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={searchMatches.length === 0}
+              onClick={() => handleSearchNavigate("prev")}
+              className="size-7 p-0 rounded-lg cursor-pointer"
+              title="Previous match"
+            >
+              <ChevronUp className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={searchMatches.length === 0}
+              onClick={() => handleSearchNavigate("next")}
+              className="size-7 p-0 rounded-lg cursor-pointer"
+              title="Next match"
+            >
+              <ChevronDown className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchOpen(false);
+                setSearchQuery("");
+              }}
+              className="size-7 p-0 rounded-lg cursor-pointer text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Pinned Message Banner ── */}
+      {conversation?.pinned_message && (
+        <PinnedMessageBanner
+          pinnedMessage={conversation.pinned_message}
+          onJumpToMessage={scrollToMessage}
+          onUnpin={() => handleTogglePinMessage(conversation.pinned_message!.id)}
+        />
+      )}
+
+      {/* ── Messages Container ── */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5 relative"
+        className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 select-text min-h-0"
       >
-        {/* Top Loading Spinner when fetching older history */}
+        {/* Loading More Spinner */}
         {loadingMore && (
-          <div className="py-2 text-center">
-            <Loader2 className="size-5 animate-spin mx-auto text-primary" />
-            <span className="text-[11px] text-muted-foreground">Loading older messages...</span>
+          <div className="flex justify-center py-2">
+            <Loader2 className="size-5 animate-spin text-primary" />
           </div>
         )}
 
-        {/* Intro banner (shown when user reached the beginning of conversation) */}
-        {!hasMore && (
-          <div className="flex flex-col items-center justify-center py-6 text-center border-b border-border/40 mb-4">
-            <Avatar className="size-16 ring-2 ring-primary/30 shadow-xs mb-2.5">
-              <AvatarImage src={avatarSrc} alt={otherUser?.name || "User"} />
-              <AvatarFallback className="text-base font-bold bg-muted">
-                {getInitials(otherUser?.name || "U")}
+        {/* Initial Loading Spinner */}
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+            <Loader2 className="size-8 animate-spin text-primary" />
+            <p className="text-xs">Loading conversation...</p>
+          </div>
+        ) : messages.length === 0 ? (
+          /* Empty Chat State */
+          <div className="flex flex-col items-center justify-center h-full text-center px-4 py-12 text-muted-foreground">
+            <Avatar className="size-16 mb-3 ring-2 ring-border/80 shadow-md">
+              <AvatarImage src={avatarSrc} alt={otherDisplayName} />
+              <AvatarFallback className="text-xl font-bold">
+                {getInitials(otherDisplayName)}
               </AvatarFallback>
             </Avatar>
-            <div className="flex items-center gap-1.5 justify-center mb-0.5">
-              <h3 className="text-base font-bold text-foreground">
-                {otherUser?.name}
-              </h3>
-              {otherUser?.verified && <VerifiedBadge size="sm" />}
-            </div>
-            <p className="text-xs text-muted-foreground mb-2">
-              @{otherUser?.username}
-            </p>
-            {otherUser?.bio && (
-              <p className="text-xs text-foreground/80 max-w-sm mx-auto line-clamp-2 leading-relaxed mb-3">
-                {otherUser.bio}
-              </p>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/@${otherUser?.username}`)}
-              className="rounded-xl text-xs h-8 px-3 gap-1.5"
-            >
-              <span>View Profile</span>
-              <ExternalLink className="size-3" />
-            </Button>
-          </div>
-        )}
-
-        {/* Message Items & Date Dividers */}
-        {messages.length === 0 ? (
-          <div className="py-10 text-center">
-            <p className="text-xs text-muted-foreground">
-              No messages yet. Send a greeting to start the conversation!
+            <h3 className="font-bold text-base text-foreground mb-1">
+              {otherDisplayName}
+            </h3>
+            <p className="text-xs max-w-xs mb-4">
+              Send a direct message, voice note, or photo to start chatting with @{otherUser?.username}.
             </p>
           </div>
         ) : (
@@ -886,185 +1124,356 @@ export default function ConversationDetailPage() {
             const isMe = Number(msg.sender_id) === Number(currentUser?.id);
             const isHighlighted = highlightedMsgId === msg.id;
 
-            // Date divider check
+            // Date separator check
             const currentDateKey = getMessageDateKey(msg.created_at);
             const prevDateKey =
-              index > 0 ? getMessageDateKey(messages[index - 1].created_at) : null;
-            const showDateHeader = currentDateKey && currentDateKey !== prevDateKey;
+              index > 0 ? getMessageDateKey(messages[index - 1]?.created_at) : "";
+            const showDateHeader = currentDateKey !== prevDateKey;
 
             return (
-              <div key={msg.id} className="space-y-3.5">
+              <div
+                key={`msg-${msg.id}-${index}`}
+                id={`msg-${msg.id}`}
+                className={`space-y-2 transition-all duration-300 ${
+                  isHighlighted ? "bg-primary/10 rounded-2xl p-2 ring-2 ring-primary/40" : ""
+                }`}
+              >
                 {/* ── Date Divider ── */}
                 {showDateHeader && (
                   <div className="flex justify-center my-4">
-                    <span className="px-3.5 py-1 rounded-full bg-muted/80 backdrop-blur-sm border border-border/60 text-[11px] font-semibold text-muted-foreground shadow-2xs">
+                    <span className="px-3 py-1 rounded-full bg-muted/80 backdrop-blur-sm border border-border/60 text-[11px] font-semibold text-muted-foreground shadow-2xs">
                       {formatMessageDateHeader(msg.created_at)}
                     </span>
                   </div>
                 )}
 
+                {/* ── Message Bubble & Actions Wrapper ── */}
                 <div
-                  id={`msg-${msg.id}`}
-                  className={`group/msg relative flex flex-col ${
+                  className={`flex flex-col ${
                     isMe ? "items-end" : "items-start"
-                  } transition-colors duration-500 rounded-2xl ${
-                    isHighlighted ? "bg-primary/10 p-1" : ""
-                  }`}
+                  } group relative`}
                   onMouseEnter={() => setActiveMessageMenuId(msg.id)}
                   onMouseLeave={() => setActiveMessageMenuId(null)}
                 >
-                  {/* Floating Quick Actions Bar (Hover) */}
                   <div
-                    className={`absolute -top-3 ${
-                      isMe ? "right-2" : "left-2"
-                    } z-20 flex items-center gap-0.5 bg-card/95 backdrop-blur-sm border border-border/80 rounded-full px-1 py-0.5 shadow-md opacity-0 group-hover/msg:opacity-100 transition-opacity duration-150`}
-                  >
-                    {/* Quick Reactions */}
-                    {REACTION_EMOJIS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => handleToggleReaction(msg.id, emoji)}
-                        className="size-6 rounded-full hover:scale-125 flex items-center justify-center text-xs transition-transform cursor-pointer"
-                        title={`React ${emoji}`}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-
-                    <div className="h-3 w-px bg-border/80 mx-0.5" />
-
-                    {/* Reply Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setReplyingTo(msg);
-                        textareaRef.current?.focus();
-                      }}
-                      className="size-6 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                      title="Reply"
-                    >
-                      <Reply className="size-3.5" />
-                    </button>
-
-                    {/* Copy Text Button */}
-                    {msg.text && (
-                      <button
-                        type="button"
-                        onClick={() => handleCopyMessageText(msg.text)}
-                        className="size-6 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                        title="Copy Text"
-                      >
-                        <Copy className="size-3.5" />
-                      </button>
-                    )}
-
-                    {/* Delete Message (Sender Only) */}
-                    {isMe && (
-                      <button
-                        type="button"
-                        onClick={() => setMessageToDelete(msg)}
-                        className="size-6 rounded-full hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
-                        title="Delete Message"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Bubble Container */}
-                  <div
-                    className={`max-w-[85%] sm:max-w-[75%] rounded-2xl p-3 text-sm shadow-xs leading-relaxed transition-all relative ${
-                      isMe
-                        ? "bg-primary text-primary-foreground rounded-br-xs"
-                        : "bg-muted/90 text-foreground border border-border/60 rounded-bl-xs"
+                    className={`flex items-end gap-2 max-w-[88%] sm:max-w-[75%] md:max-w-[65%] ${
+                      isMe ? "flex-row-reverse" : "flex-row"
                     }`}
                   >
-                    {/* Replied Message Preview Header */}
-                    {msg.reply_to && (
-                      <div
-                        onClick={() => scrollToMessage(msg.reply_to!.id)}
-                        className={`mb-2 p-2 rounded-xl text-xs cursor-pointer border-l-2 transition-opacity hover:opacity-85 ${
-                          isMe
-                            ? "bg-black/15 border-white/80 text-white/90"
-                            : "bg-background/80 border-primary text-muted-foreground"
-                        }`}
-                      >
-                        <p className="font-bold truncate text-[11px] mb-0.5">
-                          {msg.reply_to.sender_name}
-                        </p>
-                        <p className="truncate text-[11px] opacity-90">
-                          {msg.reply_to.text}
-                        </p>
-                      </div>
+                    {/* Other User Avatar */}
+                    {!isMe && (
+                      <Avatar className="size-7 ring-1 ring-border/50 shrink-0 mb-1">
+                        <AvatarImage src={avatarSrc} alt={otherDisplayName} />
+                        <AvatarFallback className="text-[10px] font-bold">
+                          {getInitials(otherDisplayName)}
+                        </AvatarFallback>
+                      </Avatar>
                     )}
 
-                    {/* Attached Images (with In-App Lightbox click) */}
-                    {msg.images && msg.images.length > 0 && (
-                      <div
-                        className={`grid gap-1.5 mb-2 rounded-xl overflow-hidden ${
-                          msg.images.length === 1 ? "grid-cols-1" : "grid-cols-2"
-                        }`}
-                      >
-                        {msg.images.map((imgUrl, idx) => (
-                          <div
-                            key={idx}
-                            onClick={() => {
-                              setLightboxImages(msg.images || [imgUrl]);
-                              setLightboxIndex(idx);
-                              setLightboxOpen(true);
-                            }}
-                            className="block rounded-lg overflow-hidden bg-black/10 hover:opacity-90 transition-opacity max-h-64 max-w-full cursor-zoom-in"
-                          >
-                            <img
-                              src={imgUrl}
-                              alt="Attachment"
-                              onLoad={() => scrollToBottom("instant")}
-                              className="size-full max-h-64 object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    {/* Message Bubble Container */}
+                    <div
+                      className={`relative rounded-2xl px-3.5 py-2.5 shadow-2xs text-sm break-words transition-all ${
+                        isMe
+                          ? "bg-primary text-primary-foreground rounded-br-xs"
+                          : "bg-muted/90 text-foreground border border-border/60 rounded-bl-xs"
+                      } ${msg.is_pending ? "opacity-70" : "opacity-100"}`}
+                    >
+                      {/* Replied Snippet */}
+                      {msg.reply_to && (
+                        <div
+                          onClick={() => scrollToMessage(msg.reply_to!.id)}
+                          className={`mb-2 p-2 rounded-xl text-xs cursor-pointer border-l-2 transition-opacity hover:opacity-85 ${
+                            isMe
+                              ? "bg-black/15 border-white/80 text-white/90"
+                              : "bg-background/80 border-primary text-muted-foreground"
+                          }`}
+                        >
+                          <p className="font-bold truncate text-[11px] mb-0.5">
+                            {msg.reply_to.sender_name}
+                          </p>
+                          <p className="truncate text-[11px] opacity-90">
+                            {msg.reply_to.text}
+                          </p>
+                        </div>
+                      )}
 
-                    {/* Voice Note Waveform Audio Player */}
-                    {msg.audio_url && (
-                      <div className="my-1">
-                        <AudioWaveformPlayer
-                          src={msg.audio_url}
-                          duration={msg.audio_duration}
+                      {/* Attached Images */}
+                      {msg.images && msg.images.length > 0 && (
+                        <div
+                          className={`grid gap-1.5 mb-2 rounded-xl overflow-hidden ${
+                            msg.images.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                          }`}
+                        >
+                          {msg.images.map((imgUrl, idx) => (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                if (!msg.is_pending) {
+                                  setLightboxImages(msg.images || [imgUrl]);
+                                  setLightboxIndex(idx);
+                                  setLightboxOpen(true);
+                                }
+                              }}
+                              className="block rounded-lg overflow-hidden bg-black/10 hover:opacity-90 transition-opacity max-h-64 max-w-full cursor-zoom-in"
+                            >
+                              <img
+                                src={imgUrl}
+                                alt="Attachment"
+                                onLoad={() => scrollToBottom("instant")}
+                                className="size-full max-h-64 object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Attached Video */}
+                      {msg.video_url && (
+                        <div className="my-1.5 rounded-xl overflow-hidden max-w-xs sm:max-w-sm">
+                          <video
+                            src={msg.video_url}
+                            controls
+                            className="w-full rounded-xl max-h-64 bg-black"
+                          />
+                        </div>
+                      )}
+
+                      {/* Attached Document / File */}
+                      {msg.file_url && (
+                        <ChatFileCard
+                          fileUrl={msg.file_url}
+                          fileName={msg.file_name}
+                          fileSize={msg.file_size}
+                          fileType={msg.file_type}
                           isMe={isMe}
                         />
-                      </div>
-                    )}
+                      )}
 
-                    {/* Shared Post / Blog / Video Card */}
-                    {msg.shared_data && (
-                      <div className="my-1">
-                        <SharedContentCard data={msg.shared_data} isMe={isMe} />
-                      </div>
-                    )}
+                      {/* Voice Note Player */}
+                      {msg.audio_url && (
+                        <div className="my-1">
+                          <AudioWaveformPlayer
+                            src={msg.audio_url}
+                            duration={msg.audio_duration}
+                            isMe={isMe}
+                          />
+                        </div>
+                      )}
 
-                    {/* Message Text (with rich links / mentions / hashtags) */}
-                    {msg.text && (
-                      <div className="whitespace-pre-wrap break-words leading-relaxed">
-                        {renderMessageContent(msg.text, router, isMe)}
-                      </div>
-                    )}
+                      {/* Shared Content Card */}
+                      {msg.shared_data && (
+                        <div className="my-1">
+                          <SharedContentCard data={msg.shared_data} isMe={isMe} />
+                        </div>
+                      )}
 
-                    {/* Embedded Video (YouTube / Instagram / Direct) */}
-                    {msg.text && (
-                      <div className="mt-1.5">
-                        <VideoEmbed content={msg.text} />
-                      </div>
-                    )}
+                      {/* Message Text / Inline Edit Mode */}
+                      {editingMessage?.id === msg.id ? (
+                        <div className="space-y-2 py-1 min-w-[200px]">
+                          <Input
+                            type="text"
+                            value={editingText}
+                            onChange={(e) => setEditingText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSaveEdit();
+                              } else if (e.key === "Escape") {
+                                setEditingMessage(null);
+                              }
+                            }}
+                            autoFocus
+                            className="text-xs bg-background/90 text-foreground rounded-lg h-8"
+                          />
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingMessage(null)}
+                              className="h-6 px-2 text-[11px] rounded-md text-muted-foreground"
+                            >
+                              Cancel
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={editingLoading}
+                              onClick={handleSaveEdit}
+                              className="h-6 px-2 text-[11px] rounded-md font-bold"
+                            >
+                              {editingLoading ? <Loader2 className="size-3 animate-spin" /> : "Save"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        msg.text && (
+                          <div className="whitespace-pre-wrap break-words leading-relaxed">
+                            {renderMessageContent(msg.text, router, isMe)}
+                          </div>
+                        )
+                      )}
 
-                    {/* Link Preview Card (Websites / Pinterest) */}
-                    {msg.text && (
-                      <div className="mt-1.5">
-                        <LinkPreviewCard content={msg.text} />
+                      {/* Video Embed */}
+                      {msg.text && (
+                        <div className="mt-1.5">
+                          <VideoEmbed content={msg.text} />
+                        </div>
+                      )}
+
+                      {/* Link Preview */}
+                      {msg.text && (
+                        <div className="mt-1.5">
+                          <LinkPreviewCard content={msg.text} />
+                        </div>
+                      )}
+
+                      {/* Bubble Footer: Time, Edited, Starred, Delivery Ticks */}
+                      <div
+                        className={`flex items-center gap-1 mt-0.5 text-[10px] select-none ${
+                          isMe ? "justify-end text-primary-foreground/75" : "justify-start text-muted-foreground"
+                        }`}
+                      >
+                        {msg.is_starred && (
+                          <Star className="size-2.5 fill-amber-400 text-amber-400 shrink-0" />
+                        )}
+                        {msg.is_edited && (
+                          <span className="italic" title={`Edited ${msg.edited_at || ""}`}>
+                            (edited)
+                          </span>
+                        )}
+                        <span>{msg.is_pending ? "Sending..." : formatMessageTime(msg.created_at)}</span>
+                        {isMe && (
+                          <span title={msg.is_pending ? "Sending..." : msg.is_seen ? "Seen" : "Delivered"}>
+                            {msg.is_pending ? (
+                              <Clock className="size-2.5 animate-pulse text-primary-foreground/70" />
+                            ) : msg.is_seen ? (
+                              <CheckCheck className="size-3 text-sky-300" />
+                            ) : (
+                              <Check className="size-3 text-primary-foreground/70" />
+                            )}
+                          </span>
+                        )}
                       </div>
-                    )}
+                    </div>
+
+                    {/* Quick Hover Message Action Bar */}
+                    <div
+                      className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-card/90 backdrop-blur-md rounded-full px-1.5 py-0.5 border border-border shadow-xs shrink-0"
+                    >
+                      {/* Emoji React */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <button
+                              type="button"
+                              className="size-6 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors"
+                              title="React"
+                            >
+                              <Smile className="size-3.5" />
+                            </button>
+                          }
+                        />
+                        <DropdownMenuContent className="flex items-center gap-1 p-1 rounded-2xl min-w-0">
+                          {REACTION_EMOJIS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              onClick={() => handleToggleReaction(msg.id, emoji)}
+                              className="size-7 hover:bg-muted rounded-xl flex items-center justify-center text-sm transition-transform hover:scale-125 active:scale-95"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      {/* Star Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStar(msg.id)}
+                        className={`size-6 rounded-full hover:bg-muted flex items-center justify-center cursor-pointer transition-colors ${
+                          msg.is_starred ? "text-amber-500" : "text-muted-foreground hover:text-foreground"
+                        }`}
+                        title={msg.is_starred ? "Unstar" : "Star message"}
+                      >
+                        <Star className={`size-3.5 ${msg.is_starred ? "fill-amber-500" : ""}`} />
+                      </button>
+
+                      {/* Reply Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyingTo(msg);
+                          textareaRef.current?.focus();
+                        }}
+                        className="size-6 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors"
+                        title="Reply"
+                      >
+                        <Reply className="size-3.5" />
+                      </button>
+
+                      {/* Message Options Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <button
+                              type="button"
+                              className="size-6 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors"
+                            >
+                              <MoreVertical className="size-3.5" />
+                            </button>
+                          }
+                        />
+                        <DropdownMenuContent align={isMe ? "end" : "start"} className="w-44 rounded-xl">
+                          {/* Copy Text */}
+                          {msg.text && (
+                            <DropdownMenuItem
+                              onClick={() => {
+                                navigator.clipboard.writeText(msg.text);
+                                toast.success("Copied to clipboard");
+                              }}
+                              className="gap-2 text-xs cursor-pointer"
+                            >
+                              <Copy className="size-3.5" />
+                              <span>Copy Text</span>
+                            </DropdownMenuItem>
+                          )}
+
+                          {/* Pin Message */}
+                          <DropdownMenuItem
+                            onClick={() => handleTogglePinMessage(msg.id)}
+                            className="gap-2 text-xs cursor-pointer"
+                          >
+                            <Pin className="size-3.5" />
+                            <span>{conversation?.pinned_message?.id === msg.id ? "Unpin Message" : "Pin to Top"}</span>
+                          </DropdownMenuItem>
+
+                          {/* Edit Message (Sender + Within 15m) */}
+                          {isMe && msg.can_edit && (
+                            <DropdownMenuItem
+                              onClick={() => handleStartEdit(msg)}
+                              className="gap-2 text-xs cursor-pointer"
+                            >
+                              <Pencil className="size-3.5 text-primary" />
+                              <span>Edit Message</span>
+                            </DropdownMenuItem>
+                          )}
+
+                          {/* Delete Message (Sender only) */}
+                          {isMe && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setMessageToDelete(msg)}
+                                className="gap-2 text-xs text-destructive focus:text-destructive cursor-pointer"
+                              >
+                                <Trash2 className="size-3.5" />
+                                <span>Delete Message</span>
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
 
                   {/* Reaction Badges Pills */}
@@ -1084,11 +1493,6 @@ export default function ConversationDetailPage() {
                               ? "bg-primary/15 border-primary/40 text-primary shadow-2xs scale-105"
                               : "bg-card/80 border-border/80 text-foreground hover:bg-muted"
                           }`}
-                          title={
-                            reaction.has_reacted
-                              ? "You reacted (click to remove)"
-                              : "Click to react"
-                          }
                         >
                           <span>{reaction.emoji}</span>
                           <span className="text-[10px] font-bold">
@@ -1098,24 +1502,6 @@ export default function ConversationDetailPage() {
                       ))}
                     </div>
                   )}
-
-                  {/* Metadata: Time & Seen Status */}
-                  <div
-                    className={`flex items-center gap-1 mt-1 text-[10px] text-muted-foreground px-1 ${
-                      isMe ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    <span>{msg.created_at_human || ""}</span>
-                    {isMe && (
-                      <span title={msg.is_seen ? "Seen" : "Delivered"}>
-                        {msg.is_seen ? (
-                          <CheckCheck className="size-3 text-sky-500" />
-                        ) : (
-                          <Check className="size-3 text-muted-foreground" />
-                        )}
-                      </span>
-                    )}
-                  </div>
                 </div>
               </div>
             );
@@ -1126,9 +1512,9 @@ export default function ConversationDetailPage() {
         {isOtherTyping && (
           <div className="flex items-center gap-2 py-1 animate-in fade-in duration-200">
             <Avatar className="size-6 ring-1 ring-border/40">
-              <AvatarImage src={avatarSrc} alt={otherUser?.name || "User"} />
+              <AvatarImage src={avatarSrc} alt={otherDisplayName} />
               <AvatarFallback className="text-[9px] font-bold">
-                {getInitials(otherUser?.name || "U")}
+                {getInitials(otherDisplayName)}
               </AvatarFallback>
             </Avatar>
             <div className="bg-muted/80 border border-border/60 rounded-2xl rounded-bl-xs px-3 py-2 flex items-center gap-1.5 shadow-2xs">
@@ -1142,7 +1528,7 @@ export default function ConversationDetailPage() {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── Floating Scroll to Bottom Button ── */}
+      {/* ── Scroll to Bottom Floating Button ── */}
       {showScrollBottomButton && (
         <button
           type="button"
@@ -1163,7 +1549,7 @@ export default function ConversationDetailPage() {
         </button>
       )}
 
-      {/* ── Follow Warning Banner (if user doesn't follow recipient) ── */}
+      {/* ── Follow Warning Banner ── */}
       {!isFollowing && (
         <div className="bg-amber-500/10 border-t border-amber-500/30 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-amber-600 dark:text-amber-400">
           <div className="flex items-center gap-2">
@@ -1187,21 +1573,49 @@ export default function ConversationDetailPage() {
         </div>
       )}
 
-      {/* ── Image Previews Bar ── */}
-      {filePreviews.length > 0 && (
+      {/* ── Attachment Previews Bar ── */}
+      {(filePreviews.length > 0 || selectedVideo || selectedDoc) && (
         <div className="flex items-center gap-2 px-4 py-2 bg-muted/40 border-t border-border/50 overflow-x-auto">
           {filePreviews.map((url, i) => (
             <div key={i} className="relative size-16 rounded-xl overflow-hidden ring-1 ring-border shrink-0">
               <img src={url} alt="preview" className="size-full object-cover" />
               <button
                 type="button"
-                onClick={() => removeFile(i)}
+                onClick={() => removeImage(i)}
                 className="absolute top-1 right-1 size-5 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors"
               >
                 <X className="size-3" />
               </button>
             </div>
           ))}
+
+          {selectedVideo && (
+            <div className="relative px-3 py-2 bg-card rounded-xl border border-border flex items-center gap-2 shrink-0 text-xs">
+              <Video className="size-4 text-primary" />
+              <span className="truncate max-w-[120px] font-semibold">{selectedVideo.name}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedVideo(null)}
+                className="size-4 rounded-full bg-muted flex items-center justify-center hover:bg-destructive hover:text-white"
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          )}
+
+          {selectedDoc && (
+            <div className="relative px-3 py-2 bg-card rounded-xl border border-border flex items-center gap-2 shrink-0 text-xs">
+              <FileText className="size-4 text-primary" />
+              <span className="truncate max-w-[120px] font-semibold">{selectedDoc.name}</span>
+              <button
+                type="button"
+                onClick={() => setSelectedDoc(null)}
+                className="size-4 rounded-full bg-muted flex items-center justify-center hover:bg-destructive hover:text-white"
+              >
+                <X className="size-3" />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -1217,11 +1631,11 @@ export default function ConversationDetailPage() {
                   Replying to{" "}
                   {Number(replyingTo.sender_id) === Number(currentUser?.id)
                     ? "yourself"
-                    : replyingTo.sender?.name || otherUser?.name || "User"}
+                    : replyingTo.sender?.display_name || replyingTo.sender?.name || "User"}
                   :
                 </span>{" "}
                 <span className="text-muted-foreground truncate">
-                  {replyingTo.text || (replyingTo.images?.length ? "📷 Image" : "")}
+                  {replyingTo.text || (replyingTo.images?.length ? "📷 Photo" : replyingTo.file_name ? "📎 File" : "")}
                 </span>
               </div>
             </div>
@@ -1262,28 +1676,72 @@ export default function ConversationDetailPage() {
           onSubmit={handleSendMessage}
           className="flex items-center gap-2 max-w-4xl mx-auto"
         >
-          {/* Attachment Input (Hidden) */}
+          {/* Hidden File Inputs */}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
             multiple
             className="hidden"
-            onChange={handleFileSelect}
+            onChange={handleImageSelect}
+          />
+          <input
+            ref={videoInputRef}
+            type="file"
+            accept="video/*"
+            className="hidden"
+            onChange={handleVideoSelect}
+          />
+          <input
+            ref={docInputRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.txt"
+            className="hidden"
+            onChange={handleDocSelect}
           />
 
-          {/* Attachment Button */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={!isFollowing || sending}
-            className="size-9 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
-            title="Attach images"
-          >
-            <ImageIcon className="size-5" />
-          </Button>
+          {/* Attachments Dropdown Menu */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={!isFollowing || sending}
+                  className="size-9 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 cursor-pointer"
+                  title="Attach Media or Documents"
+                >
+                  <Paperclip className="size-5" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="start" className="w-48 rounded-xl">
+              <DropdownMenuItem
+                onClick={() => fileInputRef.current?.click()}
+                className="gap-2 text-xs font-semibold cursor-pointer"
+              >
+                <ImageIcon className="size-4 text-emerald-500" />
+                <span>Photos / Images</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => videoInputRef.current?.click()}
+                className="gap-2 text-xs font-semibold cursor-pointer"
+              >
+                <Video className="size-4 text-blue-500" />
+                <span>Video File</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem
+                onClick={() => docInputRef.current?.click()}
+                className="gap-2 text-xs font-semibold cursor-pointer"
+              >
+                <FileText className="size-4 text-amber-500" />
+                <span>Document / PDF</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Emoji Button */}
           <Button
@@ -1292,7 +1750,7 @@ export default function ConversationDetailPage() {
             size="sm"
             onClick={() => setEmojiOpen((prev) => !prev)}
             disabled={!isFollowing || sending}
-            className="size-9 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+            className="size-9 p-0 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 cursor-pointer"
             title="Add emoji"
           >
             <Smile className="size-5" />
@@ -1312,98 +1770,156 @@ export default function ConversationDetailPage() {
             }}
             placeholder={
               !isFollowing
-                ? "Follow to send messages..."
-                : replyingTo
-                ? "Write a reply..."
+                ? "Follow this user to send a message..."
                 : "Type a message..."
             }
             disabled={!isFollowing || sending}
-            className="flex-1 h-10 rounded-2xl bg-muted/50 border-border/70 text-sm focus:bg-background"
+            className="flex-1 rounded-2xl h-10 text-sm bg-muted/60 border-border/80 focus-visible:ring-primary focus-visible:bg-background transition-colors"
           />
 
-          {/* Send Button or Voice Recorder */}
-          {messageText.trim() || selectedFiles.length > 0 ? (
-            <Button
-              type="submit"
-              disabled={!isFollowing || sending}
-              className="size-10 p-0 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs shrink-0 cursor-pointer"
-            >
-              {sending ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Send className="size-4" />
-              )}
-            </Button>
-          ) : (
+          {/* Voice Recorder button (if empty text) or Send button */}
+          {!messageText.trim() && selectedFiles.length === 0 && !selectedVideo && !selectedDoc ? (
             <VoiceRecorder
               onSend={handleSendVoiceNote}
               disabled={!isFollowing || sending}
             />
+          ) : (
+            <Button
+              type="submit"
+              size="sm"
+              disabled={
+                (!messageText.trim() && selectedFiles.length === 0 && !selectedVideo && !selectedDoc) ||
+                !isFollowing ||
+                sending
+              }
+              className="size-10 rounded-full p-0 bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shrink-0 active:scale-95 transition-transform cursor-pointer"
+              title="Send Message"
+            >
+              {sending ? (
+                <Loader2 className="size-4.5 animate-spin" />
+              ) : (
+                <Send className="size-4.5" />
+              )}
+            </Button>
           )}
         </form>
       </div>
 
-      {/* ── Dialog: Account Info ── */}
+      {/* ── Dialogs ── */}
       {otherUser && (
-        <AccountInfoDialog
-          open={accountInfoOpen}
-          onOpenChange={setAccountInfoOpen}
-          user={otherUser as any}
-        />
+        <>
+          <AccountInfoDialog
+            open={accountInfoOpen}
+            onOpenChange={setAccountInfoOpen}
+            user={{
+              id: otherUser.id,
+              name: otherDisplayName,
+              username: otherUser.username,
+              avatar: otherUser.avatar,
+              cover: otherUser.cover,
+              bio: otherUser.bio,
+              location: otherUser.location,
+              website: otherUser.website,
+              verified: otherUser.verified,
+              created_at: otherUser.created_at,
+              followers_count: otherUser.followers_count,
+              following_count: otherUser.following_count,
+              posts_count: otherUser.posts_count,
+            }}
+          />
+
+          <ContactNicknameDialog
+            open={nicknameDialogOpen}
+            onOpenChange={setNicknameDialogOpen}
+            userId={otherUser.id}
+            userName={otherUser.name}
+            userUsername={otherUser.username}
+            initialNickname={otherUser.custom_nickname}
+            onNicknameUpdated={(nickname, displayName) => {
+              setConversation((prev) =>
+                prev && prev.user
+                  ? {
+                      ...prev,
+                      user: {
+                        ...prev.user,
+                        custom_nickname: nickname,
+                        display_name: displayName,
+                      },
+                    }
+                  : prev
+              );
+            }}
+          />
+
+          <SharedMediaDrawer
+            open={sharedMediaOpen}
+            onOpenChange={setSharedMediaOpen}
+            conversationId={convId}
+            userName={otherDisplayName}
+          />
+        </>
       )}
 
-      {/* ── Dialog: Image Lightbox Preview ── */}
+      {/* Lightbox for message images */}
       <ImageLightbox
-        open={lightboxOpen}
         images={lightboxImages}
-        index={lightboxIndex}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
         onClose={() => setLightboxOpen(false)}
       />
 
-      {/* ── Dialog: Confirm Delete Message ── */}
+      {/* Delete Single Message Confirmation */}
       <AlertDialog
-        open={!!messageToDelete}
+        open={Boolean(messageToDelete)}
         onOpenChange={(open) => !open && setMessageToDelete(null)}
       >
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete message?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This message will be deleted for everyone in this conversation.
+            <AlertDialogTitle className="text-base font-bold">
+              Delete message?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              This will permanently delete this message for everyone in the chat.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl text-xs">
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel className="text-xs rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => messageToDelete && handleDeleteSingleMessage(messageToDelete)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl text-xs font-bold"
+              onClick={() => messageToDelete && handleDeleteMessage(messageToDelete)}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs rounded-xl"
             >
-              Delete for everyone
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Dialog: Confirm Delete Entire Conversation ── */}
+      {/* Delete Conversation Confirmation */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent className="rounded-3xl">
+        <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete conversation?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete this conversation and all its messages.
+            <AlertDialogTitle className="text-base font-bold">
+              Delete entire conversation?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs">
+              This will delete the conversation and all messages for you. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl text-xs">
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel className="text-xs rounded-xl">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteConversation}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-xl text-xs font-bold"
+              onClick={async () => {
+                try {
+                  await messagesService.deleteConversation(convId);
+                  toast.success("Conversation deleted");
+                  router.push("/messages");
+                } catch {
+                  toast.error("Failed to delete conversation");
+                }
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs rounded-xl"
             >
-              Delete
+              Delete Conversation
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

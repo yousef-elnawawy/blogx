@@ -80,7 +80,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/conversations/start', [MessageController::class, 'start']);
     Route::get('/conversations/{id}', [MessageController::class, 'show']);
     Route::post('/conversations/{id}/messages', [MessageController::class, 'sendMessage']);
+    Route::put('/messages/{id}', [MessageController::class, 'editMessage']);
     Route::delete('/conversations/{id}/messages/{messageId}', [MessageController::class, 'deleteMessage']);
+    Route::post('/messages/{id}/star', [MessageController::class, 'toggleStar']);
+    Route::post('/conversations/{id}/pin/{messageId}', [MessageController::class, 'togglePinMessage']);
+    Route::get('/conversations/{id}/media', [MessageController::class, 'getMediaGallery']);
+    Route::get('/conversations/{id}/search', [MessageController::class, 'search']);
+    Route::post('/contacts/{userId}/nickname', [MessageController::class, 'setContactNickname']);
     Route::post('/conversations/{id}/typing', [MessageController::class, 'typing']);
     Route::post('/conversations/{id}/messages/{messageId}/react', [MessageController::class, 'toggleReaction']);
     Route::post('/conversations/{id}/pin', [MessageController::class, 'togglePin']);
