@@ -10,8 +10,23 @@ import {
   BarChart2,
   Code2,
   X,
+  Heading,
+  Quote,
+  Table as TableIcon,
+  CheckSquare,
+  Minus,
+  Sparkles,
+  Bold,
+  Italic,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 interface ToolbarProps {
   onImageSelect?: (files: FileList) => void;
@@ -21,6 +36,7 @@ interface ToolbarProps {
   onInsertMention?: () => void;
   onInsertCode?: () => void;
   onInsertEmoji?: (emoji: string) => void;
+  onInsertTemplate?: (template: string) => void;
   onOpenArticleEditor?: () => void;
   onAddPoll?: () => void;
   hasPoll?: boolean;
@@ -44,6 +60,7 @@ export default function Toolbar({
   onInsertMention,
   onInsertCode,
   onInsertEmoji,
+  onInsertTemplate,
   onOpenArticleEditor,
   onAddPoll,
   hasPoll = false,
@@ -152,7 +169,85 @@ export default function Toolbar({
         </button>
       )}
 
-      {/* 3. Insert Hashtag */}
+      {/* 4. Rich Markdown Formatting Tools */}
+      {onInsertTemplate && (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="size-8 rounded-full flex items-center justify-center text-sky-500 hover:bg-sky-500/10 active:scale-95 transition-all cursor-pointer"
+            title="Rich Formatting (Headings, Callouts, Tables)"
+          >
+            <Heading className="size-[17px]" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52 p-1.5 rounded-2xl bg-popover/95 backdrop-blur-xl border border-border/80 shadow-2xl">
+            <DropdownMenuItem
+              onClick={() => onInsertTemplate("\n# Big Title\n")}
+              className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              <span className="font-bold text-sm">H1</span>
+              <span>Main Heading</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onInsertTemplate("\n## Subtitle\n")}
+              className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              <span className="font-bold text-xs">H2</span>
+              <span>Subheading</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onInsertTemplate("\n> [!NOTE]\n> Write your note or announcement here...\n\n")}
+              className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              <Sparkles className="size-4 text-sky-500" />
+              <span>Callout Box (Note)</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onInsertTemplate("\n> [!TIP]\n> Write a pro tip or idea here...\n\n")}
+              className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              <Sparkles className="size-4 text-emerald-500" />
+              <span>Callout Box (Tip)</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onInsertTemplate("\n| Feature | Status |\n|---|---|\n| Item 1 | Done |\n\n")}
+              className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              <TableIcon className="size-4 text-amber-500" />
+              <span>Markdown Table</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onInsertTemplate("\n- [ ] Task item\n")}
+              className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              <CheckSquare className="size-4 text-primary" />
+              <span>Task Checklist</span>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="my-1" />
+            <DropdownMenuItem
+              onClick={() => onInsertTemplate("**bold text** ")}
+              className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              <Bold className="size-3.5" />
+              <span>Bold Text</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onInsertTemplate("*italic text* ")}
+              className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              <Italic className="size-3.5" />
+              <span>Italic Text</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => onInsertTemplate("\n---\n\n")}
+              className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl cursor-pointer"
+            >
+              <Minus className="size-3.5" />
+              <span>Horizontal Line</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+
+      {/* 5. Insert Hashtag */}
       <button
         type="button"
         aria-label="Add hashtag"
@@ -163,7 +258,7 @@ export default function Toolbar({
         <Hash className="size-[17px]" />
       </button>
 
-      {/* 4. Insert Mention */}
+      {/* 6. Insert Mention */}
       {onInsertMention && (
         <button
           type="button"
@@ -176,7 +271,7 @@ export default function Toolbar({
         </button>
       )}
 
-      {/* 5. Insert Code Snippet */}
+      {/* 7. Insert Code Snippet */}
       {onInsertCode && (
         <button
           type="button"
@@ -189,7 +284,7 @@ export default function Toolbar({
         </button>
       )}
 
-      {/* 6. Emoji Picker */}
+      {/* 8. Emoji Picker */}
       {onInsertEmoji && (
         <div className="relative" ref={emojiRef}>
           <button

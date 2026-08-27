@@ -18,6 +18,31 @@ export function getAvatarUrl(avatar: string | null | undefined): string | undefi
   return `${BACKEND_URL}/storage/${clean}`;
 }
 
+export function getMediaUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  
+  // If absolute URL pointing to our backend storage, convert to stream endpoint for HTTP 206 seeking
+  if (url.startsWith(BACKEND_URL + "/storage/")) {
+    const clean = url.replace(BACKEND_URL + "/storage/", "");
+    return `${BACKEND_URL}/media/stream/${clean}`;
+  }
+
+  if (url.startsWith("http://127.0.0.1:8000/storage/") || url.startsWith("http://localhost:8000/storage/")) {
+    const clean = url.replace(/https?:\/\/[^/]+\/storage\//, "");
+    return `${BACKEND_URL}/media/stream/${clean}`;
+  }
+
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  if (url.startsWith("//")) {
+    return `https:${url}`;
+  }
+  
+  const clean = url.replace(/^\/?storage\//, "").replace(/^\//, "");
+  return `${BACKEND_URL}/media/stream/${clean}`;
+}
+
 export function getInitials(name?: string | null): string {
   if (!name) return "U";
   return name

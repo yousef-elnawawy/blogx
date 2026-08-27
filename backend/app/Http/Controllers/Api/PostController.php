@@ -96,6 +96,7 @@ class PostController extends Controller
     public function show(Request $request, $id)
     {
         $user = $request->user() ?? auth('sanctum')->user();
+        $sort = $request->query('sort', 'top'); // top, newest, oldest
 
         $post = Post::with([
             'user',
@@ -106,11 +107,20 @@ class PostController extends Controller
             'quoteOf.user',
             'quoteOf.images',
             'community',
-            'comments' => function ($query) {
+            'comments' => function ($query) use ($sort) {
                 $query->whereNull('parent_id')
-                    ->with(['user', 'replies.user', 'likes'])
-                    ->withCount('likes')
-                    ->latest();
+                    ->with(['user', 'replies.user', 'replies.likes', 'likes'])
+                    ->withCount(['likes', 'replies'])
+                    ->orderByDesc('is_pinned');
+
+                if ($sort === 'newest') {
+                    $query->latest();
+                } elseif ($sort === 'oldest') {
+                    $query->oldest();
+                } else {
+                    // Top (Most liked, then latest)
+                    $query->orderByDesc('likes_count')->latest();
+                }
             }
         ])
         ->withCount(['likes', 'comments'])
@@ -174,25 +184,39 @@ class PostController extends Controller
         }
 
         $validated = $request->validate([
-            'content'   => ['required', 'string', 'max:2000'],
+            'content'   => ['nullable', 'string', 'max:2000'],
+            'image'     => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:10240'],
             'parent_id' => ['nullable', 'exists:comments,id'],
         ]);
 
+        if (empty($validated['content']) && !$request->hasFile('image')) {
+            return response()->json(['message' => 'Comment cannot be empty'], 422);
+        }
+
+        $imageUrl = null;
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('comments', 'public');
+            $imageUrl = '/storage/' . $path;
+        }
+
         $comment = $post->comments()->create([
             'user_id'   => $request->user()->id,
-            'content'   => $validated['content'],
+            'content'   => $validated['content'] ?? '',
+            'image_url' => $imageUrl,
             'parent_id' => $validated['parent_id'] ?? null,
         ]);
 
         NotificationService::sendCommentNotification($request->user(), $comment, $post);
 
         // Mentions in comment
-        preg_match_all('/@([a-zA-Z0-9_]+)/u', $validated['content'], $cMatches);
-        $commentUsernames = array_unique(array_map('strtolower', $cMatches[1] ?? []));
-        if (!empty($commentUsernames)) {
-            $mentionedUsers = User::whereIn('username', $commentUsernames)->get();
-            foreach ($mentionedUsers as $mUser) {
-                NotificationService::sendMentionNotification($request->user(), $mUser, $post);
+        if (!empty($validated['content'])) {
+            preg_match_all('/@([a-zA-Z0-9_]+)/u', $validated['content'], $cMatches);
+            $commentUsernames = array_unique(array_map('strtolower', $cMatches[1] ?? []));
+            if (!empty($commentUsernames)) {
+                $mentionedUsers = User::whereIn('username', $commentUsernames)->get();
+                foreach ($mentionedUsers as $mUser) {
+                    NotificationService::sendMentionNotification($request->user(), $mUser, $post);
+                }
             }
         }
 
@@ -242,6 +266,114 @@ class PostController extends Controller
     }
 
     /**
+     * Update comment content (authenticated, comment owner only).
+     */
+    public function updateComment(Request $request, $id, $commentId)
+    {
+        $post = Post::find($id);
+        if (!$post) return response()->json(['message' => 'Post not found'], 404);
+
+        $comment = $post->comments()->find($commentId);
+        if (!$comment) return response()->json(['message' => 'Comment not found'], 404);
+
+        if ($comment->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Unauthorized to edit this comment'], 403);
+        }
+
+        $validated = $request->validate([
+            'content' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $comment->update([
+            'content'   => $validated['content'],
+            'is_edited' => true,
+        ]);
+
+        return response()->json([
+            'message' => 'Comment updated successfully',
+            'comment' => $this->formatComment($comment->fresh(['user', 'replies.user']), $request->user()),
+        ]);
+    }
+
+    /**
+     * Delete a comment (authenticated, comment owner or post owner).
+     */
+    public function destroyComment(Request $request, $id, $commentId)
+    {
+        $post = Post::find($id);
+        if (!$post) return response()->json(['message' => 'Post not found'], 404);
+
+        $comment = $post->comments()->find($commentId);
+        if (!$comment) return response()->json(['message' => 'Comment not found'], 404);
+
+        $user = $request->user();
+        if ($comment->user_id !== $user->id && $post->user_id !== $user->id) {
+            return response()->json(['message' => 'Unauthorized to delete this comment'], 403);
+        }
+
+        $comment->delete();
+
+        return response()->json([
+            'message'        => 'Comment deleted successfully',
+            'comments_count' => $post->comments()->count(),
+        ]);
+    }
+
+    /**
+     * Toggle pin on a comment (authenticated, post owner only).
+     */
+    public function togglePinComment(Request $request, $id, $commentId)
+    {
+        $post = Post::find($id);
+        if (!$post) return response()->json(['message' => 'Post not found'], 404);
+
+        if ($post->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Only post author can pin comments'], 403);
+        }
+
+        $comment = $post->comments()->find($commentId);
+        if (!$comment) return response()->json(['message' => 'Comment not found'], 404);
+
+        $newPinned = !$comment->is_pinned;
+
+        // If pinning, unpin any previously pinned comment on this post
+        if ($newPinned) {
+            $post->comments()->where('id', '!=', $comment->id)->update(['is_pinned' => false]);
+        }
+
+        $comment->update(['is_pinned' => $newPinned]);
+
+        return response()->json([
+            'message'   => $newPinned ? 'Comment pinned to top' : 'Comment unpinned',
+            'is_pinned' => $newPinned,
+        ]);
+    }
+
+    /**
+     * Toggle creator heart on a comment (authenticated, post owner only).
+     */
+    public function toggleHeartComment(Request $request, $id, $commentId)
+    {
+        $post = Post::find($id);
+        if (!$post) return response()->json(['message' => 'Post not found'], 404);
+
+        if ($post->user_id !== $request->user()->id) {
+            return response()->json(['message' => 'Only post author can heart comments'], 403);
+        }
+
+        $comment = $post->comments()->find($commentId);
+        if (!$comment) return response()->json(['message' => 'Comment not found'], 404);
+
+        $newHearted = !$comment->is_creator_liked;
+        $comment->update(['is_creator_liked' => $newHearted]);
+
+        return response()->json([
+            'message'          => $newHearted ? 'Creator heart added' : 'Creator heart removed',
+            'is_creator_liked' => $newHearted,
+        ]);
+    }
+
+    /**
      * Toggle bookmark on a post (authenticated).
      */
     public function toggleBookmark(Request $request, $id)
@@ -277,9 +409,20 @@ class PostController extends Controller
     public function bookmarks(Request $request)
     {
         $user = $request->user();
+        $collectionId = $request->query('collection_id');
 
-        $postIds = \App\Models\Bookmark::where('user_id', $user->id)->whereNotNull('post_id')->pluck('post_id');
-        $blogIds = \App\Models\Bookmark::where('user_id', $user->id)->whereNotNull('blog_id')->pluck('blog_id');
+        $bookmarksQuery = \App\Models\Bookmark::where('user_id', $user->id);
+
+        if ($collectionId !== null && $collectionId !== '') {
+            if ($collectionId === 'uncategorized') {
+                $bookmarksQuery->whereNull('collection_id');
+            } else {
+                $bookmarksQuery->where('collection_id', (int) $collectionId);
+            }
+        }
+
+        $postIds = (clone $bookmarksQuery)->whereNotNull('post_id')->pluck('post_id');
+        $blogIds = (clone $bookmarksQuery)->whereNotNull('blog_id')->pluck('blog_id');
 
         $posts = Post::whereIn('id', $postIds)
             ->with(['user', 'images', 'mentions.user'])
@@ -1224,12 +1367,16 @@ class PostController extends Controller
             : [];
 
         return [
-            'id'          => $comment->id,
-            'content'     => $comment->content,
-            'created_at'  => $comment->created_at,
-            'likes_count' => $comment->likes_count ?? $comment->likes()->count(),
-            'is_liked'    => $user ? $comment->isLikedBy($user) : false,
-            'mentions'    => $validCommentMentions,
+            'id'               => $comment->id,
+            'content'          => $comment->content,
+            'image_url'        => $comment->image_url ? (str_starts_with($comment->image_url, 'http') ? $comment->image_url : config('app.url') . $comment->image_url) : null,
+            'is_pinned'        => (bool) $comment->is_pinned,
+            'is_edited'        => (bool) $comment->is_edited,
+            'is_creator_liked' => (bool) $comment->is_creator_liked,
+            'created_at'       => $comment->created_at,
+            'likes_count'      => $comment->likes_count ?? $comment->likes()->count(),
+            'is_liked'         => $user ? $comment->isLikedBy($user) : false,
+            'mentions'         => $validCommentMentions,
             'author' => [
                 'id'              => $comment->user->id,
                 'name'            => $comment->user->name,

@@ -14,11 +14,16 @@ class Comment extends Model
         'user_id',
         'parent_id',
         'content',
+        'image_url',
+        'is_edited',
         'is_pinned',
+        'is_creator_liked',
     ];
 
     protected $casts = [
-        'is_pinned' => 'boolean',
+        'is_pinned'        => 'boolean',
+        'is_edited'        => 'boolean',
+        'is_creator_liked' => 'boolean',
     ];
 
     // Relationships

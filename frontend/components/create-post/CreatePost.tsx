@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Image as ImageIcon, Hash, AtSign, Smile, BookOpen, Code2, BarChart2 } from "lucide-react";
+import { Image as ImageIcon, Hash, AtSign, Smile, BookOpen, Code2, BarChart2, Heading } from "lucide-react";
 import PostEditorDialog from "./PostEditorDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { PostCardProps } from "@/components/PostCard";
@@ -79,6 +79,14 @@ export default function CreatePost({ communityId, placeholder, onPostCreated }: 
                   title="Mention (@)"
                 >
                   <AtSign className="size-[17px]" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOpen(true)}
+                  className="size-8 rounded-md flex items-center justify-center text-sky-500 hover:bg-sky-500/10 active:scale-95 transition-all cursor-pointer"
+                  title="Rich Formatting / Articles"
+                >
+                  <Heading className="size-[17px]" />
                 </button>
                 <button
                   type="button"

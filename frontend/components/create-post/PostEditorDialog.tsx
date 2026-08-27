@@ -609,6 +609,13 @@ export default function PostEditorDialog({
     handleInput();
   };
 
+  const insertTemplate = (template: string) => {
+    if (!editorRef.current) return;
+    editorRef.current.focus();
+    document.execCommand("insertText", false, template);
+    handleInput();
+  };
+
   const handleVideoSelect = async (file: File) => {
     const url = URL.createObjectURL(file);
     setVideoFile(file);
@@ -1051,6 +1058,7 @@ export default function PostEditorDialog({
               onInsertMention={insertMention}
               onInsertCode={insertCodeSnippet}
               onInsertEmoji={insertEmoji}
+              onInsertTemplate={insertTemplate}
               onAddPoll={() =>
                 setPollDraft(
                   pollDraft ? null : { options: ["", ""], duration_days: 1 }

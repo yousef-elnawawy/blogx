@@ -38,6 +38,8 @@ import LinkPreviewCard from "@/components/post/LinkPreviewCard";
 import PollWidget, { PollData } from "@/components/post/PollWidget";
 import CodeSnippetBlock from "@/components/post/CodeSnippetBlock";
 import CustomVideoPlayer from "@/components/video/CustomVideoPlayer";
+import SaveToCollectionDialog from "@/components/bookmarks/SaveToCollectionDialog";
+import RichPostContent from "@/components/post/RichPostContent";
 import api from "@/lib/api";
 
 export interface PostCardProps {
@@ -290,6 +292,7 @@ export default function PostCard({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
+  const [saveToCollectionOpen, setSaveToCollectionOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // If this post is a pure repost, actual display author & content comes from repost_of
@@ -425,11 +428,23 @@ export default function PostCard({
       .post(`/api/posts/${id}/bookmark`)
       .then((res) => {
         if (res.data) {
-          setBookmarked(res.data.is_bookmarked);
+          const isSaved = res.data.is_bookmarked;
+          setBookmarked(isSaved);
+          if (isSaved) {
+            toast.success("Saved to Bookmarks", {
+              action: {
+                label: "Add to folder",
+                onClick: () => setSaveToCollectionOpen(true),
+              },
+            });
+          } else {
+            toast.success("Removed from Bookmarks");
+          }
         }
       })
       .catch(() => {
         setBookmarked(previousBookmarked);
+        toast.error("Failed to bookmark post");
       })
       .finally(() => {
         setIsBookmarking(false);
@@ -501,7 +516,7 @@ export default function PostCard({
         className="relative border-b border-border hover:bg-muted/25 dark:hover:bg-muted/15 transition-colors duration-150 cursor-pointer group"
       >
         <div className="p-4 sm:p-5">
-          
+
           {/* Repost Header Banner */}
           {Boolean(repost_of) && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold mb-2.5 pl-6">
@@ -611,8 +626,12 @@ export default function PostCard({
 
               {/* Content */}
               <div className="mt-1.5 relative z-10">
-                <div className="text-[15px] leading-[1.6] text-foreground whitespace-pre-wrap">
-                  {renderHighlighted(effectivePost.content || "", effectivePost.mentions || mentions)}
+                <div className="text-[15px] leading-[1.6] text-foreground">
+                  <RichPostContent
+                    content={effectivePost.content || ""}
+                    validMentions={effectivePost.mentions || mentions}
+                    postId={effectivePost.id ?? id}
+                  />
                 </div>
                 {/* Embedded Video */}
                 <VideoEmbed content={effectivePost.content || ""} />
@@ -675,7 +694,7 @@ export default function PostCard({
                   )}
                   {quote_of.images && quote_of.images.length > 0 && (
                     <div className="mt-2.5 rounded-xl overflow-hidden pointer-events-none">
-                      <PostImageGrid images={quote_of.images} onImageClick={() => {}} />
+                      <PostImageGrid images={quote_of.images} onImageClick={() => { }} />
                     </div>
                   )}
                 </div>
@@ -928,6 +947,13 @@ export default function PostCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Save to Collection Dialog */}
+      <SaveToCollectionDialog
+        open={saveToCollectionOpen}
+        onOpenChange={setSaveToCollectionOpen}
+        postId={effectivePost.id || id}
+      />
     </>
   );
 }

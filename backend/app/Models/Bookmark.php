@@ -13,6 +13,7 @@ class Bookmark extends Model
         'user_id',
         'post_id',
         'blog_id',
+        'collection_id',
     ];
 
     // Relationships
@@ -29,5 +30,10 @@ class Bookmark extends Model
     public function blog()
     {
         return $this->belongsTo(Blog::class);
+    }
+
+    public function collection()
+    {
+        return $this->belongsTo(BookmarkCollection::class, 'collection_id');
     }
 }
