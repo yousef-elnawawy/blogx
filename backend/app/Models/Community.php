@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Laravel\Scout\Searchable;
 
 class Community extends Model
 {
-    use HasFactory;
+    use HasFactory, Searchable;
 
     protected $fillable = [
         'name',
@@ -90,5 +91,23 @@ class Community extends Model
         if ($member->status === 'pending') return 'pending';
         if ($member->status === 'approved') return $member->role;
         return 'none';
+    }
+
+    /**
+     * Get the indexable data array for the model.
+     */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->id,
+            'name' => (string) $this->name,
+            'slug' => (string) $this->slug,
+            'description' => (string) ($this->description ?? ''),
+            'avatar' => (string) ($this->avatar ?? ''),
+            'cover' => (string) ($this->cover ?? ''),
+            'type' => (string) ($this->type ?? 'public'),
+            'members_count' => (int) ($this->members_count ?? $this->approvedMembers()->count()),
+            'posts_count' => (int) ($this->posts_count ?? $this->posts()->count()),
+        ];
     }
 }

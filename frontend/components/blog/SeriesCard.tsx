@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
-import { Clock, Layers, Eye, ArrowRight, BookOpen } from "lucide-react";
+import ShareDialog from "@/components/post/ShareDialog";
+import { Clock, Layers, Eye, ArrowRight, BookOpen, Share2 } from "lucide-react";
 import { getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
@@ -30,6 +32,7 @@ export interface SeriesCardProps {
 }
 
 export default function SeriesCard({ series }: { series: SeriesCardProps }) {
+  const [shareOpen, setShareOpen] = useState(false);
   const author = series.author || {
     name: "Unknown",
     username: "unknown",
@@ -109,13 +112,29 @@ export default function SeriesCard({ series }: { series: SeriesCardProps }) {
               )}
             </div>
 
-            <Link
-              href={`/series/${encodeURIComponent(series.slug)}`}
-              className="inline-flex items-center gap-1 text-xs font-bold text-primary group-hover:underline"
-            >
-              <span>Explore Series</span>
-              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
-            </Link>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShareOpen(true);
+                }}
+                className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                title="Share Series"
+                aria-label="Share"
+              >
+                <Share2 className="size-4" />
+              </button>
+
+              <Link
+                href={`/series/${encodeURIComponent(series.slug)}`}
+                className="inline-flex items-center gap-1 text-xs font-bold text-primary group-hover:underline"
+              >
+                <span>Explore Series</span>
+                <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -133,6 +152,20 @@ export default function SeriesCard({ series }: { series: SeriesCardProps }) {
           </Link>
         )}
       </div>
+
+      <ShareDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        post={{
+          id: series.id,
+          type: "series",
+          title: series.title,
+          slug: series.slug,
+          author: author,
+          content: series.description || series.title,
+          cover_image: series.cover_image,
+        }}
+      />
     </article>
   );
 }

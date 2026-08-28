@@ -483,12 +483,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
             : null
         );
         if (isSaved) {
-          toast.success("Saved to Bookmarks", {
-            action: {
-              label: "Add to folder",
-              onClick: () => setSaveToCollectionOpen(true),
-            },
-          });
+          setSaveToCollectionOpen(true);
         } else {
           toast.success("Removed from Bookmarks");
         }

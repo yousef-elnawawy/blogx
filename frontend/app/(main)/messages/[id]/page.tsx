@@ -162,7 +162,7 @@ function renderMessageContent(text: string, router: any, isMe: boolean) {
           }}
           className={`inline-flex items-center gap-0.5 px-1 py-0.2 rounded font-mono text-[11px] font-bold cursor-pointer transition-colors ${
             isMe
-              ? "bg-white/20 hover:bg-white/30 text-white"
+              ? "bg-black/20 hover:bg-black/30 text-primary-foreground"
               : "bg-primary/15 hover:bg-primary/25 text-primary"
           }`}
           title={`Jump to ${token}`}
@@ -172,15 +172,23 @@ function renderMessageContent(text: string, router: any, isMe: boolean) {
         </button>
       );
     } else if (token.startsWith("http://") || token.startsWith("https://")) {
+      const isInternal = typeof window !== "undefined" && token.startsWith(window.location.origin);
       parts.push(
         <a
           key={match.index}
           href={token}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className={`underline font-medium break-all hover:opacity-85 ${
-            isMe ? "text-white" : "text-primary"
+          target={isInternal ? undefined : "_blank"}
+          rel={isInternal ? undefined : "noopener noreferrer"}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isInternal) {
+              e.preventDefault();
+              const urlObj = new URL(token);
+              router.push(urlObj.pathname + urlObj.search);
+            }
+          }}
+          className={`underline font-bold break-all hover:opacity-85 ${
+            isMe ? "text-primary-foreground underline decoration-primary-foreground/60" : "text-primary underline decoration-primary/60"
           }`}
         >
           {token}
@@ -195,8 +203,8 @@ function renderMessageContent(text: string, router: any, isMe: boolean) {
             e.stopPropagation();
             router.push(`/@${username}`);
           }}
-          className={`font-semibold cursor-pointer hover:underline ${
-            isMe ? "text-white/95" : "text-primary"
+          className={`font-bold cursor-pointer hover:underline ${
+            isMe ? "text-primary-foreground" : "text-primary"
           }`}
         >
           {token}
@@ -211,8 +219,8 @@ function renderMessageContent(text: string, router: any, isMe: boolean) {
             e.stopPropagation();
             router.push(`/search?q=%23${encodeURIComponent(tag)}`);
           }}
-          className={`font-semibold cursor-pointer hover:underline ${
-            isMe ? "text-white/95" : "text-primary"
+          className={`font-bold cursor-pointer hover:underline ${
+            isMe ? "text-primary-foreground" : "text-primary"
           }`}
         >
           {token}
@@ -1134,7 +1142,7 @@ export default function ConversationDetailPage() {
               <div
                 key={`msg-${msg.id}-${index}`}
                 id={`msg-${msg.id}`}
-                className={`space-y-2 transition-all duration-300 ${
+                className={`space-y-2 transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ease-out ${
                   isHighlighted ? "bg-primary/10 rounded-2xl p-2 ring-2 ring-primary/40" : ""
                 }`}
               >
@@ -1184,7 +1192,7 @@ export default function ConversationDetailPage() {
                           onClick={() => scrollToMessage(msg.reply_to!.id)}
                           className={`mb-2 p-2 rounded-xl text-xs cursor-pointer border-l-2 transition-opacity hover:opacity-85 ${
                             isMe
-                              ? "bg-black/15 border-white/80 text-white/90"
+                              ? "bg-black/15 border-primary-foreground/80 text-primary-foreground/90"
                               : "bg-background/80 border-primary text-muted-foreground"
                           }`}
                         >
@@ -1329,7 +1337,7 @@ export default function ConversationDetailPage() {
                       {/* Bubble Footer: Time, Edited, Starred, Delivery Ticks */}
                       <div
                         className={`flex items-center gap-1 mt-0.5 text-[10px] select-none ${
-                          isMe ? "justify-end text-primary-foreground/75" : "justify-start text-muted-foreground"
+                          isMe ? "justify-end text-primary-foreground/80 font-medium" : "justify-start text-muted-foreground"
                         }`}
                       >
                         {msg.is_starred && (
@@ -1346,9 +1354,9 @@ export default function ConversationDetailPage() {
                             {msg.is_pending ? (
                               <Clock className="size-2.5 animate-pulse text-primary-foreground/70" />
                             ) : msg.is_seen ? (
-                              <CheckCheck className="size-3 text-sky-300" />
+                              <CheckCheck className="size-3 text-sky-400 dark:text-sky-800" />
                             ) : (
-                              <Check className="size-3 text-primary-foreground/70" />
+                              <Check className="size-3 text-primary-foreground/75" />
                             )}
                           </span>
                         )}

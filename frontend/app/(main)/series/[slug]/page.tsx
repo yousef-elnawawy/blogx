@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
+import ShareDialog from "@/components/post/ShareDialog";
 import {
   Layers,
   Clock,
@@ -65,6 +66,7 @@ export default function SeriesDetailPage() {
   const [series, setSeries] = useState<SeriesDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -88,14 +90,8 @@ export default function SeriesDetailPage() {
     }
   };
 
-  const handleShare = async () => {
-    if (typeof window === "undefined") return;
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      toast.success("Series link copied to clipboard!");
-    } catch {
-      toast.info(window.location.href);
-    }
+  const handleShare = () => {
+    setShareDialogOpen(true);
   };
 
   if (loading) {
@@ -266,6 +262,22 @@ export default function SeriesDetailPage() {
           </div>
         </div>
       </main>
+
+      {series && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          post={{
+            id: series.id,
+            type: "series",
+            title: series.title,
+            slug: series.slug,
+            author: series.author || { name: "Author", username: "author", avatar: null },
+            content: series.description || series.title,
+            cover_image: series.cover_image,
+          }}
+        />
+      )}
     </div>
   );
 }

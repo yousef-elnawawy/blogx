@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Laravel\Scout\Searchable;
 
 class Post extends Model
 {
-    use HasFactory;
+    use HasFactory, Searchable;
 
     protected $fillable = [
         'user_id',
@@ -153,5 +154,35 @@ class Post extends Model
     public function getRepostCountAttribute()
     {
         return $this->reposts()->count() + $this->quotes()->count();
+    }
+
+    /**
+     * Get the indexable data array for the model.
+     */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->id,
+            'content' => (string) $this->content,
+            'author_name' => (string) ($this->user?->name ?? ''),
+            'author_username' => (string) ($this->user?->username ?? ''),
+            'author_avatar' => (string) ($this->user?->avatar ?? ''),
+            'author_verified' => (bool) ($this->user?->verified ?? false),
+            'video_url' => (string) ($this->video_url ?? ''),
+            'video_thumbnail' => (string) ($this->video_thumbnail ?? ''),
+            'hashtags' => $this->hashtags->pluck('tag')->toArray(),
+            'likes_count' => (int) ($this->likes()->count()),
+            'comments_count' => (int) ($this->comments()->count()),
+            'views_count' => (int) ($this->views_count ?? 0),
+            'created_at' => (int) ($this->created_at?->timestamp ?? time()),
+        ];
+    }
+
+    /**
+     * Determine if the model should be searchable.
+     */
+    public function shouldBeSearchable(): bool
+    {
+        return $this->status !== 'draft' && ($this->scheduled_at === null || $this->scheduled_at <= now());
     }
 }

@@ -159,7 +159,7 @@ export default function AudioWaveformPlayer({
         onClick={togglePlay}
         className={`size-10 rounded-full flex items-center justify-center shrink-0 shadow-xs transition-transform active:scale-90 cursor-pointer ${
           isMe
-            ? "bg-white text-primary hover:bg-white/90"
+            ? "bg-black/25 text-primary-foreground hover:bg-black/35"
             : "bg-primary text-primary-foreground hover:bg-primary/90"
         }`}
       >
@@ -186,10 +186,10 @@ export default function AudioWaveformPlayer({
                 className={`w-1 rounded-full transition-all duration-150 ${
                   isPlayed
                     ? isMe
-                      ? "bg-white opacity-100"
+                      ? "bg-primary-foreground opacity-100"
                       : "bg-primary opacity-100"
                     : isMe
-                    ? "bg-white/40 hover:bg-white/70"
+                    ? "bg-primary-foreground/35 hover:bg-primary-foreground/60"
                     : "bg-muted-foreground/30 hover:bg-muted-foreground/60"
                 }`}
               />
@@ -207,7 +207,7 @@ export default function AudioWaveformPlayer({
             onClick={toggleSpeed}
             className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border transition-colors cursor-pointer ${
               isMe
-                ? "bg-white/15 border-white/30 hover:bg-white/25 text-white"
+                ? "bg-black/15 border-primary-foreground/30 hover:bg-black/25 text-primary-foreground"
                 : "bg-muted/70 border-border hover:bg-muted text-foreground"
             }`}
           >

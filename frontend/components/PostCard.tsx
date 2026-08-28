@@ -418,10 +418,14 @@ export default function PostCard({
     e.preventDefault();
     e.stopPropagation();
 
+    if (!user) {
+      toast.error("Please sign in to save posts");
+      return;
+    }
+
     if (isBookmarking) return;
 
     const previousBookmarked = bookmarked;
-    setBookmarked(!previousBookmarked);
     setIsBookmarking(true);
 
     api
@@ -431,12 +435,7 @@ export default function PostCard({
           const isSaved = res.data.is_bookmarked;
           setBookmarked(isSaved);
           if (isSaved) {
-            toast.success("Saved to Bookmarks", {
-              action: {
-                label: "Add to folder",
-                onClick: () => setSaveToCollectionOpen(true),
-              },
-            });
+            setSaveToCollectionOpen(true);
           } else {
             toast.success("Removed from Bookmarks");
           }

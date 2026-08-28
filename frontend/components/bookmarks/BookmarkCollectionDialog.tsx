@@ -8,6 +8,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Folder, Bookmark, Tag, Sparkles, BookOpen, Film, Code, Star, Heart, Loader2 } from "lucide-react";
 import api from "@/lib/api";
 import { toast } from "sonner";
@@ -123,13 +125,12 @@ export default function BookmarkCollectionDialog({
             <label className="text-xs font-bold text-foreground">
               Collection Name <span className="text-destructive">*</span>
             </label>
-            <input
+            <Input
               type="text"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Technology, Books, Inspiration..."
-              className="w-full h-10 px-3 text-sm rounded-xl bg-muted/50 border border-border focus:border-primary focus:bg-background outline-none transition-all"
               maxLength={50}
               autoFocus
             />
@@ -140,12 +141,12 @@ export default function BookmarkCollectionDialog({
             <label className="text-xs font-bold text-muted-foreground">
               Description (Optional)
             </label>
-            <input
-              type="text"
+            <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What kind of bookmarks are in this folder?"
-              className="w-full h-9 px-3 text-xs rounded-xl bg-muted/40 border border-border/70 focus:border-primary focus:bg-background outline-none transition-all"
+              rows={2}
+              className="min-h-18"
               maxLength={150}
             />
           </div>

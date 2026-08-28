@@ -9,10 +9,11 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Scout\Searchable;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
-    use HasFactory, Notifiable, HasApiTokens;
+    use HasFactory, Notifiable, HasApiTokens, Searchable;
 
     protected $fillable = [
         'name',
@@ -289,5 +290,25 @@ class User extends Authenticatable implements MustVerifyEmail
     public function starredMessages()
     {
         return $this->hasMany(StarredMessage::class, 'user_id');
+    }
+
+    /**
+     * Get the indexable data array for the model.
+     */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->id,
+            'name' => (string) $this->name,
+            'username' => (string) $this->username,
+            'avatar' => (string) ($this->avatar ?? ''),
+            'cover' => (string) ($this->cover ?? ''),
+            'bio' => (string) ($this->bio ?? ''),
+            'location' => (string) ($this->location ?? ''),
+            'website' => (string) ($this->website ?? ''),
+            'verified' => (bool) $this->verified,
+            'followers_count' => (int) $this->followers()->count(),
+            'posts_count' => (int) $this->posts()->published()->count(),
+        ];
     }
 }

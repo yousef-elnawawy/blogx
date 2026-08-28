@@ -25,6 +25,10 @@ import {
   Layers,
   Clock,
   Terminal,
+  Info,
+  AlertTriangle,
+  CheckSquare,
+  Strikethrough,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -188,8 +192,32 @@ export default function NewBlogPage() {
           ""
         );
         break;
+      case "note":
+        insertFormatting("\n> [!NOTE]\n> ", "\n", "Write your note information here...");
+        break;
+      case "tip":
+        insertFormatting("\n> [!TIP]\n> ", "\n", "Share a helpful tip or trick...");
+        break;
+      case "warning":
+        insertFormatting("\n> [!WARNING]\n> ", "\n", "Warning: Important caution to pay attention to...");
+        break;
+      case "important":
+        insertFormatting("\n> [!IMPORTANT]\n> ", "\n", "Crucial information that should not be missed...");
+        break;
+      case "caution":
+        insertFormatting("\n> [!CAUTION]\n> ", "\n", "Caution: High risk action or breaking change...");
+        break;
+      case "task-list":
+        insertFormatting("\n- [ ] ", "\n", "New checklist task");
+        break;
+      case "timestamp":
+        insertFormatting("01:23", "", "");
+        break;
+      case "strikethrough":
+        insertFormatting("~~", "~~", "strikethrough text");
+        break;
       case "callout":
-        insertFormatting("\n> **Note:** ", "\n", "Enter key insights or important tips here...");
+        insertFormatting("\n> ", "\n", "Enter quote or takeaway here...");
         break;
       case "bullet-list":
         insertFormatting("\n- ", "\n", "List item");
@@ -470,6 +498,15 @@ export default function NewBlogPage() {
 
             <button
               type="button"
+              onClick={() => insertFormatting("~~", "~~", "strikethrough text")}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Strikethrough"
+            >
+              <Strikethrough className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
               onClick={() => insertFormatting("`", "`", "code")}
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               title="Inline Code"
@@ -521,9 +558,36 @@ export default function NewBlogPage() {
 
             <button
               type="button"
+              onClick={() => insertFormatting("\n> [!NOTE]\n> ", "\n", "Write your note or key takeaways here...")}
+              className="p-1.5 rounded-md text-sky-500 hover:text-sky-400 hover:bg-sky-500/10 transition-colors"
+              title="Note Alert Box (> [!NOTE])"
+            >
+              <Info className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => insertFormatting("\n> [!WARNING]\n> ", "\n", "Important warning to keep in mind...")}
+              className="p-1.5 rounded-md text-amber-500 hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
+              title="Warning Alert Box (> [!WARNING])"
+            >
+              <AlertTriangle className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => insertFormatting("\n- [ ] ", "\n", "Checklist task")}
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              title="Task Checklist (- [ ])"
+            >
+              <CheckSquare className="size-3.5" />
+            </button>
+
+            <button
+              type="button"
               onClick={() => insertFormatting("\n> ", "\n", "Note or quote...")}
               className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              title="Callout"
+              title="Quote"
             >
               <Quote className="size-3.5" />
             </button>
@@ -599,21 +663,21 @@ export default function NewBlogPage() {
                     min={1}
                     value={seriesOrder}
                     onChange={(e) => setSeriesOrder(Math.max(1, Number(e.target.value)))}
-                    className="h-7 w-12 px-1 rounded-md border border-border bg-background text-xs font-bold text-center text-foreground outline-hidden focus:border-primary"
+                    className="h-8 w-14 px-2 rounded-xl border border-border bg-card text-xs font-bold text-center text-foreground outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20 transition-all"
                   />
                 </div>
               )}
             </div>
           )}
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">Excerpt</label>
             <textarea
               placeholder="Short summary for feeds (Optional)..."
               value={excerpt}
               onChange={(e) => setExcerpt(e.target.value)}
               rows={2}
-              className="w-full p-2.5 rounded-md border border-border bg-card text-xs sm:text-sm text-foreground placeholder:text-muted-foreground outline-hidden focus:border-primary resize-none"
+              className="w-full p-3 rounded-xl border border-border bg-card text-xs sm:text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20 transition-all resize-none"
             />
           </div>
 
@@ -643,7 +707,7 @@ export default function NewBlogPage() {
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={handleAddTag}
-                  className="h-7 px-2.5 rounded-md border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground outline-hidden focus:border-primary"
+                  className="h-8 px-3 rounded-xl border border-border bg-card text-xs text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               )}
             </div>

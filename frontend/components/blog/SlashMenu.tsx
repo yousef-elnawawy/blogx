@@ -15,6 +15,12 @@ import {
   Image as ImageIcon,
   Sparkles,
   Search,
+  Info,
+  AlertTriangle,
+  AlertCircle,
+  CheckSquare,
+  Strikethrough as StrikethroughIcon,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +29,7 @@ export interface SlashCommand {
   title: string;
   description: string;
   icon: any;
-  category: "text" | "code" | "media" | "structure";
+  category: "text" | "code" | "media" | "structure" | "callout";
   action: () => void;
 }
 
@@ -67,6 +73,48 @@ export default function SlashMenu({
       category: "text" as const,
     },
     {
+      id: "note",
+      title: "Note Alert (> [!NOTE])",
+      description: "Blue informational alert box",
+      icon: Info,
+      category: "callout" as const,
+    },
+    {
+      id: "tip",
+      title: "Tip Alert (> [!TIP])",
+      description: "Green helpful tip & tricks box",
+      icon: Sparkles,
+      category: "callout" as const,
+    },
+    {
+      id: "warning",
+      title: "Warning Alert (> [!WARNING])",
+      description: "Amber warning highlight box",
+      icon: AlertTriangle,
+      category: "callout" as const,
+    },
+    {
+      id: "important",
+      title: "Important Alert (> [!IMPORTANT])",
+      description: "Purple crucial information box",
+      icon: AlertCircle,
+      category: "callout" as const,
+    },
+    {
+      id: "caution",
+      title: "Caution Alert (> [!CAUTION])",
+      description: "Red critical risk or danger alert",
+      icon: AlertCircle,
+      category: "callout" as const,
+    },
+    {
+      id: "task-list",
+      title: "Task Checklist (- [ ])",
+      description: "Interactive checklist items",
+      icon: CheckSquare,
+      category: "structure" as const,
+    },
+    {
       id: "code",
       title: "Code Block",
       description: "Syntax highlighted code snippet",
@@ -96,8 +144,8 @@ export default function SlashMenu({
     },
     {
       id: "callout",
-      title: "Callout / Note Box",
-      description: "Highlighted tips & key takeaways",
+      title: "Standard Quote Box",
+      description: "Italic blockquote callout",
       icon: Quote,
       category: "text" as const,
     },
@@ -114,6 +162,20 @@ export default function SlashMenu({
       description: "Sequential ordered steps",
       icon: ListOrdered,
       category: "structure" as const,
+    },
+    {
+      id: "timestamp",
+      title: "Video Timestamp",
+      description: "Clickable seek button (e.g. 01:23)",
+      icon: Clock,
+      category: "media" as const,
+    },
+    {
+      id: "strikethrough",
+      title: "Strikethrough",
+      description: "Crossed-out text (~~text~~)",
+      icon: StrikethroughIcon,
+      category: "text" as const,
     },
     {
       id: "divider",

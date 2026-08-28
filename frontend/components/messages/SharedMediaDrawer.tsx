@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
@@ -8,9 +9,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Image as ImageIcon, FileText, Link as LinkIcon, Download, Film, ExternalLink } from "lucide-react";
+import { Loader2, Image as ImageIcon, FileText, Link as LinkIcon, Download, Film, ExternalLink, BookOpen, Layers } from "lucide-react";
 import { messagesService, DirectMessage, MediaGalleryResponse } from "@/services/messages";
 import ImageLightbox from "@/components/post/ImageLightbox";
+import { getAvatarUrl } from "@/lib/utils";
 
 interface SharedMediaDrawerProps {
   open: boolean;
@@ -25,6 +27,7 @@ export default function SharedMediaDrawer({
   conversationId,
   userName,
 }: SharedMediaDrawerProps) {
+  const router = useRouter();
   const [data, setData] = useState<MediaGalleryResponse>({ media: [], files: [], links: [] });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("media");
@@ -46,6 +49,20 @@ export default function SharedMediaDrawer({
   }, [open, conversationId]);
 
   const allMediaImages = data.media.flatMap((m) => m.images || (m.image ? [m.image] : []));
+
+  const handleNavigate = (url: string) => {
+    onOpenChange(false);
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      const urlObj = new URL(url);
+      if (typeof window !== "undefined" && urlObj.origin === window.location.origin) {
+        router.push(urlObj.pathname + urlObj.search);
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    router.push(url);
+  };
 
   return (
     <>
@@ -179,33 +196,50 @@ export default function SharedMediaDrawer({
                       <div className="space-y-2.5">
                         {data.links.map((msg) => {
                           const linksFound = (msg.text || "").match(/https?:\/\/[^\s]+/g) || [];
+                          const shared = msg.shared_data;
+                          const targetUrl = shared
+                            ? shared.url || (shared.type === "series" || shared.type === "story" ? `/series/${shared.id}` : shared.type === "blog" ? `/blog/${shared.id}` : `/post/${shared.id}`)
+                            : null;
+
                           return (
                             <div
                               key={msg.id}
-                              className="p-3 rounded-xl border border-border/70 hover:bg-muted/50 transition-colors"
+                              className="p-3 rounded-xl border border-border/70 bg-card hover:bg-muted/40 transition-colors"
                             >
-                              {msg.shared_data && (
-                                <div className="mb-2">
-                                  <p className="text-xs font-bold text-foreground">
-                                    {msg.shared_data.title || "Shared Post / Blog"}
-                                  </p>
-                                  <p className="text-[11px] text-muted-foreground">
-                                    By {msg.shared_data.author_name || "User"}
-                                  </p>
+                              {shared && targetUrl && (
+                                <div
+                                  onClick={() => handleNavigate(targetUrl)}
+                                  className="mb-2.5 p-2.5 rounded-lg border border-border/60 bg-muted/30 hover:bg-muted/70 cursor-pointer transition-all flex items-start justify-between gap-2 group"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-primary/10 text-primary flex items-center gap-1">
+                                        {shared.type === "series" || shared.type === "story" ? <Layers className="size-2.5" /> : shared.type === "blog" ? <BookOpen className="size-2.5" /> : <FileText className="size-2.5" />}
+                                        <span>{shared.type || "Post"}</span>
+                                      </span>
+                                    </div>
+                                    <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                                      {shared.title || "Shared Item"}
+                                    </p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                      By {shared.author_name || "User"}
+                                    </p>
+                                  </div>
+                                  <ExternalLink className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 mt-1" />
                                 </div>
                               )}
+
                               {linksFound.map((url, uIdx) => (
-                                <a
+                                <div
                                   key={uIdx}
-                                  href={url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1.5 text-xs text-primary font-medium hover:underline break-all"
+                                  onClick={() => handleNavigate(url)}
+                                  className="flex items-center gap-1.5 text-xs text-primary font-medium hover:underline break-all cursor-pointer my-1"
                                 >
                                   <ExternalLink className="size-3 shrink-0" />
                                   <span>{url}</span>
-                                </a>
+                                </div>
                               ))}
+
                               <p className="text-[10px] text-muted-foreground mt-1.5">
                                 Sent {msg.created_at_human}
                               </p>

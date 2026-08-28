@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
 import ShareDialog from "@/components/post/ShareDialog";
+import SaveToCollectionDialog from "@/components/bookmarks/SaveToCollectionDialog";
 import {
   Clock,
   Heart,
@@ -75,6 +76,7 @@ export default function BlogCard({
   const [bookmarking, setBookmarking] = useState(false);
   const [liking, setLiking] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [saveToCollectionOpen, setSaveToCollectionOpen] = useState(false);
 
   const timeAgo = (() => {
     try {
@@ -125,12 +127,16 @@ export default function BlogCard({
     setBookmarking(true);
 
     const prevSaved = isBookmarked;
-    setIsBookmarked(!prevSaved);
 
     try {
       const res = await api.post(`/api/blogs/${blog.id}/bookmark`);
-      setIsBookmarked(Boolean(res.data.is_bookmarked));
-      toast.success(res.data.message || (res.data.is_bookmarked ? "Saved to bookmarks" : "Removed from bookmarks"));
+      const isSaved = Boolean(res.data.is_bookmarked);
+      setIsBookmarked(isSaved);
+      if (isSaved) {
+        setSaveToCollectionOpen(true);
+      } else {
+        toast.success("Removed from bookmarks");
+      }
     } catch {
       setIsBookmarked(prevSaved);
       toast.error("Failed to update bookmark");
@@ -319,19 +325,27 @@ export default function BlogCard({
 
       {/* Share Dialog */}
       {!isDraft && (
-        <ShareDialog
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-          post={{
-            id: blog.id,
-            type: "blog",
-            title: blog.title,
-            slug: blog.slug,
-            author: blog.author,
-            content: blog.excerpt || blog.content || blog.title,
-            cover_image: blog.cover_image,
-          }}
-        />
+        <>
+          <ShareDialog
+            open={shareOpen}
+            onOpenChange={setShareOpen}
+            post={{
+              id: blog.id,
+              type: "blog",
+              title: blog.title,
+              slug: blog.slug,
+              author: blog.author,
+              content: blog.excerpt || blog.content || blog.title,
+              cover_image: blog.cover_image,
+            }}
+          />
+
+          <SaveToCollectionDialog
+            open={saveToCollectionOpen}
+            onOpenChange={setSaveToCollectionOpen}
+            blogId={blog.id}
+          />
+        </>
       )}
     </article>
   );

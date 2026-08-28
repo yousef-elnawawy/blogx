@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Laravel\Scout\Searchable;
 
 class Blog extends Model
 {
-    use HasFactory;
+    use HasFactory, Searchable;
 
     protected $table = 'blogs';
 
@@ -81,5 +82,36 @@ class Blog extends Model
     {
         if (!$user) return false;
         return $this->bookmarks()->where('user_id', $user->id)->exists();
+    }
+
+    /**
+     * Get the indexable data array for the model.
+     */
+    public function toSearchableArray(): array
+    {
+        return [
+            'id' => (int) $this->id,
+            'title' => (string) $this->title,
+            'slug' => (string) $this->slug,
+            'excerpt' => (string) ($this->excerpt ?? ''),
+            'content' => (string) strip_tags($this->content ?? ''),
+            'cover_image' => (string) ($this->cover_image ?? ''),
+            'read_time' => (int) ($this->read_time ?? 1),
+            'tags' => is_array($this->tags) ? $this->tags : [],
+            'author_name' => (string) ($this->user?->name ?? ''),
+            'author_username' => (string) ($this->user?->username ?? ''),
+            'author_avatar' => (string) ($this->user?->avatar ?? ''),
+            'author_verified' => (bool) ($this->user?->verified ?? false),
+            'views_count' => (int) ($this->views_count ?? 0),
+            'published_at' => (int) ($this->published_at?->timestamp ?? 0),
+        ];
+    }
+
+    /**
+     * Determine if the model should be searchable.
+     */
+    public function shouldBeSearchable(): bool
+    {
+        return $this->status === 'published';
     }
 }

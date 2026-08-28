@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import RichPostContent from "./RichPostContent";
+import ImageLightbox from "./ImageLightbox";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -93,10 +94,8 @@ export default function PostCommentItem({
   const [isEdited, setIsEdited] = useState(Boolean(comment.is_edited));
   const [content, setContent] = useState(comment.content);
 
-  // Edit mode
-  const [isEditing, setIsEditing] = useState(false);
-  const [editDraft, setEditDraft] = useState(comment.content);
-  const [savingEdit, setSavingEdit] = useState(false);
+  // Lightbox state for attached image
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   // Reply state
   const [isReplying, setIsReplying] = useState(false);
@@ -161,27 +160,6 @@ export default function PostCommentItem({
       onCommentUpdated?.({ ...comment, is_creator_liked: res.data.is_creator_liked });
     } catch {
       toast.error("Failed to update creator heart");
-    }
-  };
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editDraft.trim() || savingEdit) return;
-
-    setSavingEdit(true);
-    try {
-      const res = await api.put(`/api/posts/${postId}/comments/${comment.id}`, {
-        content: editDraft.trim(),
-      });
-      setContent(editDraft.trim());
-      setIsEdited(true);
-      setIsEditing(false);
-      toast.success("Comment updated");
-      onCommentUpdated?.(res.data.comment);
-    } catch {
-      toast.error("Failed to update comment");
-    } finally {
-      setSavingEdit(false);
     }
   };
 
@@ -341,14 +319,6 @@ export default function PostCommentItem({
                       </DropdownMenuItem>
                     )}
 
-                    {/* Edit Comment (Comment owner only) */}
-                    {isCommentOwner && (
-                      <DropdownMenuItem onClick={() => { setIsEditing(true); setEditDraft(content); }} className="gap-2 cursor-pointer text-xs font-semibold">
-                        <Pencil className="size-3.5" />
-                        <span>Edit Comment</span>
-                      </DropdownMenuItem>
-                    )}
-
                     {/* Delete Comment */}
                     <DropdownMenuItem onClick={handleDelete} className="gap-2 text-destructive focus:text-destructive cursor-pointer text-xs font-semibold">
                       <Trash2 className="size-3.5" />
@@ -360,61 +330,29 @@ export default function PostCommentItem({
             </div>
 
             {/* Comment Body */}
-            {isEditing ? (
-              <form onSubmit={handleSaveEdit} className="mt-2 space-y-2">
-                <textarea
-                  value={editDraft}
-                  onChange={(e) => setEditDraft(e.target.value)}
-                  className="w-full min-h-[70px] p-2.5 rounded-xl bg-muted/60 border border-border focus:border-primary focus:bg-background outline-none text-xs sm:text-sm resize-y"
-                  maxLength={2000}
-                  autoFocus
-                />
-                <div className="flex items-center justify-end gap-1.5">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsEditing(false)}
-                    className="h-7 px-2.5 text-xs rounded-lg cursor-pointer"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={savingEdit || !editDraft.trim()}
-                    className="h-7 px-3 text-xs font-bold rounded-lg cursor-pointer"
-                  >
-                    {savingEdit && <Loader2 className="size-3 animate-spin mr-1" />}
-                    Save
-                  </Button>
+            <div>
+              {content && (
+                <div className="mt-1 text-[14px] leading-relaxed text-foreground whitespace-pre-wrap">
+                  <RichPostContent
+                    content={content}
+                    validMentions={comment.mentions}
+                    postId={postId}
+                  />
                 </div>
-              </form>
-            ) : (
-              <div>
-                {content && (
-                  <div className="mt-1 text-[14px] leading-relaxed text-foreground whitespace-pre-wrap">
-                    <RichPostContent
-                      content={content}
-                      validMentions={comment.mentions}
-                      postId={postId}
-                    />
-                  </div>
-                )}
+              )}
 
-                {/* Comment Photo Attachment */}
-                {comment.image_url && (
-                  <div className="mt-2.5 max-w-sm rounded-2xl overflow-hidden border border-border/70 bg-card/40 shadow-xs">
-                    <img
-                      src={comment.image_url}
-                      alt="Comment attachment"
-                      className="w-full max-h-72 object-cover rounded-2xl cursor-pointer hover:opacity-95 transition-opacity"
-                      onClick={() => window.open(comment.image_url!, "_blank")}
-                    />
-                  </div>
-                )}
-              </div>
-            )}
+              {/* Comment Photo Attachment */}
+              {comment.image_url && (
+                <div className="mt-2.5 max-w-sm rounded-2xl overflow-hidden border border-border/70 bg-card/40 shadow-xs">
+                  <img
+                    src={comment.image_url}
+                    alt="Comment attachment"
+                    className="w-full max-h-72 object-cover rounded-2xl cursor-pointer hover:opacity-95 transition-opacity"
+                    onClick={() => setLightboxOpen(true)}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Action Bar (Like, Reply, Creator Heart Indicator) */}
             <div className="mt-2.5 flex items-center gap-3 text-xs flex-wrap">
@@ -572,6 +510,16 @@ export default function PostCommentItem({
             />
           ))}
         </div>
+      )}
+
+      {/* ── Image Lightbox ── */}
+      {comment.image_url && (
+        <ImageLightbox
+          images={[comment.image_url]}
+          initialIndex={0}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+        />
       )}
     </div>
   );

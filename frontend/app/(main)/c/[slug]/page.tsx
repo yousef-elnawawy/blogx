@@ -240,8 +240,12 @@ export default function SingleCommunityPage() {
               {community.name}
             </h1>
             <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-              <span>{community.type === "restricted" ? "Private group" : "Public group"}</span>
-              <span>•</span>
+              {community.type === "restricted" && (
+                <>
+                  <span className="font-semibold text-amber-500">Private</span>
+                  <span>•</span>
+                </>
+              )}
               <span>{community.members_count} members</span>
             </p>
           </div>
@@ -338,15 +342,18 @@ export default function SingleCommunityPage() {
 
             {/* Action Buttons Row */}
             <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleShare}
-                className="rounded-full px-3.5 h-8 text-xs font-semibold gap-1.5 border-border hover:bg-muted cursor-pointer shadow-2xs"
-              >
-                <UserPlus className="size-3.5 text-primary" />
-                <span>Invite</span>
-              </Button>
+              {/* Invite button - ONLY for members/admins */}
+              {(isJoined || isAdmin || isCreator) && user && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleShare}
+                  className="rounded-full px-3.5 h-8 text-xs font-semibold gap-1.5 border-border hover:bg-muted cursor-pointer shadow-2xs"
+                >
+                  <UserPlus className="size-3.5 text-primary" />
+                  <span>Invite</span>
+                </Button>
+              )}
 
               {/* Join / Leave / Pending Button */}
               <Button
@@ -401,19 +408,12 @@ export default function SingleCommunityPage() {
               <h2 className="text-lg sm:text-xl font-bold text-foreground tracking-tight">
                 {community.name}
               </h2>
-              <div className="px-2.5 py-0.5 rounded-full bg-muted border border-border text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
-                {community.type === "restricted" ? (
-                  <>
-                    <Lock className="size-3 text-amber-500" />
-                    <span>Private group</span>
-                  </>
-                ) : (
-                  <>
-                    <Globe className="size-3 text-emerald-500" />
-                    <span>Public group</span>
-                  </>
-                )}
-              </div>
+              {community.type === "restricted" && (
+                <div className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <Lock className="size-3 text-amber-500" />
+                  <span>Private</span>
+                </div>
+              )}
             </div>
 
             <p className="text-xs font-semibold text-primary">
@@ -596,12 +596,12 @@ export default function SingleCommunityPage() {
                   )}
                   <div>
                     <h4 className="font-bold text-foreground">
-                      {community.type === "restricted" ? "Private group" : "Public group"}
+                      {community.type === "restricted" ? "Private group" : "Public community"}
                     </h4>
                     <p className="text-muted-foreground text-[11px] leading-relaxed">
                       {community.type === "restricted"
                         ? "Only approved members can see who is in the group and what they post."
-                        : "Anyone can see who is in the group and what they post."}
+                        : "Anyone can see posts and participate in this group."}
                     </p>
                   </div>
                 </div>

@@ -4,7 +4,7 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
-import { BookOpen, FileText, Video, ExternalLink } from "lucide-react";
+import { BookOpen, FileText, Video, ExternalLink, Layers } from "lucide-react";
 import { getAvatarUrl, getInitials } from "@/lib/utils";
 import { DirectMessageSharedData } from "@/services/messages";
 
@@ -17,12 +17,22 @@ export default function SharedContentCard({ data, isMe = false }: SharedContentC
   const router = useRouter();
   if (!data || !data.id) return null;
 
+  const isSeries = data.type === "series" || data.type === "story";
   const isBlog = data.type === "blog";
   const isVideo = data.type === "video";
-  const targetUrl = data.url || (isBlog ? `/blog/${data.id}` : `/post/${data.id}`);
+  const targetUrl = data.url || (isSeries ? `/series/${data.id}` : isBlog ? `/blog/${data.id}` : `/post/${data.id}`);
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (targetUrl.startsWith("http://") || targetUrl.startsWith("https://")) {
+      const urlObj = new URL(targetUrl);
+      if (typeof window !== "undefined" && urlObj.origin === window.location.origin) {
+        router.push(urlObj.pathname + urlObj.search);
+        return;
+      }
+      window.open(targetUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
     router.push(targetUrl);
   };
 
@@ -34,7 +44,7 @@ export default function SharedContentCard({ data, isMe = false }: SharedContentC
       onClick={handleClick}
       className={`mt-1.5 rounded-2xl border overflow-hidden transition-all duration-200 cursor-pointer shadow-xs max-w-sm ${
         isMe
-          ? "bg-black/20 border-white/20 hover:bg-black/30 text-white"
+          ? "bg-black/15 border-primary-foreground/20 hover:bg-black/25 text-primary-foreground"
           : "bg-card border-border/80 hover:border-primary/40 hover:shadow-md text-foreground"
       }`}
     >
@@ -74,21 +84,25 @@ export default function SharedContentCard({ data, isMe = false }: SharedContentC
 
           <span
             className={`px-1.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider flex items-center gap-1 shrink-0 ${
-              isBlog
-                ? "bg-amber-500/15 text-amber-500"
+              isSeries
+                ? isMe ? "bg-black/20 text-primary-foreground" : "bg-primary/15 text-primary"
+                : isBlog
+                ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
                 : isVideo
                 ? "bg-red-500/15 text-red-500"
                 : "bg-primary/15 text-primary"
             }`}
           >
-            {isBlog ? (
+            {isSeries ? (
+              <Layers className="size-2.5" />
+            ) : isBlog ? (
               <BookOpen className="size-2.5" />
             ) : isVideo ? (
               <Video className="size-2.5" />
             ) : (
               <FileText className="size-2.5" />
             )}
-            <span>{data.type}</span>
+            <span>{isSeries ? "Series" : data.type}</span>
           </span>
         </div>
 
@@ -106,8 +120,8 @@ export default function SharedContentCard({ data, isMe = false }: SharedContentC
         )}
 
         {/* View Action Footer */}
-        <div className="pt-1 flex items-center gap-1 text-[10px] font-semibold opacity-75 hover:opacity-100">
-          <span>{isBlog ? "Read Story" : "View Post"}</span>
+        <div className="pt-1 flex items-center gap-1 text-[10px] font-semibold opacity-85 hover:opacity-100">
+          <span>{isSeries ? "View Series" : isBlog ? "Read Story" : "View Post"}</span>
           <ExternalLink className="size-2.5" />
         </div>
       </div>

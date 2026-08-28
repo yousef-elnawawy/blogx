@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
 import ShareDialog from "@/components/post/ShareDialog";
+import SaveToCollectionDialog from "@/components/bookmarks/SaveToCollectionDialog";
 import {
   Clock,
   Heart,
@@ -316,6 +317,7 @@ export default function BlogDetailPage() {
   const [bookmarked, setBookmarked] = useState(false);
   const [isBookmarking, setIsBookmarking] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [saveToCollectionOpen, setSaveToCollectionOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -397,17 +399,17 @@ export default function BlogDetailPage() {
     if (!blog || isBookmarking) return;
 
     const prevBookmarked = bookmarked;
-    setBookmarked(!prevBookmarked);
     setIsBookmarking(true);
 
     try {
       const res = await api.post(`/api/blogs/${blog.id}/bookmark`);
-      setBookmarked(res.data.is_bookmarked);
-      toast.success(
-        res.data.is_bookmarked
-          ? "Saved to bookmarks"
-          : "Removed from bookmarks"
-      );
+      const isSaved = Boolean(res.data.is_bookmarked);
+      setBookmarked(isSaved);
+      if (isSaved) {
+        setSaveToCollectionOpen(true);
+      } else {
+        toast.success("Removed from bookmarks");
+      }
     } catch {
       setBookmarked(prevBookmarked);
       toast.error("Failed to update bookmark");
@@ -732,19 +734,27 @@ export default function BlogDetailPage() {
 
       {/* Share Dialog (Same as Post Share) */}
       {blog && (
-        <ShareDialog
-          open={shareDialogOpen}
-          onOpenChange={setShareDialogOpen}
-          post={{
-            id: blog.id,
-            type: "blog",
-            title: blog.title,
-            slug: blog.slug,
-            author: blog.author,
-            content: blog.excerpt || blog.content || blog.title,
-            cover_image: blog.cover_image,
-          }}
-        />
+        <>
+          <ShareDialog
+            open={shareDialogOpen}
+            onOpenChange={setShareDialogOpen}
+            post={{
+              id: blog.id,
+              type: "blog",
+              title: blog.title,
+              slug: blog.slug,
+              author: blog.author,
+              content: blog.excerpt || blog.content || blog.title,
+              cover_image: blog.cover_image,
+            }}
+          />
+
+          <SaveToCollectionDialog
+            open={saveToCollectionOpen}
+            onOpenChange={setSaveToCollectionOpen}
+            blogId={blog.id}
+          />
+        </>
       )}
 
       {/* Delete Confirmation Alert */}

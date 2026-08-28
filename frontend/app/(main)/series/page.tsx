@@ -15,6 +15,8 @@ import {
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -197,13 +199,13 @@ export default function SeriesPage() {
       {/* ── 2. Search Bar ── */}
       <div className="p-4 sm:p-5 bg-card/30 border-b border-border/60 space-y-3">
         <form onSubmit={handleSearchSubmit} className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <input
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground z-10" />
+          <Input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search series by title or topic..."
-            className="w-full h-10 pl-9 pr-4 text-xs sm:text-sm bg-background border border-border/80 rounded-md placeholder:text-muted-foreground/70 focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="pl-9 pr-4"
           />
         </form>
 
@@ -294,28 +296,27 @@ export default function SeriesPage() {
 
           <div className="space-y-4 py-2">
             <div>
-              <label className="text-xs font-bold text-foreground mb-1 block">
+              <label className="text-xs font-bold text-foreground mb-1.5 block">
                 Series Title <span className="text-destructive">*</span>
               </label>
-              <input
+              <Input
                 type="text"
                 placeholder="e.g. Learn Next.js 15 from Scratch"
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl border border-border bg-background text-xs sm:text-sm text-foreground outline-hidden focus:border-primary"
+                autoFocus
               />
             </div>
 
             <div>
-              <label className="text-xs font-bold text-foreground mb-1 block">
+              <label className="text-xs font-bold text-foreground mb-1.5 block">
                 Description (Optional)
               </label>
-              <textarea
+              <Textarea
                 placeholder="Brief summary of what readers will learn in this series..."
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
                 rows={3}
-                className="w-full p-2.5 rounded-xl border border-border bg-background text-xs sm:text-sm text-foreground outline-hidden focus:border-primary resize-none"
               />
             </div>
 

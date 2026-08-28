@@ -36,7 +36,7 @@ export interface MessageReplySnippet {
 }
 
 export interface DirectMessageSharedData {
-  type: "post" | "blog" | "video" | "snippet";
+  type: "post" | "blog" | "series" | "story" | "video" | "snippet" | string;
   id: number | string;
   title?: string;
   author_name?: string;

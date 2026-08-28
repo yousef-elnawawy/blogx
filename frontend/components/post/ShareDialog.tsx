@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link2, Check, Share2, Send, BookOpen, MessageCircle, Loader2 } from "lucide-react";
+import { Link2, Check, Share2, Send, BookOpen, MessageCircle, Loader2, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
@@ -19,7 +19,7 @@ import api from "@/lib/api";
 
 export interface ShareItem {
   id: string | number;
-  type?: "post" | "blog" | "video" | "snippet";
+  type?: "post" | "blog" | "series" | "story" | "video" | "snippet";
   title?: string;
   slug?: string;
   author: {
@@ -68,24 +68,28 @@ export default function ShareDialog({
     }
   }, [open, currentUser]);
 
-  const isBlog = post.type === "blog" || Boolean(post.slug);
+  const isSeries = post.type === "series" || post.type === "story";
+  const isBlog = post.type === "blog" || (!isSeries && Boolean(post.slug));
   const slugOrId = post.slug || post.id;
 
   const shareUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/${isBlog ? "blog" : "post"}/${slugOrId}`
-      : `/${isBlog ? "blog" : "post"}/${slugOrId}`;
+      ? `${window.location.origin}/${isSeries ? "series" : isBlog ? "blog" : "post"}/${slugOrId}`
+      : `/${isSeries ? "series" : isBlog ? "blog" : "post"}/${slugOrId}`;
 
   const postText = post.content || post.excerpt || post.title || "";
-  const displayTitle = post.title || (isBlog ? "Blog Post" : "Post");
+  const displayTitle = isSeries ? (post.title || "Series") : post.title || (isBlog ? "Blog Post" : "Post");
 
-  const shareText = isBlog
+  const shareText = isSeries
+    ? `Explore series "${post.title || "Stories"}" by ${post.author.name} on BlogX`
+    : isBlog
     ? `Read "${post.title || postText.slice(0, 60)}" by ${post.author.name} on BlogX`
     : `Check out this post by ${post.author.name} on BlogX: "${postText.slice(0, 80)}${postText.length > 80 ? "..." : ""}"`;
 
   const notifyShare = (platform: string) => {
-    if (isBlog) {
-      // Notify blog share if endpoint exists
+    if (isSeries) {
+      api.post(`/api/series/${post.id}/share`, { platform }).catch(() => {});
+    } else if (isBlog) {
       api.post(`/api/blogs/${post.id}/share`, { platform }).catch(() => {});
     } else {
       api.post(`/api/posts/${post.id}/share`, { platform }).catch(() => {});
@@ -217,7 +221,7 @@ export default function ShareDialog({
 
       await messagesService.sendMessage(convId, {
         shared_data: {
-          type: (post.type as any) || (isBlog ? "blog" : "post"),
+          type: (isSeries ? "series" : post.type || (isBlog ? "blog" : "post")) as any,
           id: slugOrId,
           title: post.title,
           author_name: post.author.name,
@@ -247,12 +251,14 @@ export default function ShareDialog({
       <DialogContent className="sm:max-w-md rounded-3xl p-5 sm:p-6 gap-4 bg-card border-border shadow-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader className="flex items-center justify-between pb-2 border-b border-border/60">
           <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            {isBlog ? (
+            {isSeries ? (
+              <Layers className="size-5 text-primary" />
+            ) : isBlog ? (
               <BookOpen className="size-5 text-primary" />
             ) : (
               <Share2 className="size-5 text-primary" />
             )}
-            <span>{isBlog ? "Share Blog Story" : "Share Post"}</span>
+            <span>{isSeries ? "Share Story Series" : isBlog ? "Share Blog Story" : "Share Post"}</span>
           </DialogTitle>
         </DialogHeader>
 

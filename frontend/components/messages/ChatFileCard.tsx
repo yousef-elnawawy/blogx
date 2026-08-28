@@ -52,13 +52,13 @@ export default function ChatFileCard({
       onClick={(e) => e.stopPropagation()}
       className={`my-1.5 flex items-center gap-3 p-3 rounded-2xl border transition-all max-w-xs sm:max-w-sm group shadow-xs ${
         isMe
-          ? "bg-white/10 hover:bg-white/20 border-white/20 text-white"
+          ? "bg-black/15 hover:bg-black/25 border-primary-foreground/20 text-primary-foreground"
           : "bg-muted/70 hover:bg-muted border-border/80 text-foreground"
       }`}
     >
       <div
         className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
-          isMe ? "bg-white/20" : "bg-card shadow-2xs"
+          isMe ? "bg-black/20" : "bg-card shadow-2xs"
         }`}
       >
         {getFileIcon(fileType)}
@@ -76,7 +76,7 @@ export default function ChatFileCard({
 
       <div
         className={`size-7 rounded-full flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${
-          isMe ? "bg-white text-primary" : "bg-primary text-primary-foreground"
+          isMe ? "bg-black/25 text-primary-foreground" : "bg-primary text-primary-foreground"
         }`}
         title="Download File"
       >

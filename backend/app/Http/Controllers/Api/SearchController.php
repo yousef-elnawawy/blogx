@@ -41,55 +41,100 @@ class SearchController extends Controller
             ]);
         }
 
+        $page    = max((int) $request->get('page', 1), 1);
+        $perPage = min(max((int) $request->get('per_page', 15), 5), 50);
+
         $postController = new PostController();
-        $result         = [];
+        $blogController = new BlogController();
+        $communityController = new CommunityController();
+        $result = [];
 
-        if (in_array($type, ['all', 'posts'])) {
-            $posts = Post::with(['user', 'images'])
-                ->withCount(['likes', 'comments'])
-                ->where('content', 'like', "%{$q}%")
-                ->latest()
-                ->take(20)
-                ->get()
-                ->map(fn($post) => $postController->formatPost($post, $user));
-
-            $result['posts'] = $posts->values();
+        // Single tab paginated search: posts
+        if ($type === 'posts') {
+            try {
+                $paginator = Post::search($q)->paginate($perPage, 'page', $page);
+                $paginator->getCollection()->load(['user', 'images'])->loadCount(['likes', 'comments']);
+                $posts = $paginator->getCollection()->map(fn($post) => $postController->formatPost($post, $user));
+                return response()->json([
+                    'posts'        => $posts->values(),
+                    'has_more'     => $paginator->hasMorePages(),
+                    'current_page' => $paginator->currentPage(),
+                    'total'        => $paginator->total(),
+                ]);
+            } catch (\Throwable $e) {
+                $paginator = Post::with(['user', 'images'])
+                    ->withCount(['likes', 'comments'])
+                    ->where('content', 'like', "%{$q}%")
+                    ->latest()
+                    ->paginate($perPage, ['*'], 'page', $page);
+                $posts = $paginator->getCollection()->map(fn($post) => $postController->formatPost($post, $user));
+                return response()->json([
+                    'posts'        => $posts->values(),
+                    'has_more'     => $paginator->hasMorePages(),
+                    'current_page' => $paginator->currentPage(),
+                    'total'        => $paginator->total(),
+                ]);
+            }
         }
 
-        if (in_array($type, ['all', 'blogs'])) {
-            $blogController = new BlogController();
+        // Single tab paginated search: blogs
+        if ($type === 'blogs') {
             $cleanQ = ltrim($q, '#');
-            $blogs = \App\Models\Blog::published()
-                ->with('user')
-                ->withCount('likes')
-                ->where(function ($w) use ($q, $cleanQ) {
-                    $w->where('title', 'like', "%{$q}%")
-                      ->orWhere('content', 'like', "%{$q}%")
-                      ->orWhere('excerpt', 'like', "%{$q}%")
-                      ->orWhereJsonContains('tags', $cleanQ)
-                      ->orWhereJsonContains('tags', $q);
-                })
-                ->latest('published_at')
-                ->take(20)
-                ->get()
-                ->map(fn($b) => $blogController->formatBlog($b, $user));
-
-            $result['blogs'] = $blogs->values();
+            try {
+                $paginator = \App\Models\Blog::search($cleanQ ?: $q)->paginate($perPage, 'page', $page);
+                $paginator->getCollection()->load('user')->loadCount('likes');
+                $blogs = $paginator->getCollection()->map(fn($b) => $blogController->formatBlog($b, $user));
+                return response()->json([
+                    'blogs'        => $blogs->values(),
+                    'has_more'     => $paginator->hasMorePages(),
+                    'current_page' => $paginator->currentPage(),
+                    'total'        => $paginator->total(),
+                ]);
+            } catch (\Throwable $e) {
+                $paginator = \App\Models\Blog::published()
+                    ->with('user')
+                    ->withCount('likes')
+                    ->where(function ($w) use ($q, $cleanQ) {
+                        $w->where('title', 'like', "%{$q}%")
+                          ->orWhere('content', 'like', "%{$q}%")
+                          ->orWhere('excerpt', 'like', "%{$q}%")
+                          ->orWhereJsonContains('tags', $cleanQ)
+                          ->orWhereJsonContains('tags', $q);
+                    })
+                    ->latest('published_at')
+                    ->paginate($perPage, ['*'], 'page', $page);
+                $blogs = $paginator->getCollection()->map(fn($b) => $blogController->formatBlog($b, $user));
+                return response()->json([
+                    'blogs'        => $blogs->values(),
+                    'has_more'     => $paginator->hasMorePages(),
+                    'current_page' => $paginator->currentPage(),
+                    'total'        => $paginator->total(),
+                ]);
+            }
         }
 
-        if (in_array($type, ['all', 'people'])) {
-            $peopleLimit = ($type === 'all') ? 6 : 30;
-            $people = User::where(function ($query) use ($q) {
-                $query->where('name', 'like', "%{$q}%")
-                    ->orWhere('username', 'like', "%{$q}%")
-                    ->orWhere('bio', 'like', "%{$q}%");
-            })
-            ->withCount(['followers', 'following', 'posts' => function ($p) {
-                $p->published();
-            }])
-            ->take($peopleLimit)
-            ->get()
-            ->map(function ($u) use ($user) {
+        // Single tab paginated search: people
+        if ($type === 'people') {
+            try {
+                $paginator = User::search($q)->paginate($perPage, 'page', $page);
+                $paginator->getCollection()->loadCount(['followers', 'following', 'posts' => fn($p) => $p->published()]);
+                $rawPeople = $paginator->getCollection();
+                $hasMore = $paginator->hasMorePages();
+                $total = $paginator->total();
+            } catch (\Throwable $e) {
+                $paginator = User::where(function ($query) use ($q) {
+                    $query->where('name', 'like', "%{$q}%")
+                        ->orWhere('username', 'like', "%{$q}%")
+                        ->orWhere('bio', 'like', "%{$q}%");
+                })
+                ->withCount(['followers', 'following', 'posts' => fn($p) => $p->published()])
+                ->paginate($perPage, ['*'], 'page', $page);
+                $rawPeople = $paginator->getCollection();
+                $hasMore = $paginator->hasMorePages();
+                $total = $paginator->total();
+            }
+
+            $people = $rawPeople->map(function ($u) use ($user) {
                 $avatarUrl = $u->avatar;
                 if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
                     $avatarUrl = config('app.url') . $avatarUrl;
@@ -115,44 +160,192 @@ class SearchController extends Controller
                 ];
             });
 
-            $result['people'] = $people->values();
+            return response()->json([
+                'people'       => $people->values(),
+                'has_more'     => $hasMore,
+                'current_page' => $page,
+                'total'        => $total,
+            ]);
         }
 
-        if (in_array($type, ['all', 'communities'])) {
-            $communityController = new CommunityController();
+        // Single tab paginated search: communities
+        if ($type === 'communities') {
             $cleanQ = ltrim($q, 'c/');
+            try {
+                $paginator = \App\Models\Community::search($cleanQ ?: $q)->paginate($perPage, 'page', $page);
+                $paginator->getCollection()->load(['creator:id,name,username,avatar,verified'])
+                    ->loadCount(['approvedMembers as members_count', 'posts as posts_count']);
+                $communities = $paginator->getCollection()->map(fn($c) => $communityController->formatCommunity($c, $user));
+                return response()->json([
+                    'communities'  => $communities->values(),
+                    'has_more'     => $paginator->hasMorePages(),
+                    'current_page' => $paginator->currentPage(),
+                    'total'        => $paginator->total(),
+                ]);
+            } catch (\Throwable $e) {
+                $paginator = \App\Models\Community::with(['creator:id,name,username,avatar,verified'])
+                    ->withCount(['approvedMembers as members_count', 'posts as posts_count'])
+                    ->where(function ($w) use ($q, $cleanQ) {
+                        $w->where('name', 'like', "%{$q}%")
+                          ->orWhere('name', 'like', "%{$cleanQ}%")
+                          ->orWhere('slug', 'like', "%{$q}%")
+                          ->orWhere('slug', 'like', "%{$cleanQ}%")
+                          ->orWhere('description', 'like', "%{$q}%");
+                    })
+                    ->orderByDesc('members_count')
+                    ->paginate($perPage, ['*'], 'page', $page);
+                $communities = $paginator->getCollection()->map(fn($c) => $communityController->formatCommunity($c, $user));
+                return response()->json([
+                    'communities'  => $communities->values(),
+                    'has_more'     => $paginator->hasMorePages(),
+                    'current_page' => $paginator->currentPage(),
+                    'total'        => $paginator->total(),
+                ]);
+            }
+        }
+
+        // Single tab paginated search: hashtags
+        if ($type === 'hashtags') {
+            $cleanQ = ltrim($q, '#');
+            $paginator = Hashtag::where('tag', 'like', "%{$cleanQ}%")
+                ->orderByDesc('usage_count')
+                ->paginate($perPage, ['*'], 'page', $page);
+
+            $hashtags = $paginator->getCollection()->map(fn($h) => [
+                'tag'         => $h->tag,
+                'usage_count' => $h->usage_count,
+            ]);
+
+            return response()->json([
+                'hashtags'     => $hashtags->values(),
+                'has_more'     => $paginator->hasMorePages(),
+                'current_page' => $paginator->currentPage(),
+                'total'        => $paginator->total(),
+            ]);
+        }
+
+        // Type 'all': Top results across all models (Algolia Powered)
+        try {
+            $posts = Post::search($q)
+                ->take(6)
+                ->get()
+                ->load(['user', 'images'])
+                ->loadCount(['likes', 'comments'])
+                ->map(fn($post) => $postController->formatPost($post, $user));
+        } catch (\Throwable $e) {
+            $posts = Post::with(['user', 'images'])
+                ->withCount(['likes', 'comments'])
+                ->where('content', 'like', "%{$q}%")
+                ->latest()
+                ->take(6)
+                ->get()
+                ->map(fn($post) => $postController->formatPost($post, $user));
+        }
+        $result['posts'] = $posts->values();
+
+        $cleanQ = ltrim($q, '#');
+        try {
+            $blogs = \App\Models\Blog::search($cleanQ ?: $q)
+                ->take(6)
+                ->get()
+                ->filter(fn($b) => $b->status === 'published')
+                ->load('user')
+                ->loadCount('likes')
+                ->map(fn($b) => $blogController->formatBlog($b, $user));
+        } catch (\Throwable $e) {
+            $blogs = \App\Models\Blog::published()
+                ->with('user')
+                ->withCount('likes')
+                ->where(function ($w) use ($q, $cleanQ) {
+                    $w->where('title', 'like', "%{$q}%")
+                      ->orWhere('content', 'like', "%{$q}%")
+                      ->orWhere('excerpt', 'like', "%{$q}%")
+                      ->orWhereJsonContains('tags', $cleanQ)
+                      ->orWhereJsonContains('tags', $q);
+                })
+                ->latest('published_at')
+                ->take(6)
+                ->get()
+                ->map(fn($b) => $blogController->formatBlog($b, $user));
+        }
+        $result['blogs'] = $blogs->values();
+
+        try {
+            $rawPeople = User::search($q)
+                ->take(6)
+                ->get()
+                ->loadCount(['followers', 'following', 'posts' => fn($p) => $p->published()]);
+        } catch (\Throwable $e) {
+            $rawPeople = User::where(function ($query) use ($q) {
+                $query->where('name', 'like', "%{$q}%")
+                    ->orWhere('username', 'like', "%{$q}%")
+                    ->orWhere('bio', 'like', "%{$q}%");
+            })
+            ->withCount(['followers', 'following', 'posts' => fn($p) => $p->published()])
+            ->take(6)
+            ->get();
+        }
+        $people = $rawPeople->map(function ($u) use ($user) {
+            $avatarUrl = $u->avatar;
+            if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
+                $avatarUrl = config('app.url') . $avatarUrl;
+            }
+            $coverUrl = $u->cover;
+            if ($coverUrl && !str_starts_with($coverUrl, 'http')) {
+                $coverUrl = config('app.url') . $coverUrl;
+            }
+            return [
+                'id'              => $u->id,
+                'name'            => $u->name,
+                'username'        => $u->username,
+                'avatar'          => $avatarUrl,
+                'cover'           => $coverUrl,
+                'bio'             => $u->bio,
+                'location'        => $u->location,
+                'website'         => $u->website,
+                'verified'        => (bool) $u->verified,
+                'followers_count' => (int) $u->followers_count,
+                'following_count' => (int) $u->following_count,
+                'posts_count'     => (int) $u->posts_count,
+                'is_following'    => $user ? $user->isFollowing($u) : false,
+            ];
+        });
+        $result['people'] = $people->values();
+
+        $cleanQComm = ltrim($q, 'c/');
+        try {
+            $communities = \App\Models\Community::search($cleanQComm ?: $q)
+                ->take(6)
+                ->get()
+                ->load(['creator:id,name,username,avatar,verified'])
+                ->loadCount(['approvedMembers as members_count', 'posts as posts_count'])
+                ->map(fn($c) => $communityController->formatCommunity($c, $user));
+        } catch (\Throwable $e) {
             $communities = \App\Models\Community::with(['creator:id,name,username,avatar,verified'])
                 ->withCount(['approvedMembers as members_count', 'posts as posts_count'])
-                ->where(function ($w) use ($q, $cleanQ) {
+                ->where(function ($w) use ($q, $cleanQComm) {
                     $w->where('name', 'like', "%{$q}%")
-                      ->orWhere('name', 'like', "%{$cleanQ}%")
+                      ->orWhere('name', 'like', "%{$cleanQComm}%")
                       ->orWhere('slug', 'like', "%{$q}%")
-                      ->orWhere('slug', 'like', "%{$cleanQ}%")
+                      ->orWhere('slug', 'like', "%{$cleanQComm}%")
                       ->orWhere('description', 'like', "%{$q}%");
                 })
                 ->orderByDesc('members_count')
-                ->take(20)
+                ->take(6)
                 ->get()
                 ->map(fn($c) => $communityController->formatCommunity($c, $user));
-
-            $result['communities'] = $communities->values();
         }
+        $result['communities'] = $communities->values();
 
-        if (in_array($type, ['all', 'hashtags'])) {
-            // Strip leading # if user typed it
-            $cleanQ = ltrim($q, '#');
-
-            $hashtags = Hashtag::where('tag', 'like', "%{$cleanQ}%")
-                ->orderByDesc('usage_count')
-                ->take(20)
-                ->get()
-                ->map(fn($h) => [
-                    'tag'         => $h->tag,
-                    'usage_count' => $h->usage_count,
-                ]);
-
-            $result['hashtags'] = $hashtags->values();
-        }
+        $hashtags = Hashtag::where('tag', 'like', "%{$cleanQ}%")
+            ->orderByDesc('usage_count')
+            ->take(6)
+            ->get()
+            ->map(fn($h) => [
+                'tag'         => $h->tag,
+                'usage_count' => $h->usage_count,
+            ]);
+        $result['hashtags'] = $hashtags->values();
 
         return response()->json($result);
     }
