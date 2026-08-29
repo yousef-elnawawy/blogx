@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import PostCard, { PostCardProps } from "@/components/PostCard";
 import BlogCard, { BlogItem } from "@/components/blog/BlogCard";
+import SeriesCard, { SeriesCardProps } from "@/components/blog/SeriesCard";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import api from "@/lib/api";
 import { getAvatarUrl, cn } from "@/lib/utils";
@@ -287,6 +288,7 @@ function SearchPageContent() {
   // Results
   const [posts, setPosts] = useState<PostCardProps[]>([]);
   const [blogs, setBlogs] = useState<BlogItem[]>([]);
+  const [series, setSeries] = useState<SeriesCardProps[]>([]);
   const [people, setPeople] = useState<UserResult[]>([]);
   const [communities, setCommunities] = useState<CommunityResult[]>([]);
   const [hashtags, setHashtags] = useState<HashtagResult[]>([]);
@@ -359,6 +361,7 @@ function SearchPageContent() {
       if (!q.trim()) {
         setPosts([]);
         setBlogs([]);
+        setSeries([]);
         setPeople([]);
         setCommunities([]);
         setHashtags([]);
@@ -379,6 +382,7 @@ function SearchPageContent() {
         if (tab === "all") {
           setPosts(data.posts || []);
           setBlogs(data.blogs || []);
+          setSeries(data.series || []);
           setPeople(data.people || []);
           setCommunities(data.communities || []);
           setHashtags(data.hashtags || []);
@@ -388,8 +392,10 @@ function SearchPageContent() {
           setPosts(append ? (prev) => [...prev, ...incoming] : incoming);
           setHasMore(Boolean(data.has_more));
         } else if (tab === "blogs") {
-          const incoming = data.blogs || [];
-          setBlogs(append ? (prev) => [...prev, ...incoming] : incoming);
+          const incomingBlogs = data.blogs || [];
+          const incomingSeries = data.series || [];
+          setBlogs(append ? (prev) => [...prev, ...incomingBlogs] : incomingBlogs);
+          setSeries(append ? (prev) => [...prev, ...incomingSeries] : incomingSeries);
           setHasMore(Boolean(data.has_more));
         } else if (tab === "people") {
           const incoming = data.people || [];
@@ -474,7 +480,7 @@ function SearchPageContent() {
   const tabs: { id: Tab; label: string; icon: React.ReactNode }[] = [
     { id: "all", label: "Top", icon: <Layers className="size-4" /> },
     { id: "posts", label: "Posts", icon: <FileText className="size-4" /> },
-    { id: "blogs", label: "Articles", icon: <BookOpen className="size-4" /> },
+    { id: "blogs", label: "Articles & Stories", icon: <BookOpen className="size-4" /> },
     { id: "people", label: "People", icon: <Users className="size-4" /> },
     { id: "communities", label: "Communities", icon: <Users2 className="size-4" /> },
     { id: "hashtags", label: "Topics", icon: <Hash className="size-4" /> },
@@ -565,23 +571,26 @@ function SearchPageContent() {
                 </div>
               )}
 
-              {/* Blogs Section */}
-              {blogs.length > 0 && (
-                <div className="p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                      Articles & Stories
+              {/* Articles & Stories Section */}
+              {(blogs.length > 0 || series.length > 0) && (
+                <div>
+                  <div className="flex items-center justify-between px-4 py-3 bg-muted/20 border-b border-border/60">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <BookOpen className="size-3.5 text-primary" /> Articles & Stories
                     </span>
                     <button
                       onClick={() => handleTabChange("blogs")}
                       className="text-xs font-semibold text-primary hover:underline"
                     >
-                      View all ({blogs.length})
+                      View all ({blogs.length + series.length})
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {blogs.slice(0, 2).map((b) => (
-                      <BlogCard key={b.id} blog={b} />
+                  <div className="divide-y divide-border/60">
+                    {series.slice(0, 2).map((s) => (
+                      <SeriesCard key={`series-${s.id}`} series={s} />
+                    ))}
+                    {blogs.slice(0, 3).map((b) => (
+                      <BlogCard key={`blog-${b.id}`} blog={b} />
                     ))}
                   </div>
                 </div>
@@ -632,7 +641,7 @@ function SearchPageContent() {
               )}
 
               {/* No results in ALL */}
-              {posts.length === 0 && blogs.length === 0 && people.length === 0 && communities.length === 0 && (
+              {posts.length === 0 && blogs.length === 0 && series.length === 0 && people.length === 0 && communities.length === 0 && (
                 <div className="text-center py-16 px-4">
                   <p className="text-sm font-semibold text-foreground">No results found for &quot;{query}&quot;</p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -660,18 +669,21 @@ function SearchPageContent() {
             </div>
           )}
 
-          {/* TAB: BLOGS */}
+          {/* TAB: BLOGS & STORIES */}
           {activeTab === "blogs" && (
-            <div className="p-4 sm:p-5">
-              {blogs.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              {blogs.length > 0 || series.length > 0 ? (
+                <div className="divide-y divide-border/60">
+                  {series.map((s) => (
+                    <SeriesCard key={`series-${s.id}`} series={s} />
+                  ))}
                   {blogs.map((b) => (
-                    <BlogCard key={b.id} blog={b} />
+                    <BlogCard key={`blog-${b.id}`} blog={b} />
                   ))}
                 </div>
               ) : (
                 <div className="text-center py-16 px-4">
-                  <p className="text-sm font-semibold text-foreground">No articles found</p>
+                  <p className="text-sm font-semibold text-foreground">No articles or stories found</p>
                 </div>
               )}
             </div>

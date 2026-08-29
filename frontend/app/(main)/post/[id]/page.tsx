@@ -280,6 +280,8 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
   const isOwner = Boolean(
     user && post && (user.username === post.author.username || (post.author.id && user.id === post.author.id))
   );
+  const hasVideo = Boolean(post?.video?.url);
+  const canEditPost = isOwner && !post?.poll && !hasVideo;
 
   const handleDeletePost = async () => {
     if (!post || deleting) return;
@@ -817,7 +819,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
                 }
               />
               <DropdownMenuContent align="end" className="w-40 sm:w-44 p-1">
-                {!post.poll && (
+                {canEditPost && (
                   <DropdownMenuItem
                     onClick={() => setEditDialogOpen(true)}
                     className="gap-2 px-2.5 py-1.5 text-xs font-medium cursor-pointer"
@@ -945,6 +947,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
               src={post.video.url}
               poster={post.video.thumbnail}
               duration={post.video.duration}
+              postId={post.id}
             />
           </div>
         )}
@@ -967,6 +970,13 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
             <Button
               variant="ghost"
               size="sm"
+              onClick={() => {
+                const el = document.getElementById("comments-section");
+                if (el) {
+                  const top = el.getBoundingClientRect().top + window.scrollY - 56;
+                  window.scrollTo({ top, behavior: "smooth" });
+                }
+              }}
               className="h-9 px-3 gap-2 rounded-full text-[#78716C] hover:text-teal-500 hover:bg-teal-500/10 transition-colors"
             >
               <MessageSquare className="size-5" />
@@ -1018,7 +1028,7 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
       </div>
 
       {/* Comments Header & Sorting Tabs */}
-      <div className="px-4 py-3 border-b border-border/60 flex items-center justify-between gap-2 flex-wrap bg-card/20">
+      <div id="comments-section" className="px-4 py-3 border-b border-border/60 flex items-center justify-between gap-2 flex-wrap bg-card/20">
         <div className="flex items-center gap-2">
           <MessageSquare className="size-4.5 text-primary" />
           <h2 className="text-sm sm:text-base font-bold text-foreground">
@@ -1185,7 +1195,14 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
       <ShareDialog
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
-        post={post}
+        post={{
+          id: post.id,
+          type: hasVideo ? "video" : "post",
+          author: post.author,
+          content: post.content,
+          images: post.images,
+          cover_image: hasVideo ? (post.video?.thumbnail ?? null) : null,
+        }}
       />
 
       {/* Edit Dialog */}

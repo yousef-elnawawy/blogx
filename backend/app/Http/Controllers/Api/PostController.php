@@ -39,6 +39,11 @@ class PostController extends Controller
             $query->whereNull('community_id');
         }
 
+        $category = $request->query('category');
+        if (!empty($category) && $category !== 'all') {
+            $query->where('category', $category);
+        }
+
         if ($tab === 'following') {
             if ($user) {
                 $followingIds = $user->following()->pluck('users.id');
@@ -558,11 +563,15 @@ class PostController extends Controller
             }
         }
 
+        $categorizer = app(\App\Services\PostCategorizerService::class);
+        $detectedCategory = $categorizer->categorize($validated['content'] ?? '');
+
         $post = Post::create([
             'user_id'          => $request->user()->id,
             'community_id'     => $communityId,
             'quote_of_id'      => $validated['quote_of_id'] ?? null,
             'content'          => $validated['content'] ?? '',
+            'category'         => $detectedCategory,
             'comments_enabled' => $validated['comments_enabled'] ?? true,
             'status'           => $postStatus,
             'scheduled_at'     => $scheduledAt,
@@ -730,11 +739,15 @@ class PostController extends Controller
             'community_id' => ['nullable', 'exists:communities,id'],
         ]);
 
+        $categorizer = app(\App\Services\PostCategorizerService::class);
+        $detectedCategory = $categorizer->categorize($validated['content'] ?? '');
+
         $post = Post::create([
             'user_id'          => $user->id,
             'quote_of_id'      => $originalPost->id,
             'community_id'     => $validated['community_id'] ?? null,
             'content'          => $validated['content'],
+            'category'         => $detectedCategory,
             'status'           => 'published',
             'comments_enabled' => true,
         ]);
@@ -990,6 +1003,10 @@ class PostController extends Controller
             'content'   => $validated['content'] ?? '',
             'is_edited' => true,
         ];
+        if (isset($validated['content'])) {
+            $categorizer = app(\App\Services\PostCategorizerService::class);
+            $updateData['category'] = $categorizer->categorize($validated['content']);
+        }
         if (isset($validated['status'])) {
             $updateData['status'] = $validated['status'];
         }
@@ -1309,6 +1326,7 @@ class PostController extends Controller
         return [
             'id'              => $post->id,
             'content'         => $post->content,
+            'category'        => $post->category ?? 'general',
             'created_at'      => $post->created_at,
             'likes_count'     => $post->likes_count ?? $post->likes()->count(),
             'comments_count'  => $post->comments_count ?? $post->comments()->count(),

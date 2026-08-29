@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Link2, Check, Share2, Send, BookOpen, MessageCircle, Loader2, Layers } from "lucide-react";
+import { Link2, Check, Share2, Send, BookOpen, MessageCircle, Loader2, Layers, Play, Video } from "lucide-react";
 import { toast } from "sonner";
 import { getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
@@ -68,8 +68,9 @@ export default function ShareDialog({
     }
   }, [open, currentUser]);
 
+  const isVideo = post.type === "video";
   const isSeries = post.type === "series" || post.type === "story";
-  const isBlog = post.type === "blog" || (!isSeries && Boolean(post.slug));
+  const isBlog = post.type === "blog" || (!isSeries && !isVideo && Boolean(post.slug));
   const slugOrId = post.slug || post.id;
 
   const shareUrl =
@@ -84,6 +85,8 @@ export default function ShareDialog({
     ? `Explore series "${post.title || "Stories"}" by ${post.author.name} on BlogX`
     : isBlog
     ? `Read "${post.title || postText.slice(0, 60)}" by ${post.author.name} on BlogX`
+    : isVideo
+    ? `Watch this video by ${post.author.name} on BlogX${postText ? `: "${postText.slice(0, 60)}${postText.length > 60 ? "..." : ""}"` : ""}`
     : `Check out this post by ${post.author.name} on BlogX: "${postText.slice(0, 80)}${postText.length > 80 ? "..." : ""}"`;
 
   const notifyShare = (platform: string) => {
@@ -255,10 +258,12 @@ export default function ShareDialog({
               <Layers className="size-5 text-primary" />
             ) : isBlog ? (
               <BookOpen className="size-5 text-primary" />
+            ) : isVideo ? (
+              <Video className="size-5 text-primary" />
             ) : (
               <Share2 className="size-5 text-primary" />
             )}
-            <span>{isSeries ? "Share Story Series" : isBlog ? "Share Blog Story" : "Share Post"}</span>
+            <span>{isSeries ? "Share Story Series" : isBlog ? "Share Blog Story" : isVideo ? "Share Video" : "Share Post"}</span>
           </DialogTitle>
         </DialogHeader>
 
@@ -314,49 +319,114 @@ export default function ShareDialog({
         )}
 
         {/* Card Preview Container */}
-        <div className="relative rounded-2xl p-3.5 sm:p-4 border border-border/70 bg-muted/30 backdrop-blur-sm overflow-hidden shadow-inner space-y-2.5">
-          {/* Author Header */}
-          <div className="flex items-center gap-2.5">
-            <Avatar className="size-8 ring-1 ring-primary/20">
-              <AvatarImage src={avatarSrc} />
-              <AvatarFallback className={`text-[10px] font-bold ${getAvatarGradient(post.author.username || post.author.name)}`}>
-                {getInitials(post.author.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1 flex-wrap">
-                <h4 className="text-xs font-semibold text-foreground truncate">
-                  {post.author.name}
-                </h4>
-                {Boolean(post.author.verified) && <VerifiedBadge size="xs" />}
+        <div className="relative rounded-2xl border border-border/70 bg-muted/30 backdrop-blur-sm overflow-hidden shadow-inner">
+          {/* Video thumbnail preview */}
+          {isVideo ? (
+            <div className="relative">
+              {post.cover_image ? (
+                <div className="relative w-full aspect-video bg-black overflow-hidden">
+                  <img
+                    src={getAvatarUrl(post.cover_image)}
+                    alt="Video thumbnail"
+                    className="w-full h-full object-cover opacity-85"
+                  />
+                  {/* Play overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="size-12 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center border border-white/20 shadow-lg">
+                      <Play className="size-5 text-white fill-white ml-0.5" />
+                    </div>
+                  </div>
+                  {/* Video badge */}
+                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/70 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/15">
+                    <Video className="size-3" />
+                    <span>Video</span>
+                  </div>
+                </div>
+              ) : (
+                /* No thumbnail fallback */
+                <div className="relative w-full aspect-video bg-gradient-to-br from-neutral-900 to-neutral-800 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-2 text-white/50">
+                    <div className="size-12 rounded-full bg-white/10 flex items-center justify-center">
+                      <Play className="size-5 fill-white/50 text-white/50 ml-0.5" />
+                    </div>
+                    <span className="text-[11px] font-semibold tracking-wide uppercase">Video</span>
+                  </div>
+                  {/* Video badge */}
+                  <div className="absolute top-2 left-2 flex items-center gap-1 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded-full border border-white/15">
+                    <Video className="size-3" />
+                    <span>Video</span>
+                  </div>
+                </div>
+              )}
+              {/* Author row below thumbnail */}
+              <div className="p-3 flex items-center gap-2.5">
+                <Avatar className="size-7 ring-1 ring-primary/20 shrink-0">
+                  <AvatarImage src={avatarSrc} />
+                  <AvatarFallback className={`text-[9px] font-bold ${getAvatarGradient(post.author.username || post.author.name)}`}>
+                    {getInitials(post.author.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-semibold text-foreground truncate">{post.author.name}</span>
+                    {Boolean(post.author.verified) && <VerifiedBadge size="xs" />}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground truncate">@{post.author.username}</p>
+                </div>
               </div>
-              <p className="text-[11px] text-muted-foreground truncate">
-                @{post.author.username}
-              </p>
+              {postText && (
+                <p className="px-3 pb-3 text-xs text-foreground/80 leading-relaxed line-clamp-2 -mt-1">
+                  {postText}
+                </p>
+              )}
             </div>
-          </div>
+          ) : (
+            /* Regular post / blog preview */
+            <div className="p-3.5 sm:p-4 space-y-2.5">
+              {/* Author Header */}
+              <div className="flex items-center gap-2.5">
+                <Avatar className="size-8 ring-1 ring-primary/20">
+                  <AvatarImage src={avatarSrc} />
+                  <AvatarFallback className={`text-[10px] font-bold ${getAvatarGradient(post.author.username || post.author.name)}`}>
+                    {getInitials(post.author.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <h4 className="text-xs font-semibold text-foreground truncate">
+                      {post.author.name}
+                    </h4>
+                    {Boolean(post.author.verified) && <VerifiedBadge size="xs" />}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    @{post.author.username}
+                  </p>
+                </div>
+              </div>
 
-          {/* Blog Title or Content Excerpt */}
-          {post.title && (
-            <h3 className="text-sm font-bold text-foreground leading-snug font-[family-name:var(--font-fraunces)] line-clamp-2">
-              {post.title}
-            </h3>
-          )}
+              {/* Blog Title or Content Excerpt */}
+              {post.title && (
+                <h3 className="text-sm font-bold text-foreground leading-snug font-[family-name:var(--font-fraunces)] line-clamp-2">
+                  {post.title}
+                </h3>
+              )}
 
-          {postText && (
-            <p className="text-xs text-foreground/90 leading-relaxed line-clamp-2 whitespace-pre-wrap">
-              {postText}
-            </p>
-          )}
+              {postText && (
+                <p className="text-xs text-foreground/90 leading-relaxed line-clamp-2 whitespace-pre-wrap">
+                  {postText}
+                </p>
+              )}
 
-          {/* Cover image if blog or post has image */}
-          {(post.cover_image || (post.images && post.images.length > 0)) && (
-            <div className="rounded-xl overflow-hidden max-h-28 border border-border/50 bg-muted">
-              <img
-                src={getAvatarUrl(post.cover_image || post.images?.[0])}
-                alt="Preview"
-                className="w-full h-full object-cover"
-              />
+              {/* Cover image */}
+              {(post.cover_image || (post.images && post.images.length > 0)) && (
+                <div className="rounded-xl overflow-hidden max-h-28 border border-border/50 bg-muted">
+                  <img
+                    src={getAvatarUrl(post.cover_image || post.images?.[0])}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>

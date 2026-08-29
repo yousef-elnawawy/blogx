@@ -3,14 +3,58 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Blog;
 use App\Models\Hashtag;
 use App\Models\Post;
+use App\Models\Series;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 
 class SearchController extends Controller
 {
+    /**
+     * Helper to format Series for search results.
+     */
+    private function formatSeries(Series $item): array
+    {
+        $totalReadTime = $item->publishedBlogs ? $item->publishedBlogs->sum('read_time') : 0;
+
+        $coverUrl = $item->cover_image;
+        if ($coverUrl && !str_starts_with($coverUrl, 'http')) {
+            $clean = ltrim($coverUrl, '/');
+            if (str_starts_with($clean, 'storage/')) {
+                $clean = substr($clean, 8);
+            }
+            $coverUrl = config('app.url') . '/storage/' . ltrim($clean, '/');
+        }
+
+        $avatarUrl = $item->user?->avatar;
+        if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
+            $avatarUrl = config('app.url') . $avatarUrl;
+        }
+
+        return [
+            'id'              => $item->id,
+            'title'           => $item->title,
+            'slug'            => $item->slug,
+            'description'     => $item->description,
+            'cover_image'     => $coverUrl,
+            'views_count'     => (int) $item->views_count,
+            'blogs_count'     => (int) ($item->published_blogs_count ?? ($item->publishedBlogs ? $item->publishedBlogs->count() : 0)),
+            'total_read_time' => (int) ($totalReadTime ?: 1),
+            'created_at'      => $item->created_at?->toIso8601String(),
+            'author'          => [
+                'id'              => $item->user?->id,
+                'name'            => $item->user?->name ?? 'Unknown',
+                'username'        => $item->user?->username ?? 'unknown',
+                'avatar'          => $avatarUrl,
+                'verified'        => (bool) ($item->user?->verified ?? false),
+                'equipped_badges' => $item->user?->equipped_badges ?? [],
+            ],
+        ];
+    }
+
     /**
      * Global search: posts, users, hashtags.
      */
@@ -36,6 +80,8 @@ class SearchController extends Controller
         if ($q === '') {
             return response()->json([
                 'posts'    => [],
+                'blogs'    => [],
+                'series'   => [],
                 'people'   => [],
                 'hashtags' => [],
             ]);
@@ -77,21 +123,15 @@ class SearchController extends Controller
             }
         }
 
-        // Single tab paginated search: blogs
+        // Single tab paginated search: blogs & series
         if ($type === 'blogs') {
             $cleanQ = ltrim($q, '#');
             try {
-                $paginator = \App\Models\Blog::search($cleanQ ?: $q)->paginate($perPage, 'page', $page);
+                $paginator = Blog::search($cleanQ ?: $q)->paginate($perPage, 'page', $page);
                 $paginator->getCollection()->load('user')->loadCount('likes');
                 $blogs = $paginator->getCollection()->map(fn($b) => $blogController->formatBlog($b, $user));
-                return response()->json([
-                    'blogs'        => $blogs->values(),
-                    'has_more'     => $paginator->hasMorePages(),
-                    'current_page' => $paginator->currentPage(),
-                    'total'        => $paginator->total(),
-                ]);
             } catch (\Throwable $e) {
-                $paginator = \App\Models\Blog::published()
+                $paginator = Blog::published()
                     ->with('user')
                     ->withCount('likes')
                     ->where(function ($w) use ($q, $cleanQ) {
@@ -104,13 +144,33 @@ class SearchController extends Controller
                     ->latest('published_at')
                     ->paginate($perPage, ['*'], 'page', $page);
                 $blogs = $paginator->getCollection()->map(fn($b) => $blogController->formatBlog($b, $user));
-                return response()->json([
-                    'blogs'        => $blogs->values(),
-                    'has_more'     => $paginator->hasMorePages(),
-                    'current_page' => $paginator->currentPage(),
-                    'total'        => $paginator->total(),
-                ]);
             }
+
+            // Search Series / Stories
+            $seriesList = Series::where('is_published', true)
+                ->where(function ($w) use ($q, $cleanQ) {
+                    $w->where('title', 'like', "%{$q}%")
+                      ->orWhere('title', 'like', "%{$cleanQ}%")
+                      ->orWhere('description', 'like', "%{$q}%")
+                      ->orWhere('description', 'like', "%{$cleanQ}%");
+                })
+                ->with(['user', 'publishedBlogs' => function ($sq) {
+                    $sq->select('id', 'series_id', 'title', 'slug', 'read_time', 'views_count', 'published_at')
+                      ->orderBy('series_order', 'asc');
+                }])
+                ->withCount('publishedBlogs')
+                ->latest()
+                ->take(10)
+                ->get()
+                ->map(fn($s) => $this->formatSeries($s));
+
+            return response()->json([
+                'blogs'        => $blogs->values(),
+                'series'       => $seriesList->values(),
+                'has_more'     => $paginator->hasMorePages(),
+                'current_page' => $paginator->currentPage(),
+                'total'        => $paginator->total() + $seriesList->count(),
+            ]);
         }
 
         // Single tab paginated search: people
@@ -269,6 +329,25 @@ class SearchController extends Controller
                 ->map(fn($b) => $blogController->formatBlog($b, $user));
         }
         $result['blogs'] = $blogs->values();
+
+        // Series / Stories
+        $series = Series::where('is_published', true)
+            ->where(function ($w) use ($q, $cleanQ) {
+                $w->where('title', 'like', "%{$q}%")
+                  ->orWhere('title', 'like', "%{$cleanQ}%")
+                  ->orWhere('description', 'like', "%{$q}%")
+                  ->orWhere('description', 'like', "%{$cleanQ}%");
+            })
+            ->with(['user', 'publishedBlogs' => function ($sq) {
+                $sq->select('id', 'series_id', 'title', 'slug', 'read_time', 'views_count', 'published_at')
+                  ->orderBy('series_order', 'asc');
+            }])
+            ->withCount('publishedBlogs')
+            ->latest()
+            ->take(4)
+            ->get()
+            ->map(fn($s) => $this->formatSeries($s));
+        $result['series'] = $series->values();
 
         try {
             $rawPeople = User::search($q)

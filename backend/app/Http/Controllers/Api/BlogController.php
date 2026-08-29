@@ -290,6 +290,9 @@ class BlogController extends Controller
             }
         }
 
+        $categorizer = app(\App\Services\PostCategorizerService::class);
+        $detectedCategory = $categorizer->categorize($validated['title'] . ' ' . ($validated['excerpt'] ?? '') . ' ' . $validated['content']);
+
         $blog = Blog::create([
             'user_id'      => $user->id,
             'title'        => $validated['title'],
@@ -298,6 +301,7 @@ class BlogController extends Controller
             'excerpt'      => $excerpt,
             'cover_image'  => $coverPath,
             'tags'         => $tags,
+            'category'     => $detectedCategory,
             'read_time'    => $readTime,
             'status'       => $status,
             'series_id'    => $seriesId,
@@ -409,6 +413,11 @@ class BlogController extends Controller
                 NotificationService::sendNewBlogNotification($user, $blog);
             }
             $blog->status = $validated['status'];
+        }
+
+        if (array_key_exists('content', $validated) || array_key_exists('title', $validated)) {
+            $categorizer = app(\App\Services\PostCategorizerService::class);
+            $blog->category = $categorizer->categorize($blog->title . ' ' . ($blog->excerpt ?? '') . ' ' . $blog->content);
         }
 
         $blog->save();
@@ -577,6 +586,7 @@ class BlogController extends Controller
             'excerpt'      => $blog->excerpt,
             'cover_image'  => $coverUrl,
             'tags'         => $blog->tags ?? [],
+            'category'     => $blog->category ?? 'general',
             'read_time'    => $blog->read_time ?? 1,
             'status'       => $blog->status,
             'series_id'    => $blog->series_id,

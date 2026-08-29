@@ -53,6 +53,7 @@ export interface PostCardProps {
     equipped_badges?: string[] | null;
   };
   content: string;
+  category?: string;
   images?: string[];
   video?: {
     url: string;
@@ -93,6 +94,18 @@ function formatCount(num: number): string {
   if (num >= 1000) return `${(num / 1000).toFixed(1).replace(/\.0$/, "")}k`;
   return String(num);
 }
+
+const CATEGORY_NAMES: Record<string, string> = {
+  programming: "Programming",
+  technology: "Technology",
+  ai: "AI & ML",
+  design: "Design",
+  gaming: "Gaming",
+  business: "Business",
+  science: "Science",
+  sports: "Sports",
+  cooking: "Cooking",
+};
 
 function parseTimeToSeconds(timeStr: string): number {
   const parts = timeStr.split(":").map(Number);
@@ -246,6 +259,7 @@ export default function PostCard({
   id,
   author,
   content,
+  category,
   images = [],
   video,
   mentions = [],
@@ -321,7 +335,8 @@ export default function PostCard({
 
   const canShowMenu = isReposter || isOriginalAuthor;
   const hasPoll = Boolean(poll || effectivePost?.poll);
-  const canEdit = !repost_of && isOriginalAuthor && !hasPoll;
+  const hasVideo = Boolean(effectivePost?.video?.url || video?.url);
+  const canEdit = !repost_of && isOriginalAuthor && !hasPoll && !hasVideo;
   const hasCommunity = Boolean(community || community_id || effectivePost?.community || effectivePost?.community_id);
   const hasQuote = Boolean(quote_of || quote_of_id || effectivePost?.quote_of || effectivePost?.quote_of_id);
   const hasRepost = Boolean(repost_of || repost_of_id);
@@ -616,6 +631,11 @@ export default function PostCard({
                 <span className="text-sm text-muted-foreground">
                   {timeAgo}
                 </span>
+                {category && CATEGORY_NAMES[category] && (
+                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-muted/70 text-muted-foreground border border-border/50">
+                    {CATEGORY_NAMES[category]}
+                  </span>
+                )}
                 {isEdited && (
                   <span className="text-xs text-muted-foreground/70 italic">
                     · edited
@@ -656,6 +676,7 @@ export default function PostCard({
                     src={effectivePost.video.url}
                     poster={effectivePost.video.thumbnail}
                     duration={effectivePost.video.duration}
+                    postId={effectivePost.id ?? id}
                   />
                 </div>
               )}
@@ -903,9 +924,13 @@ export default function PostCard({
         onOpenChange={setShareDialogOpen}
         post={{
           id: effectivePost.id || id,
+          type: hasVideo ? "video" : "post",
           author: displayAuthor,
           content: effectivePost.content || "",
           images: effectivePost.images || [],
+          cover_image: hasVideo
+            ? (effectivePost.video?.thumbnail || video?.thumbnail || null)
+            : null,
         }}
       />
 

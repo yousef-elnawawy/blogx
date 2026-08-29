@@ -124,10 +124,11 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const observerTarget = useRef<HTMLDivElement>(null);
 
-  const fetchPosts = useCallback(async (tab: FeedTab) => {
+  const fetchPosts = useCallback(async (tab: FeedTab, tag: string = "all") => {
     setPostsLoading(true);
     try {
-      const res = await api.get(`/api/posts?tab=${tab}`);
+      const categoryParam = tag !== "all" ? `&category=${encodeURIComponent(tag)}` : "";
+      const res = await api.get(`/api/posts?tab=${tab}${categoryParam}`);
       setPosts(res.data.data || []);
       setNextPageUrl(res.data.next_page_url);
     } catch {
@@ -142,8 +143,8 @@ export default function Home() {
   }, [activeTab]);
 
   useEffect(() => {
-    fetchPosts(activeTab);
-  }, [activeTab, fetchPosts]);
+    fetchPosts(activeTab, selectedTag);
+  }, [activeTab, selectedTag, fetchPosts]);
 
   useEffect(() => {
     const handlePostCreated = (e: Event) => {
@@ -258,22 +259,30 @@ export default function Home() {
           </div>
           <div>
             <h2 className="text-base font-bold text-foreground">
-              {activeTab === "following" ? "No posts from followed creators" : "No posts found"}
+              {activeTab === "following"
+                ? "No posts from followed creators"
+                : selectedTag !== "all"
+                ? "No posts found in this topic"
+                : "No posts found"}
             </h2>
             <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1">
               {activeTab === "following"
                 ? "Follow creators to see their latest thoughts and blogs here."
+                : selectedTag !== "all"
+                ? "Try selecting another topic or check back later."
                 : "Be the first to share an update with the community."}
             </p>
           </div>
 
-          {/* Show Discovery Sections */}
-          <div className="text-left pt-4 space-y-4">
-            <SuggestedUsersFeedCard />
-            <FeaturedBlogFeedCard />
-            <TrendingTopicsFeedCard />
-            <SuggestedCommunitiesFeedCard />
-          </div>
+          {/* Show Discovery Sections only on default general feed */}
+          {selectedTag === "all" && (
+            <div className="text-left pt-4 space-y-4">
+              <SuggestedUsersFeedCard />
+              <FeaturedBlogFeedCard />
+              <TrendingTopicsFeedCard />
+              <SuggestedCommunitiesFeedCard />
+            </div>
+          )}
         </div>
       ) : (
         <div>
@@ -285,22 +294,27 @@ export default function Home() {
             >
               <PostCard {...post} />
 
-              {/* Discovery Section 1: Who to follow (Horizontal Carousel) after post #1 */}
-              {index === 0 && <SuggestedUsersFeedCard />}
+              {/* Discovery Sections only on unfiltered default feed */}
+              {selectedTag === "all" && (
+                <>
+                  {/* Discovery Section 1: Who to follow (Horizontal Carousel) after post #1 */}
+                  {index === 0 && <SuggestedUsersFeedCard />}
 
-              {/* Discovery Section 2: Featured Story after post #2 */}
-              {index === 1 && <FeaturedBlogFeedCard />}
+                  {/* Discovery Section 2: Featured Story after post #2 */}
+                  {index === 1 && <FeaturedBlogFeedCard />}
 
-              {/* Discovery Section 3: Trending Topics bar after post #4 */}
-              {index === 3 && <TrendingTopicsFeedCard />}
+                  {/* Discovery Section 3: Trending Topics bar after post #4 */}
+                  {index === 3 && <TrendingTopicsFeedCard />}
 
-              {/* Discovery Section 4: Communities to explore (Horizontal with REAL images) after post #6 */}
-              {index === 5 && <SuggestedCommunitiesFeedCard />}
+                  {/* Discovery Section 4: Communities to explore after post #6 */}
+                  {index === 5 && <SuggestedCommunitiesFeedCard />}
+                </>
+              )}
             </div>
           ))}
 
-          {/* If there are fewer posts, display remaining discovery elements */}
-          {posts.length === 1 && (
+          {/* If there are fewer posts, display remaining discovery elements only on default feed */}
+          {selectedTag === "all" && posts.length === 1 && (
             <>
               <FeaturedBlogFeedCard />
               <TrendingTopicsFeedCard />

@@ -16,6 +16,7 @@ class Post extends Model
         'repost_of_id',
         'quote_of_id',
         'content',
+        'category',
         'video_url',
         'video_thumbnail',
         'video_duration',
@@ -164,6 +165,7 @@ class Post extends Model
         return [
             'id' => (int) $this->id,
             'content' => (string) $this->content,
+            'category' => (string) ($this->category ?? 'general'),
             'author_name' => (string) ($this->user?->name ?? ''),
             'author_username' => (string) ($this->user?->username ?? ''),
             'author_avatar' => (string) ($this->user?->avatar ?? ''),
