@@ -27,7 +27,14 @@ class MessageController extends Controller
     {
         $user = $request->user();
 
+        $blockedIds = $user->blockedUsers()->pluck('users.id')
+            ->merge($user->blockedByUsers()->pluck('users.id'))
+            ->unique()
+            ->toArray();
+
         $conversations = Conversation::forUser($user->id)
+            ->whereNotIn('user_one_id', $blockedIds)
+            ->whereNotIn('user_two_id', $blockedIds)
             ->with(['userOne', 'userTwo', 'latestMessage.sender'])
             ->orderByRaw("CASE WHEN (user_one_id = {$user->id} AND user_one_pinned = 1) OR (user_two_id = {$user->id} AND user_two_pinned = 1) THEN 1 ELSE 0 END DESC")
             ->orderByDesc('last_message_at')
@@ -136,6 +143,11 @@ class MessageController extends Controller
             return response()->json(['message' => 'User not found.'], 404);
         }
 
+        // Strict Ghost Block Check
+        if ($user->hasBlockedOrIsBlockedBy($recipient)) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
+
         // Check if recipient requires following to receive DMs
         $isFollowing = $user->isFollowing($recipient);
         $requireFollow = false;
@@ -178,6 +190,11 @@ class MessageController extends Controller
         $recipient = $conversation->getOtherUser($user->id);
         if (!$recipient) {
             return response()->json(['message' => 'Recipient not found.'], 404);
+        }
+
+        // Strict Ghost Block Check
+        if ($user->hasBlockedOrIsBlockedBy($recipient)) {
+            return response()->json(['message' => 'User not found.'], 404);
         }
 
         // Permission check: Follower-only DMs

@@ -26,6 +26,13 @@ class ProfileController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
+        // Strict Ghosting Block Check
+        if ($authUser && $authUser->id !== $user->id) {
+            if ($authUser->hasBlockedOrIsBlockedBy($user)) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+        }
+
         $query = Post::where('user_id', $user->id)->published();
 
         // If viewing someone else's profile, only show public posts or joined community posts
@@ -89,11 +96,44 @@ class ProfileController extends Controller
             'followers_count' => $user->followers()->count(),
             'following_count' => $user->following()->count(),
             'is_following'    => $authUser ? $authUser->isFollowing($user) : false,
+            'is_muted'        => $authUser ? $authUser->isMuting($user) : false,
+            'is_blocked'      => $authUser ? $authUser->isBlocking($user) : false,
+            'preferences'     => ($authUser && $authUser->id === $user->id) ? ($user->preferences ?? []) : null,
         ];
 
         return response()->json([
             'user'  => $userData,
             'posts' => $posts,
+        ]);
+    }
+
+    /**
+     * Update user personalization preferences.
+     */
+    public function updatePreferences(Request $request)
+    {
+        $user = $request->user();
+        $validated = $request->validate([
+            'accent_color'           => 'nullable|string|max:30',
+            'font_family'            => 'nullable|string|max:50',
+            'blog_font_size'         => 'nullable|string|in:small,medium,large',
+            'default_feed_tab'       => 'nullable|string|in:for_you,following,trending,latest',
+            'reading_mode_enabled'   => 'nullable|boolean',
+            'hide_views_count'       => 'nullable|boolean',
+            'hide_online_status'     => 'nullable|boolean',
+            'compact_mode'           => 'nullable|boolean',
+        ]);
+
+        $currentPreferences = $user->preferences ?? [];
+        $newPreferences = array_merge($currentPreferences, $validated);
+
+        $user->forceFill([
+            'preferences' => $newPreferences,
+        ])->save();
+
+        return response()->json([
+            'message'     => 'Preferences updated successfully',
+            'preferences' => $newPreferences,
         ]);
     }
 

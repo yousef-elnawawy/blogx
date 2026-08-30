@@ -3,6 +3,7 @@
 import {
   User,
   Shield,
+  ShieldAlert,
   BadgeCheck,
   Bell,
   Palette,
@@ -29,6 +30,14 @@ export default function SettingsCategoriesHub({ onSelectCategory }: SettingsCate
       icon: Shield,
       color: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/20",
       ringColor: "group-hover:ring-emerald-500/40",
+    },
+    {
+      id: "privacy",
+      label: "Privacy & Safety",
+      arabicLabel: "الخصوصية والأمان",
+      icon: ShieldAlert,
+      color: "bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 border-rose-500/20",
+      ringColor: "group-hover:ring-rose-500/40",
     },
     {
       id: "verification",

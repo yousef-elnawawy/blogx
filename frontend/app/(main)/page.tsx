@@ -26,6 +26,7 @@ import {
   FeaturedBlogFeedCard,
   SuggestedCommunitiesFeedCard,
 } from "@/components/feed/FeedDiscoveryCards";
+import StoriesTray from "@/components/stories/StoriesTray";
 import api from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -243,6 +244,9 @@ export default function Home() {
           })}
         </div>
       </div>
+
+      {/* Stories Tray Carousel */}
+      <StoriesTray />
 
       {/* Create Post Area */}
       <div className="border-b border-border">

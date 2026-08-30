@@ -547,7 +547,18 @@ class SearchController extends Controller
     {
         $q = ltrim(trim($request->get('q', '')), '@');
 
+        $user = $request->user() ?? auth('sanctum')->user();
         $query = User::query();
+
+        if ($user) {
+            $blockedIds = $user->blockedUsers()->pluck('users.id')
+                ->merge($user->blockedByUsers()->pluck('users.id'))
+                ->unique()
+                ->toArray();
+            if (!empty($blockedIds)) {
+                $query->whereNotIn('id', $blockedIds);
+            }
+        }
 
         if ($q !== '') {
             $query->where(function ($sub) use ($q) {

@@ -35,6 +35,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'notification_preferences',
         'social_links',
         'equipped_badges',
+        'preferences',
     ];
 
     protected $hidden = [
@@ -52,6 +53,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'notification_preferences' => 'array',
         'social_links' => 'array',
         'equipped_badges' => 'array',
+        'preferences' => 'array',
     ];
 
     protected $appends = [
@@ -290,6 +292,60 @@ class User extends Authenticatable implements MustVerifyEmail
     public function starredMessages()
     {
         return $this->hasMany(StarredMessage::class, 'user_id');
+    }
+
+    public function blockedUsers()
+    {
+        return $this->belongsToMany(User::class, 'blocks', 'blocker_id', 'blocked_id')->withTimestamps();
+    }
+
+    public function blockedByUsers()
+    {
+        return $this->belongsToMany(User::class, 'blocks', 'blocked_id', 'blocker_id')->withTimestamps();
+    }
+
+    public function isBlocking(int|User $user): bool
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+        return $this->blockedUsers()->where('blocked_id', $userId)->exists();
+    }
+
+    public function isBlockedBy(int|User $user): bool
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+        return $this->blockedByUsers()->where('blocker_id', $userId)->exists();
+    }
+
+    public function hasBlockedOrIsBlockedBy(int|User $user): bool
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+        return $this->isBlocking($userId) || $this->isBlockedBy($userId);
+    }
+
+    public function mutedUsers()
+    {
+        return $this->belongsToMany(User::class, 'mutes', 'muter_id', 'muted_id')->withTimestamps();
+    }
+
+    public function isMuting(int|User $user): bool
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+        return $this->mutedUsers()->where('muted_id', $userId)->exists();
+    }
+
+    public function mutedKeywords()
+    {
+        return $this->hasMany(MutedKeyword::class);
+    }
+
+    public function stories()
+    {
+        return $this->hasMany(Story::class);
+    }
+
+    public function activeStories()
+    {
+        return $this->hasMany(Story::class)->active()->latest();
     }
 
     /**

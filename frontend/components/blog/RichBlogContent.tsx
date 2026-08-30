@@ -5,6 +5,8 @@ import Link from "next/link";
 import CodeBlock from "./CodeBlock";
 import YouTubeEmbed, { extractYouTubeId } from "./YouTubeEmbed";
 import TwitterEmbed, { extractTweetInfo } from "./TwitterEmbed";
+import InternalPostEmbed from "./InternalPostEmbed";
+import InternalBlogEmbed from "./InternalBlogEmbed";
 import {
   Info,
   Sparkles,
@@ -447,6 +449,22 @@ export function RichBlogContent({ content }: { content: string }) {
           )}
         </figure>
       );
+      continue;
+    }
+
+    // 10.1 Internal Post Embed (e.g. ::post[123] or standalone /post/123)
+    const postEmbedMatch = trimmed.match(/^::post\[(\d+)\]$/i) || trimmed.match(/^(?:https?:\/\/[^\s]+)?\/post\/(\d+)$/i);
+    if (postEmbedMatch) {
+      const postId = postEmbedMatch[1];
+      elements.push(<InternalPostEmbed key={`post-embed-${index}`} postId={postId} />);
+      continue;
+    }
+
+    // 10.2 Internal Blog Embed (e.g. ::blog[my-article-slug] or standalone /blogs/my-article-slug)
+    const blogEmbedMatch = trimmed.match(/^::blog\[([a-zA-Z0-9_-]+)\]$/i) || trimmed.match(/^(?:https?:\/\/[^\s]+)?\/blogs\/([a-zA-Z0-9_-]+)$/i);
+    if (blogEmbedMatch) {
+      const blogSlug = blogEmbedMatch[1];
+      elements.push(<InternalBlogEmbed key={`blog-embed-${index}`} slug={blogSlug} />);
       continue;
     }
 

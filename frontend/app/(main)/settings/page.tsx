@@ -8,12 +8,13 @@ import SettingsCategoriesHub from "@/components/settings/SettingsCategoriesHub";
 import AppearanceSettings from "@/components/settings/AppearanceSettings";
 import AccountSettings from "@/components/settings/AccountSettings";
 import SecuritySettings from "@/components/settings/SecuritySettings";
+import PrivacySettings from "@/components/settings/PrivacySettings";
 import NotificationSettings from "@/components/settings/NotificationSettings";
 import VerificationTab from "@/components/settings/VerificationTab";
 
-type SettingsTab = "account" | "security" | "verification" | "notifications" | "appearance";
+type SettingsTab = "account" | "security" | "privacy" | "verification" | "notifications" | "appearance";
 
-const VALID_TABS: SettingsTab[] = ["account", "security", "verification", "notifications", "appearance"];
+const VALID_TABS: SettingsTab[] = ["account", "security", "privacy", "verification", "notifications", "appearance"];
 
 function SettingsContent() {
   const { user, loading } = useAuth();
@@ -85,12 +86,17 @@ function SettingsContent() {
     return <AccountSettings onBack={handleBackToHub} />;
   }
 
-  // 4. Render Privacy & Security Dedicated Page
+  // 4. Render Security Dedicated Page
   if (activeTab === "security") {
     return <SecuritySettings onBack={handleBackToHub} />;
   }
 
-  // 5. Render Notification Preferences Dedicated Page
+  // 5. Render Privacy & Safety Dedicated Page
+  if (activeTab === "privacy") {
+    return <PrivacySettings onBack={handleBackToHub} />;
+  }
+
+  // 6. Render Notification Preferences Dedicated Page
   if (activeTab === "notifications") {
     return <NotificationSettings onBack={handleBackToHub} />;
   }

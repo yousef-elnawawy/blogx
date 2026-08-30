@@ -44,6 +44,9 @@ class PostController extends Controller
             $query->where('category', $category);
         }
 
+        // Apply Ghost block and mute filters
+        $this->applyGhostAndMuteFilter($query, $user);
+
         if ($tab === 'following') {
             if ($user) {
                 $followingIds = $user->following()->pluck('users.id');
@@ -83,10 +86,11 @@ class PostController extends Controller
                 'images',
                 'poll.options',
                 'community',
-            ])
-            ->latest();
+            ]);
 
-        $posts = $query->paginate(12);
+        $this->applyGhostAndMuteFilter($query, $user);
+
+        $posts = $query->latest()->paginate(12);
 
         $posts->getCollection()->transform(function ($post) use ($user) {
             return $this->formatPost($post, $user);
@@ -112,11 +116,21 @@ class PostController extends Controller
             'quoteOf.user',
             'quoteOf.images',
             'community',
-            'comments' => function ($query) use ($sort) {
+            'comments' => function ($query) use ($sort, $user) {
                 $query->whereNull('parent_id')
                     ->with(['user', 'replies.user', 'replies.likes', 'likes'])
                     ->withCount(['likes', 'replies'])
                     ->orderByDesc('is_pinned');
+
+                if ($user) {
+                    $blockedUserIds = $user->blockedUsers()->pluck('users.id')
+                        ->merge($user->blockedByUsers()->pluck('users.id'))
+                        ->unique()
+                        ->toArray();
+                    if (!empty($blockedUserIds)) {
+                        $query->whereNotIn('user_id', $blockedUserIds);
+                    }
+                }
 
                 if ($sort === 'newest') {
                     $query->latest();
@@ -133,6 +147,13 @@ class PostController extends Controller
 
         if (!$post) {
             return response()->json(['message' => 'Post not found'], 404);
+        }
+
+        // Strict Ghost Block Check: if either author or viewer blocked each other, return 404
+        if ($user && $user->id !== $post->user_id) {
+            if ($user->hasBlockedOrIsBlockedBy($post->user_id)) {
+                return response()->json(['message' => 'Post not found'], 404);
+            }
         }
 
         $formattedPost = $this->formatPost($post, $user);
@@ -1407,6 +1428,49 @@ class PostController extends Controller
                 return $this->formatComment($reply, $user);
             }) : [],
         ];
+    }
+
+    /**
+     * Filter query to exclude blocked users, muted users, and muted keywords.
+     */
+    private function applyGhostAndMuteFilter($query, $user)
+    {
+        if (!$user) {
+            return;
+        }
+
+        // 1. Exclude blocked users (both ways)
+        $blockedUserIds = $user->blockedUsers()->pluck('users.id')
+            ->merge($user->blockedByUsers()->pluck('users.id'))
+            ->unique()
+            ->toArray();
+
+        // 2. Exclude muted users
+        $mutedUserIds = $user->mutedUsers()->pluck('users.id')->toArray();
+
+        $excludedUserIds = array_unique(array_merge($blockedUserIds, $mutedUserIds));
+
+        if (!empty($excludedUserIds)) {
+            $query->whereNotIn('user_id', $excludedUserIds);
+        }
+
+        // 3. Exclude muted keywords
+        $mutedKeywords = $user->mutedKeywords()
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                  ->orWhere('expires_at', '>', now());
+            })
+            ->pluck('keyword')
+            ->toArray();
+
+        if (!empty($mutedKeywords)) {
+            foreach ($mutedKeywords as $kw) {
+                $kwClean = trim($kw);
+                if (!empty($kwClean)) {
+                    $query->where('content', 'NOT LIKE', '%' . $kwClean . '%');
+                }
+            }
+        }
     }
 }
 

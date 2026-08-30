@@ -1,12 +1,15 @@
 <?php
 
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\BlockController;
 use App\Http\Controllers\Api\BlogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\CommunityController;
 use App\Http\Controllers\Api\EmailVerificationController;
 use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\Api\MuteController;
+use App\Http\Controllers\Api\MutedKeywordController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PasswordResetController;
 use App\Http\Controllers\Api\PollController;
@@ -14,6 +17,7 @@ use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\SearchController;
 use App\Http\Controllers\Api\SeriesController;
+use App\Http\Controllers\Api\StoryController;
 use App\Http\Controllers\Api\TwoFactorController;
 use App\Http\Controllers\Api\VerificationController;
 use Illuminate\Support\Facades\Route;
@@ -158,7 +162,34 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/series', [SeriesController::class, 'store']);
     Route::post('/series/{id}', [SeriesController::class, 'update']);
     Route::delete('/series/{id}', [SeriesController::class, 'destroy']);
+
+    // User Preferences (Personalization)
+    Route::post('/user/preferences', [ProfileController::class, 'updatePreferences']);
+
+    // Block System
+    Route::get('/blocks', [BlockController::class, 'index']);
+    Route::post('/blocks/{id}', [BlockController::class, 'block']);
+    Route::delete('/blocks/{id}', [BlockController::class, 'unblock']);
+
+    // Mute System
+    Route::get('/mutes', [MuteController::class, 'index']);
+    Route::post('/mutes/{id}', [MuteController::class, 'mute']);
+    Route::delete('/mutes/{id}', [MuteController::class, 'unmute']);
+
+    // Muted Keywords System
+    Route::get('/muted-keywords', [MutedKeywordController::class, 'index']);
+    Route::post('/muted-keywords', [MutedKeywordController::class, 'store']);
+    Route::delete('/muted-keywords/{id}', [MutedKeywordController::class, 'destroy']);
+
+    // 24h Stories System (Auth actions)
+    Route::post('/stories', [StoryController::class, 'store']);
+    Route::post('/stories/{id}/view', [StoryController::class, 'markAsViewed']);
+    Route::get('/stories/{id}/viewers', [StoryController::class, 'viewers']);
+    Route::delete('/stories/{id}', [StoryController::class, 'destroy']);
 });
+
+// Stories Feed (Public / Enriched with auth)
+Route::get('/stories/feed', [StoryController::class, 'feed']);
 
 // Public routes — enriched when auth token is present
 Route::get('/posts/preview-link', [PostController::class, 'previewLink']);

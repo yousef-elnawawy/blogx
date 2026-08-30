@@ -178,6 +178,27 @@ export default function SlashMenu({
       category: "text" as const,
     },
     {
+      id: "embed-post",
+      title: "BlogX Post Embed",
+      description: "Embed an internal post card (::post[id])",
+      icon: Quote,
+      category: "media" as const,
+    },
+    {
+      id: "embed-blog",
+      title: "Related Article Card",
+      description: "Embed a related blog card (::blog[slug])",
+      icon: Sparkles,
+      category: "media" as const,
+    },
+    {
+      id: "image",
+      title: "Inline Image",
+      description: "Insert image anywhere in article (![alt](url))",
+      icon: ImageIcon,
+      category: "media" as const,
+    },
+    {
       id: "divider",
       title: "Divider",
       description: "Visual separation line",
