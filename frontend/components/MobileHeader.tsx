@@ -28,6 +28,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn, getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
+import BlogXLogo from "@/components/ui/BlogXLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useTheme } from "next-themes";
@@ -205,8 +206,7 @@ export default function MobileHeader() {
 
         {/* Center: BlogX Logo */}
         <Link href="/" className="inline-block">
-          <img src="/logo.svg" alt="BlogX" className="h-6 w-auto dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlogX" className="h-6 w-auto hidden dark:block" />
+          <BlogXLogo className="h-6 w-auto" />
         </Link>
 
         {/* Right: Notifications & Theme Toggle */}
@@ -259,8 +259,7 @@ export default function MobileHeader() {
                 onClick={() => setDrawerOpen(false)}
                 className="inline-block"
               >
-                <img src="/logo.svg" alt="BlogX" className="h-6 w-auto dark:hidden" />
-                <img src="/logo-dark.svg" alt="BlogX" className="h-6 w-auto hidden dark:block" />
+                <BlogXLogo className="h-6 w-auto" />
               </Link>
               <button
                 type="button"

@@ -2,6 +2,7 @@
 
 import { SignUpForm } from "@/components/signup-form";
 import Link from "next/link";
+import BlogXLogo from "@/components/ui/BlogXLogo";
 
 export default function SignUpPage() {
   return (
@@ -13,12 +14,7 @@ export default function SignUpPage() {
             href="/"
             className="flex items-center gap-2.5 transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
           >
-            <img src="/logo.svg" alt="BlogX" className="h-8 w-auto dark:hidden" />
-            <img
-              src="/logo-dark.svg"
-              alt="BlogX"
-              className="h-8 w-auto hidden dark:block"
-            />
+            <BlogXLogo className="h-8 w-auto" />
           </Link>
 
           <Link

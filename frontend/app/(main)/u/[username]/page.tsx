@@ -37,12 +37,35 @@ import {
   Trash2,
   Info,
   MessageCircle,
+  MoreHorizontal,
+  Ban,
+  VolumeX,
+  Volume2,
+  Copy,
+  Flag,
 } from "lucide-react";
 import PostCard, { PostCardProps } from "@/components/PostCard";
 import BlogCard, { BlogItem } from "@/components/blog/BlogCard";
 import SeriesCard, { SeriesCardProps } from "@/components/blog/SeriesCard";
 import PostEditorDialog from "@/components/create-post/PostEditorDialog";
 import AccountInfoDialog from "@/components/profile/AccountInfoDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { messagesService } from "@/services/messages";
 import api from "@/lib/api";
 import { cn, getAvatarUrl, getAvatarGradient, getDefaultBannerGradient, getInitials, detectSocialPlatform } from "@/lib/utils";
@@ -70,6 +93,9 @@ interface ProfileUser {
   followers_count?: number;
   following_count?: number;
   is_following?: boolean;
+  is_blocked?: boolean;
+  is_blocked_by?: boolean;
+  is_muted?: boolean;
 }
 
 interface UserListItem {
@@ -157,6 +183,8 @@ function UserProfileContent() {
   const [userListLoading, setUserListLoading] = useState(false);
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const [accountInfoOpen, setAccountInfoOpen] = useState(false);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
 
   const isOwnProfile =
     !authLoading && currentUser?.username === username;
@@ -361,6 +389,82 @@ function UserProfileContent() {
     }
   };
 
+  const handleConfirmBlock = async () => {
+    if (!profileUser) return;
+    setBlockLoading(true);
+    try {
+      await api.post(`/api/blocks/${profileUser.id}`);
+      setProfileUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_blocked: true,
+              is_following: false,
+              followers_count: Math.max(0, (prev.followers_count || 1) - 1),
+            }
+          : null
+      );
+      setUserPosts([]);
+      setUserArticles([]);
+      toast.success(`@${profileUser.username} has been blocked`);
+      setBlockDialogOpen(false);
+    } catch {
+      toast.error("Failed to block user");
+    } finally {
+      setBlockLoading(false);
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    if (!profileUser) return;
+    setBlockLoading(true);
+    try {
+      await api.delete(`/api/blocks/${profileUser.id}`);
+      setProfileUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_blocked: false,
+            }
+          : null
+      );
+      toast.success(`@${profileUser.username} has been unblocked`);
+      // Re-fetch profile
+      api.get(`/api/profile/${username}`).then((res) => {
+        setProfileUser(res.data.user);
+        setUserPosts(res.data.posts?.data ?? []);
+      });
+    } catch {
+      toast.error("Failed to unblock user");
+    } finally {
+      setBlockLoading(false);
+    }
+  };
+
+  const handleToggleMute = async () => {
+    if (!profileUser) return;
+    try {
+      if (profileUser.is_muted) {
+        await api.delete(`/api/mutes/${profileUser.id}`);
+        setProfileUser((prev) => (prev ? { ...prev, is_muted: false } : null));
+        toast.success(`@${profileUser.username} has been unmuted`);
+      } else {
+        await api.post(`/api/mutes/${profileUser.id}`);
+        setProfileUser((prev) => (prev ? { ...prev, is_muted: true } : null));
+        toast.success(`@${profileUser.username} has been muted`);
+      }
+    } catch {
+      toast.error("Failed to update mute status");
+    }
+  };
+
+  const handleCopyProfileLink = () => {
+    if (typeof window !== "undefined") {
+      navigator.clipboard.writeText(window.location.href);
+      toast.success("Profile link copied to clipboard");
+    }
+  };
+
   // Draft actions
   const handleEditArticleDraft = (blog: BlogItem) => {
     router.push(`/blogs/${encodeURIComponent(blog.slug)}/edit`);
@@ -535,6 +639,19 @@ function UserProfileContent() {
               >
                 Edit Profile
               </Button>
+            ) : profileUser.is_blocked ? (
+              <Button
+                onClick={handleUnblockUser}
+                disabled={blockLoading}
+                variant="destructive"
+                className="rounded-full text-sm font-bold h-9 px-5 transition-all shadow-sm cursor-pointer"
+              >
+                {blockLoading ? "Unblocking..." : "Unblock"}
+              </Button>
+            ) : profileUser.is_blocked_by ? (
+              <span className="text-xs font-semibold px-3 py-1.5 rounded-full bg-muted text-muted-foreground border border-border">
+                Blocked
+              </span>
             ) : (
               <div className="flex items-center gap-2">
                 <Button
@@ -568,6 +685,58 @@ function UserProfileContent() {
                 >
                   {profileUser.is_following ? "Following" : "Follow"}
                 </Button>
+
+                {/* Profile More Options Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="size-9 rounded-full cursor-pointer hover:border-primary/50"
+                        title="More options"
+                      >
+                        <MoreHorizontal className="size-4" />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent align="end" className="w-48 p-1 rounded-xl">
+                    <DropdownMenuItem
+                      onClick={handleToggleMute}
+                      className="gap-2 cursor-pointer text-xs font-semibold"
+                    >
+                      {profileUser.is_muted ? (
+                        <>
+                          <Volume2 className="size-3.5 text-primary" />
+                          <span>Unmute @{profileUser.username}</span>
+                        </>
+                      ) : (
+                        <>
+                          <VolumeX className="size-3.5 text-muted-foreground" />
+                          <span>Mute @{profileUser.username}</span>
+                        </>
+                      )}
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem
+                      onClick={handleCopyProfileLink}
+                      className="gap-2 cursor-pointer text-xs font-semibold"
+                    >
+                      <Copy className="size-3.5 text-muted-foreground" />
+                      <span>Copy link to profile</span>
+                    </DropdownMenuItem>
+
+                    <div className="my-1 border-t border-border/50" />
+
+                    <DropdownMenuItem
+                      onClick={() => setBlockDialogOpen(true)}
+                      className="gap-2 text-destructive focus:text-destructive cursor-pointer text-xs font-semibold"
+                    >
+                      <Ban className="size-3.5" />
+                      <span>Block @{profileUser.username}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             )}
           </div>
@@ -691,46 +860,80 @@ function UserProfileContent() {
         </div>
 
         {/* Followers / Following counts */}
-        <div className="flex gap-5 text-sm">
-          <button
-            onClick={() => openUserListModal("Following")}
-            className="hover:underline cursor-pointer text-left"
-          >
-            <strong className="text-foreground font-bold">{profileUser.following_count ?? 0}</strong>{" "}
-            <span className="text-muted-foreground">Following</span>
-          </button>
-
-          <button
-            onClick={() => openUserListModal("Followers")}
-            className="hover:underline cursor-pointer text-left"
-          >
-            <strong className="text-foreground font-bold">{profileUser.followers_count ?? 0}</strong>{" "}
-            <span className="text-muted-foreground">Followers</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Profile Tabs */}
-      <div className="border-b border-border">
-        <div className="flex overflow-x-auto no-scrollbar">
-          {profileTabs.map((tab) => (
+        {!profileUser.is_blocked && !profileUser.is_blocked_by && (
+          <div className="flex gap-5 text-sm">
             <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 min-w-[75px] py-3.5 text-sm font-semibold text-center transition-colors relative ${
-                activeTab === tab
-                  ? "text-foreground font-bold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
-              }`}
+              onClick={() => openUserListModal("Following")}
+              className="hover:underline cursor-pointer text-left"
             >
-              <span>{tab}</span>
-              {activeTab === tab && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-primary" />
-              )}
+              <strong className="text-foreground font-bold">{profileUser.following_count ?? 0}</strong>{" "}
+              <span className="text-muted-foreground">Following</span>
             </button>
-          ))}
-        </div>
+
+            <button
+              onClick={() => openUserListModal("Followers")}
+              className="hover:underline cursor-pointer text-left"
+            >
+              <strong className="text-foreground font-bold">{profileUser.followers_count ?? 0}</strong>{" "}
+              <span className="text-muted-foreground">Followers</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Blocked State Display */}
+      {profileUser.is_blocked ? (
+        <div className="py-16 px-6 text-center max-w-md mx-auto flex flex-col items-center gap-3">
+          <div className="size-14 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mb-1">
+            <Ban className="size-7" />
+          </div>
+          <h3 className="text-lg font-bold text-foreground">You blocked @{profileUser.username}</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            You will not see their posts, stories, or replies. They cannot message you or view your profile.
+          </p>
+          <Button
+            onClick={handleUnblockUser}
+            disabled={blockLoading}
+            variant="destructive"
+            size="sm"
+            className="rounded-full px-6 mt-2 font-bold cursor-pointer shadow-sm"
+          >
+            {blockLoading ? "Unblocking..." : `Unblock @${profileUser.username}`}
+          </Button>
+        </div>
+      ) : profileUser.is_blocked_by ? (
+        <div className="py-16 px-6 text-center max-w-md mx-auto flex flex-col items-center gap-3">
+          <div className="size-14 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center mb-1">
+            <Lock className="size-7" />
+          </div>
+          <h3 className="text-lg font-bold text-foreground">@{profileUser.username} blocked you</h3>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            You are blocked from following @{profileUser.username} and viewing @{profileUser.username}&apos;s posts.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Profile Tabs */}
+          <div className="border-b border-border">
+            <div className="flex overflow-x-auto no-scrollbar">
+              {profileTabs.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 min-w-[75px] py-3.5 text-sm font-semibold text-center transition-colors relative ${
+                    activeTab === tab
+                      ? "text-foreground font-bold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                  }`}
+                >
+                  <span>{tab}</span>
+                  {activeTab === tab && (
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-1 rounded-full bg-primary" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
 
       {/* ── TAB: POSTS ── */}
       {activeTab === "Posts" && (
@@ -1088,6 +1291,8 @@ function UserProfileContent() {
           )}
         </div>
       )}
+      </>
+      )}
 
       {/* Followers / Following List Dialog */}
       <Dialog open={userListModalOpen} onOpenChange={setUserListModalOpen}>
@@ -1187,6 +1392,32 @@ function UserProfileContent() {
           if (isOwnProfile) fetchDrafts();
         }}
       />
+
+      {/* Block Confirmation Dialog */}
+      {profileUser && (
+        <AlertDialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogMedia>
+                <Ban className="size-6 text-destructive" />
+              </AlertDialogMedia>
+              <AlertDialogTitle>Block @{profileUser.username}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                They will not be able to follow you, view your posts or stories, or send you messages. They will not be notified that you blocked them.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={blockLoading}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmBlock}
+                disabled={blockLoading}
+              >
+                {blockLoading ? "Blocking..." : "Block"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

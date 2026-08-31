@@ -6,6 +6,7 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
 import SplashScreen from "@/components/SplashScreen";
+import AppearanceInitializer from "@/components/AppearanceInitializer";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -50,6 +51,16 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var accent = localStorage.getItem('blogx_accent_color') || 'default';
+                document.documentElement.setAttribute('data-accent', accent);
+              } catch (e) {}
+            `,
+          }}
+        />
       </head>
       <body className="bg-background text-foreground min-h-screen antialiased">
         <ThemeProvider
@@ -60,6 +71,7 @@ export default function RootLayout({
         >
           <AuthProvider>
             <NotificationProvider>
+              <AppearanceInitializer />
               <SplashScreen />
               {children}
               <Toaster position="top-right" richColors />

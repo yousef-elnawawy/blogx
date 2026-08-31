@@ -209,7 +209,7 @@ export default function BlogsPage() {
       {/* ── 3. Featured Story Showcase (Laravel News / Blog style) ── */}
       {!searchQuery && !selectedTag && featured && (
         <section className="p-4 sm:p-6 bg-gradient-to-b from-primary/5 via-card/20 to-transparent border-b border-border/60">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500 mb-3 uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-primary mb-3 uppercase tracking-wider">
             <Sparkles className="size-3.5" />
             <span>Featured Publication</span>
           </div>

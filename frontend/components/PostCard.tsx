@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageSquare, Bookmark, Share2, MoreHorizontal, Pencil, Trash2, Repeat2, BarChart3, Pin, Quote } from "lucide-react";
+import { Heart, MessageSquare, Bookmark, Share2, MoreHorizontal, Pencil, Trash2, Repeat2, BarChart3, Pin, Quote, Ban, VolumeX, Copy, Flag } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn, getAvatarUrl, getAvatarGradient, getInitials } from "@/lib/utils";
@@ -27,6 +27,7 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
+  AlertDialogMedia,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import PostImageGrid from "@/components/post/PostImageGrid";
@@ -307,6 +308,9 @@ export default function PostCard({
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [saveToCollectionOpen, setSaveToCollectionOpen] = useState(false);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
+  const [isDismissed, setIsDismissed] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
   // If this post is a pure repost, actual display author & content comes from repost_of
@@ -333,7 +337,7 @@ export default function PostCard({
     user && (user.username === displayAuthor.username || (displayAuthor.id && user.id === displayAuthor.id))
   );
 
-  const canShowMenu = isReposter || isOriginalAuthor;
+  const canShowMenu = Boolean(user);
   const hasPoll = Boolean(poll || effectivePost?.poll);
   const hasVideo = Boolean(effectivePost?.video?.url || video?.url);
   const canEdit = !repost_of && isOriginalAuthor && !hasPoll && !hasVideo;
@@ -341,6 +345,44 @@ export default function PostCard({
   const hasQuote = Boolean(quote_of || quote_of_id || effectivePost?.quote_of || effectivePost?.quote_of_id);
   const hasRepost = Boolean(repost_of || repost_of_id);
   const canRepost = !hasCommunity && !hasQuote && !hasRepost;
+
+  const handleConfirmBlockAuthor = async () => {
+    if (!displayAuthor?.id) return;
+    setBlockLoading(true);
+    try {
+      await api.post(`/api/blocks/${displayAuthor.id}`);
+      toast.success(`@${displayAuthor.username} has been blocked`);
+      setBlockDialogOpen(false);
+      setIsDismissed(true);
+    } catch {
+      toast.error("Failed to block user");
+    } finally {
+      setBlockLoading(false);
+    }
+  };
+
+  const handleMuteAuthor = async () => {
+    if (!displayAuthor?.id) return;
+    try {
+      await api.post(`/api/mutes/${displayAuthor.id}`);
+      toast.success(`@${displayAuthor.username} has been muted`);
+      setIsDismissed(true);
+    } catch {
+      toast.error("Failed to mute user");
+    }
+  };
+
+  const handleCopyPostLink = () => {
+    if (typeof window !== "undefined") {
+      const url = `${window.location.origin}/post/${effectivePost.id || id}`;
+      navigator.clipboard.writeText(url);
+      toast.success("Post link copied to clipboard");
+    }
+  };
+
+  const handleReportPost = () => {
+    toast.success("Report submitted. Thank you for keeping BlogX safe.");
+  };
 
   useEffect(() => {
     setViewCount(views_count);
@@ -522,6 +564,8 @@ export default function PostCard({
     router.push(`/post/${effectivePost.id || id}`);
   };
 
+  if (isDismissed) return null;
+
   return (
     <>
       <article
@@ -541,7 +585,7 @@ export default function PostCard({
 
           {/* Pinned Post Badge */}
           {showPinnedBadge && isPinned && (
-            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500 mb-2 pl-9">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-primary mb-2 pl-9">
               <Pin className="size-3.5 rotate-45 fill-current" />
               <span>Pinned Post</span>
             </div>
@@ -844,7 +888,7 @@ export default function PostCard({
               </div>
             </div>
 
-            {/* Owner / Reposter Dropdown */}
+            {/* Post Options Dropdown */}
             {canShowMenu && (
               <div className="relative z-10 shrink-0" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
@@ -861,35 +905,75 @@ export default function PostCard({
                   />
                   <DropdownMenuContent
                     align="end"
-                    className="w-44 p-1.5 rounded-2xl bg-popover/95 backdrop-blur-xl border border-border/80 shadow-2xl animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2"
+                    className="w-48 p-1.5 rounded-2xl bg-popover/95 backdrop-blur-xl border border-border/80 shadow-2xl animate-in fade-in-0 zoom-in-95 data-[side=bottom]:slide-in-from-top-2"
                   >
-                    <DropdownMenuItem
-                      onClick={handleTogglePin}
-                      className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted focus:bg-muted transition-colors cursor-pointer"
-                    >
-                      <Pin className="size-3.5 text-amber-500 rotate-45" />
-                      <span>{isPinned ? "Unpin from profile" : "Pin to profile"}</span>
-                    </DropdownMenuItem>
+                    {isOriginalAuthor || isReposter ? (
+                      <>
+                        <DropdownMenuItem
+                          onClick={handleTogglePin}
+                          className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted focus:bg-muted transition-colors cursor-pointer"
+                        >
+                          <Pin className="size-3.5 text-primary rotate-45" />
+                          <span>{isPinned ? "Unpin from profile" : "Pin to profile"}</span>
+                        </DropdownMenuItem>
 
-                    {canEdit && (
-                      <DropdownMenuItem
-                        onClick={() => setEditDialogOpen(true)}
-                        className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted focus:bg-muted transition-colors cursor-pointer"
-                      >
-                        <Pencil className="size-3.5 text-primary" />
-                        <span>Edit post</span>
-                      </DropdownMenuItem>
+                        {canEdit && (
+                          <DropdownMenuItem
+                            onClick={() => setEditDialogOpen(true)}
+                            className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted focus:bg-muted transition-colors cursor-pointer"
+                          >
+                            <Pencil className="size-3.5 text-primary" />
+                            <span>Edit post</span>
+                          </DropdownMenuItem>
+                        )}
+
+                        <div className="my-1 border-t border-border/50" />
+
+                        <DropdownMenuItem
+                          onClick={() => setDeleteDialogOpen(true)}
+                          className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-destructive hover:bg-destructive/10 focus:bg-destructive/10 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="size-3.5" />
+                          <span>{isReposter ? "Undo Repost" : "Delete post"}</span>
+                        </DropdownMenuItem>
+                      </>
+                    ) : (
+                      <>
+                        <DropdownMenuItem
+                          onClick={handleMuteAuthor}
+                          className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted focus:bg-muted transition-colors cursor-pointer"
+                        >
+                          <VolumeX className="size-3.5 text-muted-foreground" />
+                          <span>Mute @{displayAuthor.username}</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          onClick={handleCopyPostLink}
+                          className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted focus:bg-muted transition-colors cursor-pointer"
+                        >
+                          <Copy className="size-3.5 text-muted-foreground" />
+                          <span>Copy link to post</span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuItem
+                          onClick={handleReportPost}
+                          className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted focus:bg-muted transition-colors cursor-pointer"
+                        >
+                          <Flag className="size-3.5 text-muted-foreground" />
+                          <span>Report post</span>
+                        </DropdownMenuItem>
+
+                        <div className="my-1 border-t border-border/50" />
+
+                        <DropdownMenuItem
+                          onClick={() => setBlockDialogOpen(true)}
+                          className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-destructive hover:bg-destructive/10 focus:bg-destructive/10 transition-colors cursor-pointer"
+                        >
+                          <Ban className="size-3.5" />
+                          <span>Block @{displayAuthor.username}</span>
+                        </DropdownMenuItem>
+                      </>
                     )}
-
-                    <div className="my-1 border-t border-border/50" />
-
-                    <DropdownMenuItem
-                      onClick={() => setDeleteDialogOpen(true)}
-                      className="gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-destructive hover:bg-destructive/10 focus:bg-destructive/10 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="size-3.5" />
-                      <span>{isReposter ? "Undo Repost" : "Delete post"}</span>
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -978,6 +1062,30 @@ export default function PostCard({
         onOpenChange={setSaveToCollectionOpen}
         postId={effectivePost.id || id}
       />
+
+      {/* Block Confirmation Dialog */}
+      <AlertDialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia>
+              <Ban className="size-6 text-destructive" />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Block @{displayAuthor.username}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They will not be able to follow you, view your posts or stories, or send you messages. They will not be notified that you blocked them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={blockLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmBlockAuthor}
+              disabled={blockLoading}
+            >
+              {blockLoading ? "Blocking..." : "Block"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

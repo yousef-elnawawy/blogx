@@ -10,6 +10,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
+import BlogXLogo from "@/components/ui/BlogXLogo";
 import { getAvatarUrl } from "@/lib/utils";
 import { QRCodeSVG } from "qrcode.react";
 import { Link2, Check, Share2, Download } from "lucide-react";
@@ -185,8 +186,7 @@ export default function ProfileShareDialog({
         {/* Header matching Post Share */}
         <DialogHeader className="flex items-center justify-between pb-2 border-b border-border/60">
           <DialogTitle className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-            <img src="/logo.svg" alt="BlogX" className="h-6 w-auto inline-block dark:hidden" />
-            <img src="/logo-dark.svg" alt="BlogX" className="h-6 w-auto hidden dark:inline-block" />
+            <BlogXLogo className="h-6 w-auto inline-block" />
             <span>Share Profile</span>
           </DialogTitle>
         </DialogHeader>
@@ -243,8 +243,7 @@ export default function ProfileShareDialog({
 
             {/* Watermark Logo */}
             <div className="flex items-center">
-              <img src="/logo.svg" alt="BlogX" className="h-4 w-auto opacity-40 dark:hidden" />
-              <img src="/logo-dark.svg" alt="BlogX" className="h-4 w-auto opacity-40 hidden dark:block" />
+              <BlogXLogo className="h-4 w-auto opacity-50" />
             </div>
           </div>
         </div>

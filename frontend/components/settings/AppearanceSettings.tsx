@@ -9,91 +9,85 @@ import {
   Monitor,
   Check,
   Palette,
-  Type,
-  Sliders,
-  Eye,
-  Bookmark,
   Sparkles,
   Loader2,
+  BadgeCheck,
+  Hash,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
+import BlogXLogo from "@/components/ui/BlogXLogo";
+import { Button } from "@/components/ui/button";
 
 interface AppearanceSettingsProps {
   onBack: () => void;
 }
 
 const ACCENT_COLORS = [
-  { id: "default", name: "Classic Amber", color: "bg-[#d97706]", hex: "#d97706" },
-  { id: "indigo", name: "Indigo Blue", color: "bg-[#4f46e5]", hex: "#4f46e5" },
-  { id: "emerald", name: "Emerald Forest", color: "bg-[#059669]", hex: "#059669" },
-  { id: "rose", name: "Crimson Rose", color: "bg-[#e11d48]", hex: "#e11d48" },
-  { id: "cyan", name: "Cyan Ocean", color: "bg-[#0891b2]", hex: "#0891b2" },
-  { id: "purple", name: "Purple Orchid", color: "bg-[#9333ea]", hex: "#9333ea" },
-];
-
-const FONT_FAMILIES = [
-  { id: "default", name: "Editorial Modern (Default)", preview: "قراءة مقالات BlogX المتميزة" },
-  { id: "cairo", name: "Cairo", preview: "قراءة مقالات BlogX المتميزة" },
-  { id: "ibm", name: "IBM Plex Arabic", preview: "قراءة مقالات BlogX المتميزة" },
-  { id: "tajawal", name: "Tajawal", preview: "قراءة مقالات BlogX المتميزة" },
+  {
+    id: "default",
+    name: "Classic Amber",
+    description: "Default Original Brand",
+    color: "bg-[#d97706]",
+  },
+  {
+    id: "indigo",
+    name: "Indigo Blue",
+    description: "Deep Tech & Modern",
+    color: "bg-[#4f46e5]",
+  },
+  {
+    id: "emerald",
+    name: "Emerald Forest",
+    description: "Natural & Balanced",
+    color: "bg-[#059669]",
+  },
+  {
+    id: "rose",
+    name: "Crimson Rose",
+    description: "Vibrant & Expressive",
+    color: "bg-[#e11d48]",
+  },
+  {
+    id: "cyan",
+    name: "Cyan Ocean",
+    description: "Fresh & Futuristic",
+    color: "bg-[#0891b2]",
+  },
+  {
+    id: "purple",
+    name: "Purple Orchid",
+    description: "Creative & Premium",
+    color: "bg-[#9333ea]",
+  },
 ];
 
 export default function AppearanceSettings({ onBack }: AppearanceSettingsProps) {
   const { theme, setTheme } = useTheme();
   const { user } = useAuth();
-
   const [accentColor, setAccentColor] = useState<string>("default");
-  const [fontFamily, setFontFamily] = useState<string>("default");
-  const [fontSize, setFontSize] = useState<"small" | "medium" | "large">("medium");
-  const [defaultFeedTab, setDefaultFeedTab] = useState<string>("for_you");
-  const [readingMode, setReadingMode] = useState<boolean>(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    // Load existing preferences from user or localStorage
+    // Load saved accent color from user preferences or localStorage
     const savedAccent = localStorage.getItem("blogx_accent_color") || user?.preferences?.accent_color || "default";
-    const savedFont = localStorage.getItem("blogx_font_family") || user?.preferences?.font_family || "default";
-    const savedSize = (localStorage.getItem("blogx_font_size") || user?.preferences?.blog_font_size || "medium") as any;
-    const savedTab = localStorage.getItem("blogx_default_tab") || user?.preferences?.default_feed_tab || "for_you";
-    const savedReading = localStorage.getItem("blogx_reading_mode") === "true" || !!user?.preferences?.reading_mode_enabled;
-
     setAccentColor(savedAccent);
-    setFontFamily(savedFont);
-    setFontSize(savedSize);
-    setDefaultFeedTab(savedTab);
-    setReadingMode(savedReading);
+    document.documentElement.setAttribute("data-accent", savedAccent);
   }, [user]);
 
-  const handleSavePreferences = async (updates: Record<string, any>) => {
+  const handleSelectAccent = async (colorId: string) => {
+    setAccentColor(colorId);
+    document.documentElement.setAttribute("data-accent", colorId);
+    localStorage.setItem("blogx_accent_color", colorId);
+
     setSaving(true);
     try {
-      // 1. LocalStorage
-      if (updates.accent_color) {
-        localStorage.setItem("blogx_accent_color", updates.accent_color);
-        document.documentElement.setAttribute("data-accent", updates.accent_color);
-      }
-      if (updates.font_family) {
-        localStorage.setItem("blogx_font_family", updates.font_family);
-        document.documentElement.setAttribute("data-font", updates.font_family);
-      }
-      if (updates.blog_font_size) {
-        localStorage.setItem("blogx_font_size", updates.blog_font_size);
-      }
-      if (updates.default_feed_tab) {
-        localStorage.setItem("blogx_default_tab", updates.default_feed_tab);
-      }
-      if (updates.reading_mode_enabled !== undefined) {
-        localStorage.setItem("blogx_reading_mode", String(updates.reading_mode_enabled));
-      }
-
-      // 2. Remote API sync if logged in
       if (user) {
-        await api.post("/api/user/preferences", updates);
+        await api.post("/api/user/preferences", { accent_color: colorId });
       }
-      toast.success("Preferences updated successfully");
+      toast.success("Theme accent updated successfully");
     } catch (err) {
       console.error("Failed to sync preferences", err);
     } finally {
@@ -105,7 +99,7 @@ export default function AppearanceSettings({ onBack }: AppearanceSettingsProps) 
     <div className="min-h-screen pb-24 divide-y divide-border/60 animate-in fade-in duration-200">
       {/* Top Sticky Header */}
       <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border/60 px-4 py-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between max-w-2xl mx-auto">
           <div className="flex items-center gap-3">
             <button
               onClick={onBack}
@@ -116,10 +110,10 @@ export default function AppearanceSettings({ onBack }: AppearanceSettingsProps) 
             </button>
             <div>
               <h1 className="text-base sm:text-lg font-bold text-foreground leading-tight">
-                Appearance & Personalization
+                Appearance & Theme
               </h1>
               <p className="text-xs text-muted-foreground">
-                Themes, typography, colors, and layout preferences
+                Customize your display mode and platform accent colors
               </p>
             </div>
           </div>
@@ -128,20 +122,20 @@ export default function AppearanceSettings({ onBack }: AppearanceSettingsProps) 
         </div>
       </div>
 
-      <div className="p-5 sm:p-6 space-y-8 max-w-2xl mx-auto">
-        {/* 1. Theme Selection */}
-        <div className="space-y-3">
+      <div className="p-4 sm:p-6 space-y-7 max-w-2xl mx-auto">
+        {/* 1. Theme Mode */}
+        <div className="rounded-2xl border border-border/70 bg-card p-5 space-y-4 shadow-xs">
           <div>
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Sun className="size-4 text-primary" />
-              <span>Theme Mode</span>
-            </h3>
+              <span>Display Theme</span>
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Choose between light, dark, or system default.
+              Choose between light, dark, or system default mode.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
             {/* System */}
             <button
               type="button"
@@ -150,19 +144,15 @@ export default function AppearanceSettings({ onBack }: AppearanceSettingsProps) 
                 toast.success("Theme set to System Default");
               }}
               className={cn(
-                "flex flex-col items-center p-4 rounded-2xl border-2 transition-all cursor-pointer text-left relative overflow-hidden group",
+                "flex flex-col items-center justify-center p-3.5 rounded-xl border-2 transition-all cursor-pointer text-center",
                 theme === "system"
-                  ? "border-primary bg-primary/10 shadow-md"
-                  : "border-border/70 hover:border-border hover:bg-muted/40"
+                  ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
+                  : "border-border/70 text-foreground hover:border-border hover:bg-muted/40"
               )}
             >
-              <div className="size-10 rounded-xl bg-background border border-border/80 flex items-center justify-center text-primary mb-2 shadow-inner">
-                <Monitor className="size-5" />
-              </div>
-              <p className="text-xs font-bold text-foreground flex items-center gap-1">
-                <span>System</span>
-                {theme === "system" && <Check className="size-3 text-primary shrink-0" />}
-              </p>
+              <Monitor className="size-5 mb-1.5 opacity-80" />
+              <span className="text-xs font-semibold">System</span>
+              {theme === "system" && <Check className="size-3.5 text-primary mt-1" />}
             </button>
 
             {/* Light */}
@@ -173,19 +163,15 @@ export default function AppearanceSettings({ onBack }: AppearanceSettingsProps) 
                 toast.success("Light Mode activated");
               }}
               className={cn(
-                "flex flex-col items-center p-4 rounded-2xl border-2 transition-all cursor-pointer text-left relative overflow-hidden group",
+                "flex flex-col items-center justify-center p-3.5 rounded-xl border-2 transition-all cursor-pointer text-center",
                 theme === "light"
-                  ? "border-primary bg-primary/10 shadow-md"
-                  : "border-border/70 hover:border-border hover:bg-muted/40"
+                  ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
+                  : "border-border/70 text-foreground hover:border-border hover:bg-muted/40"
               )}
             >
-              <div className="size-10 rounded-xl bg-[#f7f2eb] border border-amber-900/10 flex items-center justify-center text-amber-600 mb-2 shadow-inner">
-                <Sun className="size-5" />
-              </div>
-              <p className="text-xs font-bold text-foreground flex items-center gap-1">
-                <span>Light</span>
-                {theme === "light" && <Check className="size-3 text-primary shrink-0" />}
-              </p>
+              <Sun className="size-5 mb-1.5 opacity-80 text-amber-500" />
+              <span className="text-xs font-semibold">Light</span>
+              {theme === "light" && <Check className="size-3.5 text-primary mt-1" />}
             </button>
 
             {/* Dark */}
@@ -196,174 +182,118 @@ export default function AppearanceSettings({ onBack }: AppearanceSettingsProps) 
                 toast.success("Dark Mode activated");
               }}
               className={cn(
-                "flex flex-col items-center p-4 rounded-2xl border-2 transition-all cursor-pointer text-left relative overflow-hidden group",
+                "flex flex-col items-center justify-center p-3.5 rounded-xl border-2 transition-all cursor-pointer text-center",
                 theme === "dark"
-                  ? "border-primary bg-primary/10 shadow-md"
-                  : "border-border/70 hover:border-border hover:bg-muted/40"
+                  ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
+                  : "border-border/70 text-foreground hover:border-border hover:bg-muted/40"
               )}
             >
-              <div className="size-10 rounded-xl bg-[#161412] border border-white/10 flex items-center justify-center text-amber-400 mb-2 shadow-inner">
-                <Moon className="size-5" />
-              </div>
-              <p className="text-xs font-bold text-foreground flex items-center gap-1">
-                <span>Dark</span>
-                {theme === "dark" && <Check className="size-3 text-primary shrink-0" />}
-              </p>
+              <Moon className="size-5 mb-1.5 opacity-80 text-amber-400" />
+              <span className="text-xs font-semibold">Dark</span>
+              {theme === "dark" && <Check className="size-3.5 text-primary mt-1" />}
             </button>
           </div>
         </div>
 
         {/* 2. Accent Color Palette */}
-        <div className="space-y-3">
+        <div className="rounded-2xl border border-border/70 bg-card p-5 space-y-4 shadow-xs">
           <div>
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
               <Palette className="size-4 text-primary" />
               <span>Accent Color</span>
-            </h3>
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Choose your primary highlight color for buttons, links, and active badges.
+              Select your primary color for buttons, badges, highlights, and the BlogX logo.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-            {ACCENT_COLORS.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  setAccentColor(c.id);
-                  handleSavePreferences({ accent_color: c.id });
-                }}
-                className={cn(
-                  "flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer text-left",
-                  accentColor === c.id
-                    ? "border-primary bg-primary/10 font-bold"
-                    : "border-border/70 hover:border-border hover:bg-muted/40"
-                )}
-              >
-                <div className={`size-6 rounded-full shrink-0 ${c.color} flex items-center justify-center text-white shadow-sm`}>
-                  {accentColor === c.id && <Check className="size-3.5" />}
-                </div>
-                <span className="text-xs font-medium text-foreground truncate">
-                  {c.name}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {ACCENT_COLORS.map((c) => {
+              const isSelected = accentColor === c.id;
+
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => handleSelectAccent(c.id)}
+                  className={cn(
+                    "flex items-center justify-between p-3 rounded-xl border-2 transition-all cursor-pointer text-left group",
+                    isSelected
+                      ? "border-primary bg-primary/10 font-bold shadow-xs"
+                      : "border-border/60 hover:border-border hover:bg-muted/30"
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "size-7 rounded-full shrink-0 flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-110",
+                        c.color
+                      )}
+                    >
+                      {isSelected && <Check className="size-4 stroke-[3]" />}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-foreground">
+                        {c.name}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {c.description}
+                      </div>
+                    </div>
+                  </div>
+
+                  {c.id === "default" && (
+                    <span className="text-[10px] uppercase tracking-wide font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                      Default
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. Live Preview Card */}
+        <div className="rounded-2xl border border-border/70 bg-muted/20 p-5 space-y-3.5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <Sparkles className="size-3.5 text-primary" />
+              <span>Live Theme Preview</span>
+            </h3>
+            <span className="text-xs text-primary font-semibold">Instant Active</span>
+          </div>
+
+          <div className="p-4 rounded-xl border border-border/80 bg-card space-y-3 shadow-xs">
+            {/* Dynamic BlogX Logo Preview */}
+            <div className="flex items-center justify-between border-b border-border/40 pb-3">
+              <div className="flex items-center gap-2">
+                <BlogXLogo className="h-6 w-auto" />
+                <span className="text-xs text-muted-foreground font-medium">
+                  Dynamic Adaptive Logo
                 </span>
-              </button>
-            ))}
-          </div>
-        </div>
+              </div>
+              <div className="flex items-center gap-1 text-xs font-bold text-primary">
+                <BadgeCheck className="size-4" />
+                <span>Verified Author</span>
+              </div>
+            </div>
 
-        {/* 3. Typography & Reading Font */}
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Type className="size-4 text-primary" />
-              <span>Typography & Reading Font</span>
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Select your preferred font family for reading articles and long-form blogs.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            {FONT_FAMILIES.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => {
-                  setFontFamily(f.id);
-                  handleSavePreferences({ font_family: f.id });
-                }}
-                className={cn(
-                  "w-full flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer text-left",
-                  fontFamily === f.id
-                    ? "border-primary bg-primary/10"
-                    : "border-border/70 hover:border-border hover:bg-muted/30"
-                )}
-              >
-                <div className="min-w-0">
-                  <div className="text-xs font-bold text-foreground">
-                    {f.name}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-0.5 truncate">
-                    {f.preview}
-                  </div>
-                </div>
-                {fontFamily === f.id && <Check className="size-4 text-primary shrink-0 ml-2" />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 4. Reading Font Size */}
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Eye className="size-4 text-primary" />
-              <span>Article Font Size</span>
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Adjust comfortable text size for articles and comments.
-            </p>
-          </div>
-
-          <div className="flex rounded-xl bg-muted/60 p-1 border border-border/50">
-            {(["small", "medium", "large"] as const).map((size) => (
-              <button
-                key={size}
-                type="button"
-                onClick={() => {
-                  setFontSize(size);
-                  handleSavePreferences({ blog_font_size: size });
-                }}
-                className={cn(
-                  "flex-1 py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold capitalize transition-all cursor-pointer text-center",
-                  fontSize === size
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {size}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 5. Default Home Feed Tab */}
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
-              <Sliders className="size-4 text-primary" />
-              <span>Default Feed View</span>
-            </h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Choose which tab opens automatically when visiting the homepage.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {[
-              { id: "for_you", label: "For You" },
-              { id: "following", label: "Following" },
-              { id: "trending", label: "Trending" },
-              { id: "latest", label: "Latest" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => {
-                  setDefaultFeedTab(tab.id);
-                  handleSavePreferences({ default_feed_tab: tab.id });
-                }}
-                className={cn(
-                  "py-2.5 px-3 rounded-xl border text-xs font-semibold transition-all cursor-pointer text-center",
-                  defaultFeedTab === tab.id
-                    ? "border-primary bg-primary/10 text-primary font-bold shadow-sm"
-                    : "border-border/70 text-muted-foreground hover:border-border hover:text-foreground hover:bg-muted/40"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {/* Elements preview */}
+            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+              <Button size="sm" className="rounded-full text-xs font-bold px-4 shadow-sm">
+                Primary Button
+              </Button>
+              <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold border border-primary/20">
+                <Hash className="size-3" />
+                <span>engineering</span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Sample link with{" "}
+                <span className="text-primary font-bold underline cursor-pointer">
+                  accent highlight
+                </span>
+              </span>
+            </div>
           </div>
         </div>
       </div>

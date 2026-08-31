@@ -109,7 +109,7 @@ export default function LinkPreviewCard({ content }: { content: string }) {
 
         <div className="p-3.5 space-y-1.5">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-            <Globe className="size-3 text-amber-500 shrink-0" />
+            <Globe className="size-3 text-primary shrink-0" />
             <span className="truncate">{preview.site_name || preview.domain}</span>
             <ExternalLink className="size-3 ml-auto text-muted-foreground/60 group-hover:text-primary transition-colors" />
           </div>

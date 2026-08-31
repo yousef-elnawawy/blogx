@@ -298,7 +298,7 @@ export default function SecuritySettings({ onBack }: SecuritySettingsProps) {
       <div className="p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
-            <div className="size-9 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+            <div className="size-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
               <Key className="size-4" />
             </div>
             <div>

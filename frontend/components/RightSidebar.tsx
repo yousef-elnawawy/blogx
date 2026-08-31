@@ -255,7 +255,7 @@ export default function RightSidebar() {
                       className={`rounded-full px-4 h-8 text-xs font-bold shrink-0 transition-colors ${
                         isFollowing
                           ? "bg-muted text-foreground hover:bg-destructive/10 hover:text-destructive border border-border"
-                          : "bg-amber-500 text-white hover:bg-amber-600"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90"
                       }`}
                     >
                       {isFollowing ? "Unfollow" : "Follow"}

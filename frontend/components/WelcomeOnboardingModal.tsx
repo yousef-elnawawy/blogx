@@ -133,20 +133,20 @@ export default function WelcomeOnboardingModal() {
 
             <button
               onClick={() => handleNavigate("/series")}
-              className="group p-3.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 hover:border-amber-500/50 transition-all text-left flex items-center gap-3.5 cursor-pointer"
+              className="group p-3.5 rounded-xl border border-border/80 bg-card hover:bg-muted/60 hover:border-primary/50 transition-all text-left flex items-center gap-3.5 cursor-pointer"
             >
-              <div className="size-10 rounded-lg bg-amber-500/10 group-hover:bg-amber-500 text-amber-600 dark:text-amber-400 group-hover:text-black flex items-center justify-center shrink-0 transition-colors">
+              <div className="size-10 rounded-lg bg-primary/10 group-hover:bg-primary text-primary group-hover:text-primary-foreground flex items-center justify-center shrink-0 transition-colors">
                 <BookOpen className="size-5" />
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-xs sm:text-sm font-bold text-foreground group-hover:text-amber-500 transition-colors">
+                <h4 className="text-xs sm:text-sm font-bold text-foreground group-hover:text-primary transition-colors">
                   Explore Learning Series
                 </h4>
                 <p className="text-[11px] text-muted-foreground truncate">
                   Discover structured multi-part courses and step-by-step reading series.
                 </p>
               </div>
-              <ArrowRight className="size-4 text-muted-foreground group-hover:text-amber-500 group-hover:translate-x-1 transition-all shrink-0" />
+              <ArrowRight className="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all shrink-0" />
             </button>
 
             <button

@@ -8,9 +8,9 @@ import api from "@/lib/api";
 import StoryCreatorModal from "./StoryCreatorModal";
 import StoryViewerModal, { UserStoryGroup } from "./StoryViewerModal";
 
-// Authentic Instagram Pink / Fuchsia / Amber Gradient Ring
-const INSTAGRAM_UNSEEN_RING = "bg-linear-to-tr from-amber-500 via-rose-500 to-fuchsia-600";
-const INSTAGRAM_SEEN_RING = "bg-zinc-300 dark:bg-zinc-700";
+// Modern Dynamic Story Gradient Ring
+const STORY_UNSEEN_RING = "bg-gradient-to-tr from-primary via-primary/80 to-rose-500";
+const STORY_SEEN_RING = "bg-border";
 
 export default function StoriesTray() {
   const { user } = useAuth();
@@ -129,8 +129,8 @@ export default function StoriesTray() {
                 type="button"
                 onClick={() => handleOpenViewer(myGroupIndex)}
                 className={cn(
-                  "size-[66px] sm:size-[72px] rounded-full p-[2.5px] transition-transform hover:scale-105 active:scale-95 cursor-pointer",
-                  INSTAGRAM_UNSEEN_RING
+                  "size-[76px] sm:size-[82px] rounded-full p-[2.5px] transition-opacity hover:opacity-90 active:scale-95 cursor-pointer",
+                  STORY_UNSEEN_RING
                 )}
               >
                 <div className="size-full rounded-full overflow-hidden bg-background p-[2px]">
@@ -152,7 +152,7 @@ export default function StoriesTray() {
               <button
                 type="button"
                 onClick={() => setCreatorOpen(true)}
-                className="size-[66px] sm:size-[72px] rounded-full p-[2.5px] bg-border/80 hover:bg-rose-500/50 transition-all hover:scale-105 active:scale-95 cursor-pointer"
+                className="size-[76px] sm:size-[82px] rounded-full p-[2.5px] bg-border/80 hover:border-primary transition-colors active:scale-95 cursor-pointer"
               >
                 <div className="size-full rounded-full overflow-hidden bg-background p-[2px]">
                   {myAvatarSrc ? (
@@ -171,21 +171,21 @@ export default function StoriesTray() {
               </button>
             )}
 
-            {/* Instagram Style Blue/Pink Plus Badge */}
+            {/* Dynamic Primary Plus Badge */}
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setCreatorOpen(true);
               }}
-              className="absolute bottom-0 right-0 size-5 sm:size-5.5 rounded-full bg-rose-500 hover:bg-rose-600 text-white border-2 border-background flex items-center justify-center shadow-sm hover:scale-115 active:scale-90 transition-transform cursor-pointer"
+              className="absolute bottom-0 right-0 size-6 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground border-2 border-background flex items-center justify-center shadow-sm active:scale-90 transition-transform cursor-pointer"
               title="Add story"
             >
-              <Plus className="size-3.5 stroke-[3]" />
+              <Plus className="size-4 stroke-[3]" />
             </button>
           </div>
 
-          <span className="text-[11px] font-medium text-foreground/90 max-w-[68px] truncate text-center">
+          <span className="text-[11px] font-medium text-foreground/90 max-w-[78px] sm:max-w-[84px] truncate text-center">
             Your story
           </span>
         </div>
@@ -195,8 +195,8 @@ export default function StoriesTray() {
           <div className="flex items-center gap-3.5">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="flex flex-col items-center gap-1.5 shrink-0 animate-pulse">
-                <div className="size-[66px] sm:size-[72px] rounded-full bg-muted/60" />
-                <div className="h-2.5 w-12 rounded bg-muted/60" />
+                <div className="size-[76px] sm:size-[82px] rounded-full bg-muted/60" />
+                <div className="h-2.5 w-14 rounded bg-muted/60" />
               </div>
             ))}
           </div>
@@ -213,11 +213,11 @@ export default function StoriesTray() {
                 onClick={() => handleOpenViewer(index)}
                 className="flex flex-col items-center gap-1.5 shrink-0 select-none group cursor-pointer"
               >
-                {/* Instagram Gradient Ring */}
+                {/* Dynamic Ring (No hover zoom) */}
                 <div
                   className={cn(
-                    "size-[66px] sm:size-[72px] rounded-full p-[2.5px] transition-transform group-hover:scale-105 group-active:scale-95",
-                    group.has_unseen ? INSTAGRAM_UNSEEN_RING : INSTAGRAM_SEEN_RING
+                    "size-[76px] sm:size-[82px] rounded-full p-[2.5px] transition-opacity hover:opacity-90 active:scale-95",
+                    group.has_unseen ? STORY_UNSEEN_RING : STORY_SEEN_RING
                   )}
                 >
                   <div className="size-full rounded-full overflow-hidden bg-background p-[2px]">
@@ -236,7 +236,7 @@ export default function StoriesTray() {
                   </div>
                 </div>
 
-                <span className="text-[11px] font-medium text-foreground/90 max-w-[68px] truncate text-center group-hover:text-rose-500 transition-colors">
+                <span className="text-[11px] font-medium text-foreground/90 max-w-[78px] sm:max-w-[84px] truncate text-center group-hover:text-primary transition-colors">
                   {group.user.name.split(" ")[0]}
                 </span>
               </button>

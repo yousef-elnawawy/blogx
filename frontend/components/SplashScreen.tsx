@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import BlogXLogo from "@/components/ui/BlogXLogo";
 
 export default function SplashScreen() {
   const { loading: authLoading } = useAuth();
@@ -40,33 +41,15 @@ export default function SplashScreen() {
     >
       {/* Large transparent watermark */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden">
-        <img
-          src="/logo.svg"
-          alt=""
-          className="w-[min(80vw,500px)] h-auto opacity-[0.07] pointer-events-none select-none dark:hidden"
-        />
-        <img
-          src="/logo-dark.svg"
-          alt=""
-          className="w-[min(80vw,500px)] h-auto opacity-[0.07] pointer-events-none select-none hidden dark:block"
-        />
+        <BlogXLogo className="w-[min(80vw,500px)] h-auto opacity-[0.05] pointer-events-none select-none" />
       </div>
 
       <div className="relative flex flex-col items-center gap-6 animate-in fade-in zoom-in-95 duration-500">
         {/* Logo Image */}
         <div className="relative">
           {/* Subtle background glow effect */}
-          <div className="absolute inset-0 rounded-full bg-primary/15 blur-2xl scale-150 animate-pulse" />
-          <img
-            src="/logo.svg"
-            alt="BlogX"
-            className="relative h-16 sm:h-20 w-auto dark:hidden"
-          />
-          <img
-            src="/logo-dark.svg"
-            alt="BlogX"
-            className="relative h-16 sm:h-20 w-auto hidden dark:block"
-          />
+          <div className="absolute inset-0 rounded-full bg-primary/20 blur-2xl scale-150 animate-pulse" />
+          <BlogXLogo className="relative h-16 sm:h-20 w-auto" />
         </div>
 
         {/* Minimal loading dot indicator */}

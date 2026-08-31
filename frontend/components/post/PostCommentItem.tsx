@@ -235,11 +235,11 @@ export default function PostCommentItem({
       {/* Main Comment Row */}
       <div className={cn(
         "p-3.5 sm:p-4 rounded-2xl transition-colors relative",
-        isPinned ? "bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20" : "hover:bg-muted/30"
+        isPinned ? "bg-primary/5 dark:bg-primary/10 border border-primary/20" : "hover:bg-muted/30"
       )}>
         {/* Pinned Badge */}
         {isPinned && (
-          <div className="flex items-center gap-1.5 text-xs font-bold text-amber-500 mb-2 pl-0.5">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-primary mb-2 pl-0.5">
             <Pin className="size-3.5 fill-current rotate-45" />
             <span>Pinned by author</span>
           </div>
@@ -306,7 +306,7 @@ export default function PostCommentItem({
                     {/* Pin/Unpin (Post owner only) */}
                     {isPostOwner && (
                       <DropdownMenuItem onClick={handleTogglePin} className="gap-2 cursor-pointer text-xs font-semibold">
-                        <Pin className="size-3.5 text-amber-500 rotate-45" />
+                        <Pin className="size-3.5 text-primary rotate-45" />
                         <span>{isPinned ? "Unpin Comment" : "Pin to Top"}</span>
                       </DropdownMenuItem>
                     )}

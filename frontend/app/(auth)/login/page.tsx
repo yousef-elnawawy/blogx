@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { LoginForm } from "@/components/login-form";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
+import BlogXLogo from "@/components/ui/BlogXLogo";
 
 export default function LoginPage() {
   return (
@@ -15,12 +16,7 @@ export default function LoginPage() {
             href="/"
             className="flex items-center gap-2.5 transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg"
           >
-            <img src="/logo.svg" alt="BlogX" className="h-8 w-auto dark:hidden" />
-            <img
-              src="/logo-dark.svg"
-              alt="BlogX"
-              className="h-8 w-auto hidden dark:block"
-            />
+            <BlogXLogo className="h-8 w-auto" />
           </Link>
 
           <Link

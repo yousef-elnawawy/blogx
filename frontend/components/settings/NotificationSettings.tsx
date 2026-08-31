@@ -116,8 +116,8 @@ export default function NotificationSettings({ onBack }: NotificationSettingsPro
               title: "Milestones & Achievements",
               desc: "Receive celebrations and certificates when you hit view, post, or follower records",
               icon: Sparkles,
-              iconColor: "text-amber-500",
-              bgColor: "bg-amber-500/10",
+              iconColor: "text-primary",
+              bgColor: "bg-primary/10",
             },
           ].map((item) => {
             const Icon = item.icon;
@@ -156,7 +156,7 @@ export default function NotificationSettings({ onBack }: NotificationSettingsPro
                   disabled={loadingPreferences}
                   className={cn(
                     "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none",
-                    isChecked ? "bg-amber-500" : "bg-muted-foreground/30"
+                    isChecked ? "bg-primary" : "bg-muted-foreground/30"
                   )}
                 >
                   <span
@@ -172,8 +172,8 @@ export default function NotificationSettings({ onBack }: NotificationSettingsPro
         </div>
 
         {/* Status info */}
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 flex items-start gap-3 text-xs text-muted-foreground">
-          <Sparkles className="size-4 text-amber-500 shrink-0 mt-0.5" />
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3 text-xs text-muted-foreground">
+          <Sparkles className="size-4 text-primary shrink-0 mt-0.5" />
           <p>
             Preferences are synchronized with our real-time engine. Changes apply immediately across all your active devices.
           </p>

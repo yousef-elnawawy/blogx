@@ -10,6 +10,8 @@ import { Field, FieldGroup } from "@/components/ui/field";
 import { useAuth } from "@/contexts/AuthContext";
 import * as authService from "@/services/auth";
 import { toast } from "sonner";
+import api from "@/lib/api";
+import BlogXLogo from "@/components/ui/BlogXLogo";
 import {
   Lock,
   Eye,
@@ -259,16 +261,7 @@ export default function ResetPasswordPage() {
     <div className="flex flex-col gap-6 p-6 md:p-10 relative overflow-hidden min-h-svh justify-center items-center bg-background">
       {/* Background Watermark */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-        <img
-          src="/logo.svg"
-          alt=""
-          className="w-[min(60vw,450px)] h-auto opacity-[0.03] pointer-events-none select-none dark:hidden"
-        />
-        <img
-          src="/logo-dark.svg"
-          alt=""
-          className="w-[min(60vw,450px)] h-auto opacity-[0.03] pointer-events-none select-none hidden dark:block"
-        />
+        <BlogXLogo className="w-[min(60vw,450px)] h-auto opacity-[0.03] pointer-events-none select-none" />
       </div>
 
       <div className="w-full max-w-md relative z-10">

@@ -26,10 +26,44 @@ class ProfileController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
-        // Strict Ghosting Block Check
+        // Block Check
         if ($authUser && $authUser->id !== $user->id) {
-            if ($authUser->hasBlockedOrIsBlockedBy($user)) {
-                return response()->json(['message' => 'User not found'], 404);
+            $isBlocking = $authUser->isBlocking($user);
+            $isBlockedBy = $authUser->isBlockedBy($user);
+            if ($isBlocking || $isBlockedBy) {
+                $avatarUrl = $user->avatar;
+                if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
+                    $avatarUrl = config('app.url') . $avatarUrl;
+                }
+                return response()->json([
+                    'user' => [
+                        'id'              => $user->id,
+                        'name'            => $user->name,
+                        'username'        => $user->username,
+                        'avatar'          => $avatarUrl,
+                        'cover'           => null,
+                        'bio'             => null,
+                        'location'        => null,
+                        'website'         => null,
+                        'social_links'    => [],
+                        'equipped_badges' => $user->equipped_badges ?? [],
+                        'verified'        => (bool) $user->verified,
+                        'created_at'      => $user->created_at ? $user->created_at->toIso8601String() : null,
+                        'posts_count'     => 0,
+                        'followers_count' => 0,
+                        'following_count' => 0,
+                        'is_following'    => false,
+                        'is_muted'        => $authUser->isMuting($user),
+                        'is_blocked'      => $isBlocking,
+                        'is_blocked_by'   => $isBlockedBy,
+                    ],
+                    'posts' => [
+                        'data'         => [],
+                        'current_page' => 1,
+                        'last_page'    => 1,
+                        'total'        => 0,
+                    ],
+                ]);
             }
         }
 
@@ -146,6 +180,10 @@ class ProfileController extends Controller
         $cleanUsername = ltrim(strtolower(urldecode($username)), '@');
         $user = User::where('username', $cleanUsername)->firstOrFail();
 
+        if ($authUser && $authUser->id !== $user->id && $authUser->hasBlockedOrIsBlockedBy($user)) {
+            return response()->json(['users' => []]);
+        }
+
         $followers = $user->followers()->get()->map(function ($fUser) use ($authUser) {
             $avatarUrl = $fUser->avatar;
             if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
@@ -173,6 +211,10 @@ class ProfileController extends Controller
         $authUser = $request->user() ?? auth('sanctum')->user();
         $cleanUsername = ltrim(strtolower(urldecode($username)), '@');
         $user = User::where('username', $cleanUsername)->firstOrFail();
+
+        if ($authUser && $authUser->id !== $user->id && $authUser->hasBlockedOrIsBlockedBy($user)) {
+            return response()->json(['users' => []]);
+        }
 
         $following = $user->following()->get()->map(function ($fUser) use ($authUser) {
             $avatarUrl = $fUser->avatar;
@@ -305,8 +347,13 @@ class ProfileController extends Controller
      */
     public function media(Request $request, string $username)
     {
+        $authUser = $request->user() ?? auth('sanctum')->user();
         $cleanUsername = ltrim(strtolower(urldecode($username)), '@');
         $user = User::where('username', $cleanUsername)->firstOrFail();
+
+        if ($authUser && $authUser->id !== $user->id && $authUser->hasBlockedOrIsBlockedBy($user)) {
+            return response()->json(['media' => []]);
+        }
 
         // 1. Post images
         $postImages = \App\Models\PostImage::whereHas('post', function ($q) use ($user) {
@@ -363,6 +410,14 @@ class ProfileController extends Controller
         $authUser = $request->user() ?? auth('sanctum')->user();
         $cleanUsername = ltrim(strtolower(urldecode($username)), '@');
         $user = User::where('username', $cleanUsername)->firstOrFail();
+
+        if ($authUser && $authUser->id !== $user->id && $authUser->hasBlockedOrIsBlockedBy($user)) {
+            return response()->json([
+                'posts'    => [],
+                'blogs'    => [],
+                'articles' => [],
+            ]);
+        }
 
         // 1. Liked posts
         $postController = new PostController();

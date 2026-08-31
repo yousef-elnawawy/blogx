@@ -239,7 +239,7 @@ export function FeaturedBlogFeedCard() {
     <article className="border-b border-border p-4 sm:p-5 hover:bg-muted/15 transition-colors group animate-in fade-in-50 duration-300">
       {/* Top Badge */}
       <div className="flex items-center justify-between mb-2.5">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-500">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
           <Sparkles className="size-3.5" />
           <span>FEATURED BLOG STORY</span>
         </div>

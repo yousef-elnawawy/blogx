@@ -409,8 +409,8 @@ export default function SingleCommunityPage() {
                 {community.name}
               </h2>
               {community.type === "restricted" && (
-                <div className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                  <Lock className="size-3 text-amber-500" />
+                <div className="px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-[11px] font-semibold text-primary flex items-center gap-1">
+                  <Lock className="size-3 text-primary" />
                   <span>Private</span>
                 </div>
               )}
@@ -499,7 +499,7 @@ export default function SingleCommunityPage() {
             {isRestrictedLocked ? (
               /* Private Group Lock Notice */
               <div className="p-12 text-center border-b border-border space-y-3">
-                <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500">
+                <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
                   <Lock className="size-7" />
                 </div>
                 <h3 className="text-base font-bold text-foreground">This group is private</h3>

@@ -235,7 +235,7 @@ function HashtagItem({ tag, usage_count, rank }: { tag: string; usage_count: num
       className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors border-b border-border/60 group"
     >
       <div className="flex items-center gap-3">
-        <div className="grid place-items-center size-9 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-500 font-bold text-xs shrink-0">
+        <div className="grid place-items-center size-9 rounded-lg bg-primary/10 text-primary font-bold text-xs shrink-0">
           {rank !== undefined ? `#${rank}` : <Hash className="size-4" />}
         </div>
         <div>

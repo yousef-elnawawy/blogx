@@ -29,6 +29,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
+import BlogXLogo from "@/components/ui/BlogXLogo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -342,8 +343,7 @@ export default function LeftSidebar() {
       {/* Brand Logo Header */}
       <div className="px-4 pt-4 pb-2">
         <Link href="/" className="inline-block hover:opacity-90 transition-opacity">
-          <img src="/logo.svg" alt="BlogX" className="h-7 w-auto dark:hidden" />
-          <img src="/logo-dark.svg" alt="BlogX" className="h-7 w-auto hidden dark:block" />
+          <BlogXLogo className="h-7 w-auto" />
         </Link>
       </div>
 

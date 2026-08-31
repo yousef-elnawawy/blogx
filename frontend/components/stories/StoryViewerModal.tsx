@@ -106,6 +106,10 @@ export default function StoryViewerModal({
   const [viewersList, setViewersList] = useState<any[]>([]);
   const [loadingViewers, setLoadingViewers] = useState(false);
 
+  // In-App Delete Confirmation State
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingStory, setDeletingStory] = useState(false);
+
   // DM Reply & Reaction State
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
@@ -126,6 +130,9 @@ export default function StoryViewerModal({
 
   const viewersOpenRef = useRef(viewersOpen);
   viewersOpenRef.current = viewersOpen;
+
+  const deleteConfirmOpenRef = useRef(deleteConfirmOpen);
+  deleteConfirmOpenRef.current = deleteConfirmOpen;
 
   const prevOpenRef = useRef(false);
 
@@ -241,7 +248,7 @@ export default function StoryViewerModal({
     const increment = (stepMs / STORY_DURATION_MS) * 100;
 
     const timer = setInterval(() => {
-      if (isPausedRef.current || viewersOpenRef.current) return;
+      if (isPausedRef.current || viewersOpenRef.current || deleteConfirmOpenRef.current) return;
 
       setProgress((prev) => {
         if (prev >= 100) {
@@ -259,14 +266,26 @@ export default function StoryViewerModal({
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        if (deleteConfirmOpen) {
+          setDeleteConfirmOpen(false);
+          setIsPaused(false);
+          return;
+        }
+        if (viewersOpen) {
+          setViewersOpen(false);
+          setIsPaused(false);
+          return;
+        }
+        onClose();
+      }
       if (e.key === "ArrowRight") handleNextStory();
       if (e.key === "ArrowLeft") handlePrevStory();
       if (e.key === " ") setIsPaused((p) => !p);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose, handleNextStory, handlePrevStory]);
+  }, [open, onClose, handleNextStory, handlePrevStory, deleteConfirmOpen, viewersOpen]);
 
   // Fetch story viewers
   const handleOpenViewers = async () => {
@@ -285,14 +304,21 @@ export default function StoryViewerModal({
     }
   };
 
-  // Delete story
-  const handleDeleteStory = async () => {
+  // Open in-app Delete Confirmation Dialog
+  const handleDeleteStoryClick = () => {
+    setIsPaused(true);
+    setDeleteConfirmOpen(true);
+  };
+
+  // Perform Delete after in-app confirmation
+  const handleConfirmDelete = async () => {
     if (!currentStory) return;
-    if (!confirm("Are you sure you want to delete this story?")) return;
+    setDeletingStory(true);
 
     try {
       await api.delete(`/api/stories/${currentStory.id}`);
-      toast.success("Story deleted");
+      toast.success("Story deleted successfully");
+      setDeleteConfirmOpen(false);
       if (onStoryDeleted) onStoryDeleted(currentStory.id);
 
       if (currentGroup && currentGroup.stories.length > 1) {
@@ -302,6 +328,8 @@ export default function StoryViewerModal({
       }
     } catch {
       toast.error("Failed to delete story");
+    } finally {
+      setDeletingStory(false);
     }
   };
 
@@ -480,7 +508,7 @@ export default function StoryViewerModal({
               {currentStory.is_mine && (
                 <button
                   type="button"
-                  onClick={handleDeleteStory}
+                  onClick={handleDeleteStoryClick}
                   className="p-2 rounded-full text-white/80 hover:text-rose-400 hover:bg-white/15 transition-colors cursor-pointer"
                   title="Delete story"
                 >
@@ -772,6 +800,51 @@ export default function StoryViewerModal({
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        )}
+
+        {/* ── IN-APP DELETE STORY CONFIRMATION DIALOG ── */}
+        {deleteConfirmOpen && (
+          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150 select-none">
+            <div className="w-full max-w-xs sm:max-w-sm rounded-3xl bg-card border border-border p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 text-center">
+              <div className="mx-auto size-12 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center shadow-sm">
+                <Trash2 className="size-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-extrabold text-foreground tracking-tight">Delete Story?</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  This story will be permanently removed from your profile and cannot be recovered.
+                </p>
+              </div>
+              <div className="flex items-center gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteConfirmOpen(false);
+                    setIsPaused(false);
+                  }}
+                  disabled={deletingStory}
+                  className="flex-1 py-2.5 rounded-full border border-border bg-background hover:bg-muted text-foreground text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={deletingStory}
+                  className="flex-1 py-2.5 rounded-full bg-destructive hover:bg-destructive/90 text-destructive-foreground text-xs font-bold transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-60"
+                >
+                  {deletingStory ? (
+                    <>
+                      <Loader2 className="size-3.5 animate-spin" />
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <span>Delete</span>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}
