@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -75,6 +75,7 @@ import {
 import { getEcho } from "@/lib/echo";
 import api from "@/lib/api";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "motion/react";
 
 const QUICK_EMOJIS = [
   "😀", "😂", "🔥", "🚀", "❤️", "✨", "👍", "🎉", "💡", "🧠",
@@ -306,6 +307,7 @@ export default function ConversationDetailPage() {
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLInputElement>(null);
   const isInitialLoadedRef = useRef(false);
+  const [isScrollReady, setIsScrollReady] = useState(false);
 
   const otherUser = conversation?.user;
   const otherDisplayName = otherUser?.display_name || otherUser?.custom_nickname || otherUser?.name || "User";
@@ -322,10 +324,12 @@ export default function ConversationDetailPage() {
   // Scroll helper
   const scrollToBottom = useCallback((behavior: ScrollBehavior = "instant") => {
     const container = messagesContainerRef.current;
-    if (container) {
+    if (!container) return;
+    if (behavior === "smooth") {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    } else {
       container.scrollTop = container.scrollHeight;
     }
-    messagesEndRef.current?.scrollIntoView({ behavior });
   }, []);
 
   // Fetch Conversation Data
@@ -333,12 +337,13 @@ export default function ConversationDetailPage() {
     if (!convId) return;
     try {
       setLoading(true);
+      isInitialLoadedRef.current = false;
+      setIsScrollReady(false);
       const data = await messagesService.getConversation(convId, { limit: 30 });
       setConversation(data.conversation);
       setMessages(data.messages || []);
       setHasMore(Boolean(data.has_more));
       setIsFollowing(data.is_following);
-      isInitialLoadedRef.current = true;
     } catch (err: any) {
       console.error("Failed to load conversation:", err);
       toast.error(err.response?.data?.message || "Failed to load conversation.");
@@ -347,14 +352,38 @@ export default function ConversationDetailPage() {
     }
   }, [convId]);
 
+  const isPaginatingRef = useRef(false);
+  const scrollOffsetRef = useRef<{ oldScrollHeight: number; oldScrollTop: number }>({
+    oldScrollHeight: 0,
+    oldScrollTop: 0,
+  });
+
+  // ── Master layout effect: runs synchronously before every paint ──
+  // Handles BOTH initial scroll-to-bottom AND pagination scroll-restoration.
+  // This prevents any flash of content at the wrong scroll position.
+  useLayoutEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container || messages.length === 0) return;
+
+    if (isPaginatingRef.current) {
+      // Restore scroll after prepending older messages
+      const { oldScrollHeight, oldScrollTop } = scrollOffsetRef.current;
+      container.scrollTop = container.scrollHeight - oldScrollHeight + oldScrollTop;
+      isPaginatingRef.current = false;
+    } else if (!isInitialLoadedRef.current && !loading) {
+      // Initial load: jump to bottom before paint so user never sees top
+      container.scrollTop = container.scrollHeight;
+      isInitialLoadedRef.current = true;
+      setIsScrollReady(true);
+    }
+  }, [messages, loading]);
+
   // Load older messages on scroll up
   const loadOlderMessages = useCallback(async () => {
-    if (!hasMore || loadingMore || messages.length === 0 || !convId) return;
+    if (!hasMore || loadingMore || messages.length === 0 || !convId || !isInitialLoadedRef.current) return;
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    const oldScrollHeight = container.scrollHeight;
-    const oldScrollTop = container.scrollTop;
     const oldestMsgId = messages[0]?.id;
 
     try {
@@ -365,19 +394,18 @@ export default function ConversationDetailPage() {
       });
 
       if (data.messages && data.messages.length > 0) {
+        scrollOffsetRef.current = {
+          oldScrollHeight: container.scrollHeight,
+          oldScrollTop: container.scrollTop,
+        };
+        isPaginatingRef.current = true;
+
         setMessages((prev) => {
           const existingIds = new Set(prev.map((m) => m.id));
           const filteredOld = data.messages.filter((m) => !existingIds.has(m.id));
           return [...filteredOld, ...prev];
         });
         setHasMore(Boolean(data.has_more));
-
-        requestAnimationFrame(() => {
-          if (container) {
-            const newScrollHeight = container.scrollHeight;
-            container.scrollTop = newScrollHeight - oldScrollHeight + oldScrollTop;
-          }
-        });
       } else {
         setHasMore(false);
       }
@@ -412,18 +440,6 @@ export default function ConversationDetailPage() {
       loadConversation();
     }
   }, [currentUser, convId, loadConversation]);
-
-  useEffect(() => {
-    if (!loading && messages.length > 0) {
-      scrollToBottom("instant");
-      const t1 = setTimeout(() => scrollToBottom("instant"), 50);
-      const t2 = setTimeout(() => scrollToBottom("instant"), 150);
-      return () => {
-        clearTimeout(t1);
-        clearTimeout(t2);
-      };
-    }
-  }, [loading, scrollToBottom]);
 
   // Real-time Echo listeners
   useEffect(() => {
@@ -1092,27 +1108,33 @@ export default function ConversationDetailPage() {
         />
       )}
 
-      {/* ── Messages Container ── */}
-      <div
-        ref={messagesContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 select-text min-h-0"
-      >
-        {/* Loading More Spinner */}
-        {loadingMore && (
-          <div className="flex justify-center py-2">
-            <Loader2 className="size-5 animate-spin text-primary" />
-          </div>
-        )}
+      {/* ── Messages Area ── */}
+      <div className="flex-1 min-h-0 relative overflow-hidden">
 
-        {/* Initial Loading Spinner */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2">
+        {/* Loading overlay – shown until scroll is anchored at bottom */}
+        {(!isScrollReady) && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground gap-2 z-10 bg-background">
             <Loader2 className="size-8 animate-spin text-primary" />
             <p className="text-xs">Loading conversation...</p>
           </div>
-        ) : messages.length === 0 ? (
-          /* Empty Chat State */
+        )}
+
+        {/* ── Messages Container ── always in DOM so ref + useLayoutEffect can scroll it */}
+        <div
+          ref={messagesContainerRef}
+          onScroll={handleScroll}
+          style={{ overflowAnchor: "none", visibility: isScrollReady ? "visible" : "hidden" }}
+          className="absolute inset-0 overflow-y-auto p-3 sm:p-5 space-y-4 select-text"
+        >
+          {/* Loading More Spinner (pagination) */}
+          {loadingMore && (
+            <div className="flex justify-center py-2">
+              <Loader2 className="size-5 animate-spin text-primary" />
+            </div>
+          )}
+
+          {/* Empty chat state */}
+          {!loading && messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-4 py-12 text-muted-foreground">
             <Avatar className="size-16 mb-3 ring-2 ring-border/80 shadow-md">
               <AvatarImage src={avatarSrc} alt={otherDisplayName} />
@@ -1139,20 +1161,28 @@ export default function ConversationDetailPage() {
             const showDateHeader = currentDateKey !== prevDateKey;
 
             return (
-              <div
+              <motion.div
                 key={`msg-${msg.id}-${index}`}
                 id={`msg-${msg.id}`}
-                className={`space-y-2 transition-all duration-300 animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ease-out ${
+                initial={{ opacity: 0, x: isMe ? 20 : -20, scale: 0.96 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                transition={{ type: "spring", stiffness: 380, damping: 28, mass: 0.8 }}
+                className={`space-y-2 ${
                   isHighlighted ? "bg-primary/10 rounded-2xl p-2 ring-2 ring-primary/40" : ""
                 }`}
               >
                 {/* ── Date Divider ── */}
                 {showDateHeader && (
-                  <div className="flex justify-center my-4">
+                  <motion.div
+                    className="flex justify-center my-4"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25 }}
+                  >
                     <span className="px-3 py-1 rounded-full bg-muted/80 backdrop-blur-sm border border-border/60 text-[11px] font-semibold text-muted-foreground shadow-2xs">
                       {formatMessageDateHeader(msg.created_at)}
                     </span>
-                  </div>
+                  </motion.div>
                 )}
 
                 {/* ── Message Bubble & Actions Wrapper ── */}
@@ -1227,7 +1257,7 @@ export default function ConversationDetailPage() {
                               <img
                                 src={imgUrl}
                                 alt="Attachment"
-                                onLoad={() => scrollToBottom("instant")}
+                                loading="lazy"
                                 className="size-full max-h-64 object-cover"
                               />
                             </div>
@@ -1511,51 +1541,73 @@ export default function ConversationDetailPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })
         )}
 
         {/* Typing indicator bubble */}
-        {isOtherTyping && (
-          <div className="flex items-center gap-2 py-1 animate-in fade-in duration-200">
-            <Avatar className="size-6 ring-1 ring-border/40">
-              <AvatarImage src={avatarSrc} alt={otherDisplayName} />
-              <AvatarFallback className="text-[9px] font-bold">
-                {getInitials(otherDisplayName)}
-              </AvatarFallback>
-            </Avatar>
-            <div className="bg-muted/80 border border-border/60 rounded-2xl rounded-bl-xs px-3 py-2 flex items-center gap-1.5 shadow-2xs">
-              <span className="size-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
-              <span className="size-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
-              <span className="size-1.5 rounded-full bg-primary animate-bounce" />
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {isOtherTyping && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 4, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 400, damping: 28 }}
+              className="flex items-center gap-2 py-1"
+            >
+              <Avatar className="size-6 ring-1 ring-border/40">
+                <AvatarImage src={avatarSrc} alt={otherDisplayName} />
+                <AvatarFallback className="text-[9px] font-bold">
+                  {getInitials(otherDisplayName)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="bg-muted/80 border border-border/60 rounded-2xl rounded-bl-xs px-3 py-2 flex items-center gap-1.5 shadow-2xs">
+                <span className="size-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.3s]" />
+                <span className="size-1.5 rounded-full bg-primary animate-bounce [animation-delay:-0.15s]" />
+                <span className="size-1.5 rounded-full bg-primary animate-bounce" />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div ref={messagesEndRef} />
-      </div>
+      </div>{/* end messages container */}
+      </div>{/* end messages area wrapper */}
 
       {/* ── Scroll to Bottom Floating Button ── */}
-      {showScrollBottomButton && (
-        <button
-          type="button"
-          onClick={() => {
-            scrollToBottom("smooth");
-            setShowScrollBottomButton(false);
-            setNewMessagesWhileScrolled(0);
-          }}
-          className="absolute bottom-20 right-4 sm:right-6 z-30 size-10 rounded-full bg-card/95 backdrop-blur-md border border-border/80 shadow-xl flex items-center justify-center text-foreground hover:bg-muted hover:scale-105 active:scale-95 transition-all animate-in fade-in zoom-in-90 cursor-pointer ring-1 ring-primary/20"
-          title="Scroll to latest messages"
-        >
-          <ChevronDown className="size-5" />
-          {newMessagesWhileScrolled > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-xs animate-bounce">
-              {newMessagesWhileScrolled}
-            </span>
-          )}
-        </button>
-      )}
+      <AnimatePresence>
+        {showScrollBottomButton && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.7, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.7, y: 8 }}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            transition={{ type: "spring", stiffness: 450, damping: 28 }}
+            type="button"
+            onClick={() => {
+              scrollToBottom("smooth");
+              setShowScrollBottomButton(false);
+              setNewMessagesWhileScrolled(0);
+            }}
+            className="absolute bottom-20 right-4 sm:right-6 z-30 size-10 rounded-full bg-card/95 backdrop-blur-md border border-border/80 shadow-xl flex items-center justify-center text-foreground hover:bg-muted cursor-pointer ring-1 ring-primary/20"
+            title="Scroll to latest messages"
+          >
+            <ChevronDown className="size-5" />
+            {newMessagesWhileScrolled > 0 && (
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                className="absolute -top-1.5 -right-1.5 size-5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow-xs"
+              >
+                {newMessagesWhileScrolled}
+              </motion.span>
+            )}
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* ── Follow Warning Banner ── */}
       {!isFollowing && (

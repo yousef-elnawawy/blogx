@@ -95,12 +95,19 @@ class SearchController extends Controller
         $communityController = new CommunityController();
         $result = [];
 
+        $blockedIds = $user ? $user->allBlockedUserIds() : [];
+
         // Single tab paginated search: posts
         if ($type === 'posts') {
             try {
-                $paginator = Post::search($q)->paginate($perPage, 'page', $page);
+                $searchQuery = Post::search($q);
+                $paginator = $searchQuery->paginate($perPage, 'page', $page);
                 $paginator->getCollection()->load(['user', 'images'])->loadCount(['likes', 'comments']);
-                $posts = $paginator->getCollection()->map(fn($post) => $postController->formatPost($post, $user));
+                $rawPosts = $paginator->getCollection();
+                if (!empty($blockedIds)) {
+                    $rawPosts = $rawPosts->reject(fn($p) => in_array($p->user_id, $blockedIds));
+                }
+                $posts = $rawPosts->map(fn($post) => $postController->formatPost($post, $user));
                 return response()->json([
                     'posts'        => $posts->values(),
                     'has_more'     => $paginator->hasMorePages(),
@@ -108,11 +115,13 @@ class SearchController extends Controller
                     'total'        => $paginator->total(),
                 ]);
             } catch (\Throwable $e) {
-                $paginator = Post::with(['user', 'images'])
+                $query = Post::with(['user', 'images'])
                     ->withCount(['likes', 'comments'])
-                    ->where('content', 'like', "%{$q}%")
-                    ->latest()
-                    ->paginate($perPage, ['*'], 'page', $page);
+                    ->where('content', 'like', "%{$q}%");
+                if (!empty($blockedIds)) {
+                    $query->whereNotIn('user_id', $blockedIds);
+                }
+                $paginator = $query->latest()->paginate($perPage, ['*'], 'page', $page);
                 $posts = $paginator->getCollection()->map(fn($post) => $postController->formatPost($post, $user));
                 return response()->json([
                     'posts'        => $posts->values(),
@@ -129,9 +138,13 @@ class SearchController extends Controller
             try {
                 $paginator = Blog::search($cleanQ ?: $q)->paginate($perPage, 'page', $page);
                 $paginator->getCollection()->load('user')->loadCount('likes');
-                $blogs = $paginator->getCollection()->map(fn($b) => $blogController->formatBlog($b, $user));
+                $rawBlogs = $paginator->getCollection();
+                if (!empty($blockedIds)) {
+                    $rawBlogs = $rawBlogs->reject(fn($b) => in_array($b->user_id, $blockedIds));
+                }
+                $blogs = $rawBlogs->map(fn($b) => $blogController->formatBlog($b, $user));
             } catch (\Throwable $e) {
-                $paginator = Blog::published()
+                $query = Blog::published()
                     ->with('user')
                     ->withCount('likes')
                     ->where(function ($w) use ($q, $cleanQ) {
@@ -140,20 +153,26 @@ class SearchController extends Controller
                           ->orWhere('excerpt', 'like', "%{$q}%")
                           ->orWhereJsonContains('tags', $cleanQ)
                           ->orWhereJsonContains('tags', $q);
-                    })
-                    ->latest('published_at')
-                    ->paginate($perPage, ['*'], 'page', $page);
+                    });
+                if (!empty($blockedIds)) {
+                    $query->whereNotIn('user_id', $blockedIds);
+                }
+                $paginator = $query->latest('published_at')->paginate($perPage, ['*'], 'page', $page);
                 $blogs = $paginator->getCollection()->map(fn($b) => $blogController->formatBlog($b, $user));
             }
 
             // Search Series / Stories
-            $seriesList = Series::where('is_published', true)
+            $seriesQuery = Series::where('is_published', true)
                 ->where(function ($w) use ($q, $cleanQ) {
                     $w->where('title', 'like', "%{$q}%")
                       ->orWhere('title', 'like', "%{$cleanQ}%")
                       ->orWhere('description', 'like', "%{$q}%")
                       ->orWhere('description', 'like', "%{$cleanQ}%");
-                })
+                });
+            if (!empty($blockedIds)) {
+                $seriesQuery->whereNotIn('user_id', $blockedIds);
+            }
+            $seriesList = $seriesQuery
                 ->with(['user', 'publishedBlogs' => function ($sq) {
                     $sq->select('id', 'series_id', 'title', 'slug', 'read_time', 'views_count', 'published_at')
                       ->orderBy('series_order', 'asc');
@@ -179,16 +198,22 @@ class SearchController extends Controller
                 $paginator = User::search($q)->paginate($perPage, 'page', $page);
                 $paginator->getCollection()->loadCount(['followers', 'following', 'posts' => fn($p) => $p->published()]);
                 $rawPeople = $paginator->getCollection();
+                if (!empty($blockedIds)) {
+                    $rawPeople = $rawPeople->reject(fn($u) => in_array($u->id, $blockedIds));
+                }
                 $hasMore = $paginator->hasMorePages();
                 $total = $paginator->total();
             } catch (\Throwable $e) {
-                $paginator = User::where(function ($query) use ($q) {
+                $query = User::where(function ($query) use ($q) {
                     $query->where('name', 'like', "%{$q}%")
                         ->orWhere('username', 'like', "%{$q}%")
                         ->orWhere('bio', 'like', "%{$q}%");
-                })
-                ->withCount(['followers', 'following', 'posts' => fn($p) => $p->published()])
-                ->paginate($perPage, ['*'], 'page', $page);
+                });
+                if (!empty($blockedIds)) {
+                    $query->whereNotIn('id', $blockedIds);
+                }
+                $paginator = $query->withCount(['followers', 'following', 'posts' => fn($p) => $p->published()])
+                    ->paginate($perPage, ['*'], 'page', $page);
                 $rawPeople = $paginator->getCollection();
                 $hasMore = $paginator->hasMorePages();
                 $total = $paginator->total();
@@ -286,17 +311,20 @@ class SearchController extends Controller
 
         // Type 'all': Top results across all models (Algolia Powered)
         try {
-            $posts = Post::search($q)
-                ->take(6)
-                ->get()
-                ->load(['user', 'images'])
-                ->loadCount(['likes', 'comments'])
-                ->map(fn($post) => $postController->formatPost($post, $user));
+            $postsQuery = Post::search($q);
+            $rawPosts = $postsQuery->take(12)->get()->load(['user', 'images'])->loadCount(['likes', 'comments']);
+            if (!empty($blockedIds)) {
+                $rawPosts = $rawPosts->reject(fn($p) => in_array($p->user_id, $blockedIds));
+            }
+            $posts = $rawPosts->take(6)->map(fn($post) => $postController->formatPost($post, $user));
         } catch (\Throwable $e) {
-            $posts = Post::with(['user', 'images'])
+            $query = Post::with(['user', 'images'])
                 ->withCount(['likes', 'comments'])
-                ->where('content', 'like', "%{$q}%")
-                ->latest()
+                ->where('content', 'like', "%{$q}%");
+            if (!empty($blockedIds)) {
+                $query->whereNotIn('user_id', $blockedIds);
+            }
+            $posts = $query->latest()
                 ->take(6)
                 ->get()
                 ->map(fn($post) => $postController->formatPost($post, $user));
@@ -305,15 +333,14 @@ class SearchController extends Controller
 
         $cleanQ = ltrim($q, '#');
         try {
-            $blogs = \App\Models\Blog::search($cleanQ ?: $q)
-                ->take(6)
-                ->get()
-                ->filter(fn($b) => $b->status === 'published')
-                ->load('user')
-                ->loadCount('likes')
-                ->map(fn($b) => $blogController->formatBlog($b, $user));
+            $blogsQuery = \App\Models\Blog::search($cleanQ ?: $q);
+            $rawBlogs = $blogsQuery->take(12)->get()->filter(fn($b) => $b->status === 'published')->load('user')->loadCount('likes');
+            if (!empty($blockedIds)) {
+                $rawBlogs = $rawBlogs->reject(fn($b) => in_array($b->user_id, $blockedIds));
+            }
+            $blogs = $rawBlogs->take(6)->map(fn($b) => $blogController->formatBlog($b, $user));
         } catch (\Throwable $e) {
-            $blogs = \App\Models\Blog::published()
+            $query = \App\Models\Blog::published()
                 ->with('user')
                 ->withCount('likes')
                 ->where(function ($w) use ($q, $cleanQ) {
@@ -322,8 +349,11 @@ class SearchController extends Controller
                       ->orWhere('excerpt', 'like', "%{$q}%")
                       ->orWhereJsonContains('tags', $cleanQ)
                       ->orWhereJsonContains('tags', $q);
-                })
-                ->latest('published_at')
+                });
+            if (!empty($blockedIds)) {
+                $query->whereNotIn('user_id', $blockedIds);
+            }
+            $blogs = $query->latest('published_at')
                 ->take(6)
                 ->get()
                 ->map(fn($b) => $blogController->formatBlog($b, $user));
@@ -331,13 +361,17 @@ class SearchController extends Controller
         $result['blogs'] = $blogs->values();
 
         // Series / Stories
-        $series = Series::where('is_published', true)
+        $seriesQuery = Series::where('is_published', true)
             ->where(function ($w) use ($q, $cleanQ) {
                 $w->where('title', 'like', "%{$q}%")
                   ->orWhere('title', 'like', "%{$cleanQ}%")
                   ->orWhere('description', 'like', "%{$q}%")
                   ->orWhere('description', 'like', "%{$cleanQ}%");
-            })
+            });
+        if (!empty($blockedIds)) {
+            $seriesQuery->whereNotIn('user_id', $blockedIds);
+        }
+        $series = $seriesQuery
             ->with(['user', 'publishedBlogs' => function ($sq) {
                 $sq->select('id', 'series_id', 'title', 'slug', 'read_time', 'views_count', 'published_at')
                   ->orderBy('series_order', 'asc');
@@ -350,19 +384,24 @@ class SearchController extends Controller
         $result['series'] = $series->values();
 
         try {
-            $rawPeople = User::search($q)
-                ->take(6)
-                ->get()
-                ->loadCount(['followers', 'following', 'posts' => fn($p) => $p->published()]);
+            $peopleQuery = User::search($q);
+            $rawPeople = $peopleQuery->take(12)->get()->loadCount(['followers', 'following', 'posts' => fn($p) => $p->published()]);
+            if (!empty($blockedIds)) {
+                $rawPeople = $rawPeople->reject(fn($u) => in_array($u->id, $blockedIds));
+            }
+            $rawPeople = $rawPeople->take(6);
         } catch (\Throwable $e) {
-            $rawPeople = User::where(function ($query) use ($q) {
+            $query = User::where(function ($query) use ($q) {
                 $query->where('name', 'like', "%{$q}%")
                     ->orWhere('username', 'like', "%{$q}%")
                     ->orWhere('bio', 'like', "%{$q}%");
-            })
-            ->withCount(['followers', 'following', 'posts' => fn($p) => $p->published()])
-            ->take(6)
-            ->get();
+            });
+            if (!empty($blockedIds)) {
+                $query->whereNotIn('id', $blockedIds);
+            }
+            $rawPeople = $query->withCount(['followers', 'following', 'posts' => fn($p) => $p->published()])
+                ->take(6)
+                ->get();
         }
         $people = $rawPeople->map(function ($u) use ($user) {
             $avatarUrl = $u->avatar;
@@ -454,19 +493,26 @@ class SearchController extends Controller
     {
         $user    = $request->user() ?? auth('sanctum')->user();
         $cleanTag = mb_strtolower(ltrim($tag, '#'));
+        $blockedIds = $user ? $user->allBlockedUserIds() : [];
 
         $hashtag = Hashtag::where('tag', $cleanTag)->first();
         $postController = new PostController();
         $blogController = new BlogController();
 
-        $blogs = \App\Models\Blog::published()
+        $blogsQuery = \App\Models\Blog::published()
             ->with('user')
             ->withCount('likes')
             ->where(function ($w) use ($cleanTag) {
                 $w->whereJsonContains('tags', $cleanTag)
                   ->orWhere('title', 'like', "%#{$cleanTag}%")
                   ->orWhere('content', 'like', "%#{$cleanTag}%");
-            })
+            });
+
+        if (!empty($blockedIds)) {
+            $blogsQuery->whereNotIn('user_id', $blockedIds);
+        }
+
+        $blogs = $blogsQuery
             ->latest('published_at')
             ->take(20)
             ->get()
@@ -483,12 +529,18 @@ class SearchController extends Controller
                     $q->whereIn('id', $postIds);
                 }
                 $q->orWhere('content', 'like', "%#{$cleanTag}%");
-            })
+            });
+
+        if (!empty($blockedIds)) {
+            $postsQuery->whereNotIn('user_id', $blockedIds);
+        }
+
+        $posts = $postsQuery
             ->with(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community', 'poll.options', 'poll.votes'])
             ->withCount(['likes', 'comments'])
-            ->latest();
+            ->latest()
+            ->paginate(15);
 
-        $posts = $postsQuery->paginate(15);
         $posts->getCollection()->transform(
             fn($post) => $postController->formatPost($post, $user)
         );

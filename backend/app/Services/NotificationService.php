@@ -57,6 +57,11 @@ class NotificationService
             return null;
         }
 
+        $actorId = $attributes['actor_id'] ?? null;
+        if ($actorId && $targetUser->hasBlockedOrIsBlockedBy($actorId)) {
+            return null;
+        }
+
         $notification = Notification::create($attributes);
 
         $notification->load(['actor' => function ($q) {

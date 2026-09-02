@@ -61,6 +61,13 @@ class BlockController extends Controller
         $authUser->unfollow($targetUser);
         $targetUser->unfollow($authUser);
 
+        // Clean up any mutual notifications
+        \App\Models\Notification::where(function ($q) use ($authUser, $targetUser) {
+            $q->where('user_id', $authUser->id)->where('actor_id', $targetUser->id);
+        })->orWhere(function ($q) use ($authUser, $targetUser) {
+            $q->where('user_id', $targetUser->id)->where('actor_id', $authUser->id);
+        })->delete();
+
         return response()->json([
             'message' => 'User blocked successfully',
             'is_blocked' => true,

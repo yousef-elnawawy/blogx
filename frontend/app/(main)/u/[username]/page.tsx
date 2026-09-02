@@ -363,13 +363,29 @@ function UserProfileContent() {
     }
   }, [activeTab, isOwnProfile, draftsLoaded, fetchDrafts]);
 
-  // Handle follow / unfollow
+  // Handle follow / unfollow (instant optimistic update)
   const handleFollowToggle = async () => {
     if (!currentUser) {
       toast.error("Please sign in to follow users");
       return;
     }
     if (!profileUser) return;
+
+    const prevFollowing = profileUser.is_following;
+    const prevCount = profileUser.followers_count ?? 0;
+    const nextFollowing = !prevFollowing;
+    const nextCount = nextFollowing ? prevCount + 1 : Math.max(0, prevCount - 1);
+
+    // Instant UI update
+    setProfileUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            is_following: nextFollowing,
+            followers_count: nextCount,
+          }
+        : null
+    );
 
     try {
       const res = await api.post(`/api/users/${profileUser.id}/follow`);
@@ -385,6 +401,16 @@ function UserProfileContent() {
       );
       toast.success(isFollowing ? `Following @${profileUser.username}` : `Unfollowed @${profileUser.username}`);
     } catch {
+      // Rollback on failure
+      setProfileUser((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_following: prevFollowing,
+              followers_count: prevCount,
+            }
+          : null
+      );
       toast.error("Failed to update follow status");
     }
   };
@@ -514,14 +540,24 @@ function UserProfileContent() {
       toast.error("Please sign in to follow users");
       return;
     }
+    const previousUsers = [...userListUsers];
+    const targetUser = userListUsers.find((u) => u.id === userId);
+    const nextState = !targetUser?.is_following;
+
+    // Instant optimistic update
+    setUserListUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, is_following: nextState } : u))
+    );
+
     try {
       const res = await api.post(`/api/users/${userId}/follow`);
-      const nextState = res.data.is_following;
+      const confirmedState = res.data.is_following;
       setUserListUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, is_following: nextState } : u))
+        prev.map((u) => (u.id === userId ? { ...u, is_following: confirmedState } : u))
       );
-      toast.success(nextState ? `Following ${targetName}` : `Unfollowed ${targetName}`);
+      toast.success(confirmedState ? `Following ${targetName}` : `Unfollowed ${targetName}`);
     } catch {
+      setUserListUsers(previousUsers);
       toast.error("Failed to follow user");
     }
   };

@@ -40,6 +40,8 @@ import CustomVideoPlayer from "@/components/video/CustomVideoPlayer";
 import SaveToCollectionDialog from "@/components/bookmarks/SaveToCollectionDialog";
 import RichPostContent from "@/components/post/RichPostContent";
 import PostCommentItem, { CommentData } from "@/components/post/PostCommentItem";
+import LikeHeartButton from "@/components/ui/LikeHeartButton";
+import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 
 interface Author {
@@ -983,45 +985,41 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
             </Button>
 
             {/* Like */}
-            <Button
-              variant="ghost"
-              size="sm"
+            <LikeHeartButton
+              isLiked={Boolean(post.is_liked)}
+              likesCount={post.likes_count}
               onClick={handleLike}
-              disabled={false}
-              className={cn(
-                "h-9 px-3 gap-2 rounded-full transition-colors",
-                post.is_liked
-                  ? "text-brand-like hover:text-brand-like hover:bg-brand-like-subtle"
-                  : "text-[#78716C] hover:text-brand-like hover:bg-brand-like-subtle"
-              )}
-            >
-              <Heart className={cn("size-5", post.is_liked && "fill-current")} />
-            </Button>
+              size="md"
+            />
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               {/* Bookmark */}
-              <Button
-                variant="ghost"
-                size="sm"
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.15 }}
+                whileTap={{ scale: 0.85 }}
                 onClick={handleBookmark}
                 disabled={isBookmarking}
                 className={cn(
-                  "h-9 px-2 rounded-full transition-colors",
+                  "size-9 flex items-center justify-center rounded-full transition-colors duration-200 cursor-pointer outline-none",
                   post.is_bookmarked
-                    ? "text-brand-bookmark hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
-                    : "text-[#78716C] hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
+                    ? "text-blue-600 dark:text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
+                    : "text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10"
                 )}
+                aria-label={post.is_bookmarked ? "Remove Bookmark" : "Bookmark"}
               >
                 <Bookmark className={cn("size-5", post.is_bookmarked && "fill-current")} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
+              </motion.button>
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.15 }}
+                whileTap={{ scale: 0.85 }}
                 onClick={() => setShareDialogOpen(true)}
-                className="h-9 px-2 rounded-full text-[#78716C] hover:text-cyan-500 hover:bg-cyan-500/10 transition-colors"
+                className="size-9 flex items-center justify-center rounded-full text-muted-foreground hover:text-cyan-500 hover:bg-cyan-500/10 transition-colors duration-200 cursor-pointer outline-none"
+                aria-label="Share"
               >
                 <Share2 className="size-5" />
-              </Button>
+              </motion.button>
             </div>
           </div>
         </div>
@@ -1169,19 +1167,21 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         </div>
       ) : (
         <div className="divide-y divide-border/40 p-2 sm:p-4 space-y-1">
-          {sortedComments.map((comment) => (
-            <PostCommentItem
-              key={`comment_${comment.id}`}
-              comment={comment as any}
-              postId={post.id}
-              postAuthorId={post.author.id}
-              postAuthorUsername={post.author.username}
-              postAuthorAvatar={post.author.avatar}
-              onCommentUpdated={handleCommentUpdated}
-              onCommentDeleted={handleCommentDeleted}
-              onReplyAdded={handleReplyAdded}
-            />
-          ))}
+          <AnimatePresence initial={false}>
+            {sortedComments.map((comment) => (
+              <PostCommentItem
+                key={`comment_${comment.id}`}
+                comment={comment as any}
+                postId={post.id}
+                postAuthorId={post.author.id}
+                postAuthorUsername={post.author.username}
+                postAuthorAvatar={post.author.avatar}
+                onCommentUpdated={handleCommentUpdated}
+                onCommentDeleted={handleCommentDeleted}
+                onReplyAdded={handleReplyAdded}
+              />
+            ))}
+          </AnimatePresence>
         </div>
       )}
 
@@ -1258,6 +1258,16 @@ export default function PostPage({ params }: { params: Promise<{ id: string }> }
         onOpenChange={setSaveToCollectionOpen}
         postId={post?.id}
       />
+
+      {/* Image Lightbox Fullscreen Modal */}
+      {post?.images && post.images.length > 0 && (
+        <ImageLightbox
+          images={post.images}
+          initialIndex={lightboxIndex}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
     </div>
   );
 }

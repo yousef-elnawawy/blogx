@@ -162,8 +162,14 @@ class StoryController extends Controller
     {
         $user = $request->user();
         $story = Story::where('id', $id)->where('user_id', $user->id)->firstOrFail();
+        $blockedIds = $user->allBlockedUserIds();
 
-        $viewers = $story->views()->with('user')->latest()->get()->map(function ($view) {
+        $query = $story->views()->with('user');
+        if (!empty($blockedIds)) {
+            $query->whereNotIn('user_id', $blockedIds);
+        }
+
+        $viewers = $query->latest()->get()->map(function ($view) {
             $viewer = $view->user;
             $avatarUrl = $viewer->avatar;
             if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {

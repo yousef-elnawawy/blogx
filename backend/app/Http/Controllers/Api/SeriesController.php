@@ -16,12 +16,20 @@ class SeriesController extends Controller
      */
     public function index(Request $request)
     {
+        $user = $request->user() ?? auth('sanctum')->user();
         $query = Series::where('is_published', true)
             ->with(['user', 'publishedBlogs' => function ($q) {
                 $q->select('id', 'series_id', 'title', 'slug', 'read_time', 'views_count', 'published_at')
                   ->orderBy('series_order', 'asc');
             }])
             ->withCount('publishedBlogs');
+
+        if ($user) {
+            $blockedIds = $user->allBlockedUserIds();
+            if (!empty($blockedIds)) {
+                $query->whereNotIn('user_id', $blockedIds);
+            }
+        }
 
         if ($request->has('q') && !empty($request->q)) {
             $q = $request->q;
@@ -71,6 +79,7 @@ class SeriesController extends Controller
      */
     public function show(Request $request, string $slugOrId)
     {
+        $user = $request->user() ?? auth('sanctum')->user();
         $raw = $slugOrId;
         $decoded = urldecode($slugOrId);
 
@@ -85,6 +94,10 @@ class SeriesController extends Controller
             ->first();
 
         if (!$series) {
+            return response()->json(['message' => 'Series not found.'], 404);
+        }
+
+        if ($user && $user->id !== $series->user_id && $user->hasBlockedOrIsBlockedBy($series->user_id)) {
             return response()->json(['message' => 'Series not found.'], 404);
         }
 

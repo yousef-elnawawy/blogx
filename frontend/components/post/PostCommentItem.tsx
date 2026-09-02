@@ -32,6 +32,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import RichPostContent from "./RichPostContent";
 import ImageLightbox from "./ImageLightbox";
+import LikeHeartButton from "@/components/ui/LikeHeartButton";
+import { motion, AnimatePresence } from "motion/react";
 import api from "@/lib/api";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -223,7 +225,13 @@ export default function PostCommentItem({
   const timeAgo = formatDistanceToNow(new Date(comment.created_at), { addSuffix: false });
 
   return (
-    <div className={cn("relative group/comment", depth > 0 ? "ml-5 sm:ml-9" : "")}>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
+      className={cn("relative group/comment", depth > 0 ? "ml-5 sm:ml-9" : "")}
+    >
       {/* ── Thread Connector Line ── */}
       {depth > 0 && (
         <div
@@ -355,23 +363,16 @@ export default function PostCommentItem({
             </div>
 
             {/* Action Bar (Like, Reply, Creator Heart Indicator) */}
-            <div className="mt-2.5 flex items-center gap-3 text-xs flex-wrap">
+            <div className="mt-2.5 flex items-center gap-2.5 text-xs flex-wrap">
               {/* Like Button */}
-              <button
-                type="button"
+              <LikeHeartButton
+                isLiked={isLiked}
+                likesCount={likeCount}
                 onClick={handleToggleLike}
                 disabled={!user || isLiking}
-                className={cn(
-                  "inline-flex items-center gap-1.5 py-0.5 px-2 rounded-full transition-all cursor-pointer font-semibold",
-                  isLiked
-                    ? "text-red-500 bg-red-500/10"
-                    : "text-muted-foreground hover:text-red-500 hover:bg-muted"
-                )}
-                title={user ? (isLiked ? "Unlike" : "Like") : "Log in to like"}
-              >
-                <Heart className={cn("size-3.5", isLiked && "fill-current")} />
-                {likeCount > 0 && <span className="font-mono text-xs">{likeCount}</span>}
-              </button>
+                size="sm"
+                className="py-0.5 px-2 h-7"
+              />
 
               {/* Creator Heart Badge */}
               {isCreatorLiked && (
@@ -521,6 +522,6 @@ export default function PostCommentItem({
           onClose={() => setLightboxOpen(false)}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

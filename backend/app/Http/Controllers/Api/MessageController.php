@@ -72,6 +72,10 @@ class MessageController extends Controller
         }
 
         $otherUser = $conversation->getOtherUser($user->id);
+        if ($otherUser && $user->hasBlockedOrIsBlockedBy($otherUser)) {
+            return response()->json(['message' => 'Conversation not found.'], 404);
+        }
+
         $isFollowing = $otherUser ? $user->isFollowing($otherUser) : false;
 
         // Auto mark unread messages for current user as read

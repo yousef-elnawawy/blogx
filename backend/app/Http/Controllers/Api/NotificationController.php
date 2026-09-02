@@ -16,19 +16,25 @@ class NotificationController extends Controller
     {
         $user = $request->user();
         $filter = $request->query('filter', 'all');
+        $blockedIds = $user->allBlockedUserIds();
 
         $query = Notification::where('user_id', $user->id)
             ->with(['actor' => function ($q) {
                 $q->select('id', 'name', 'username', 'avatar', 'verified');
             }])
-            ->filterCategory($filter)
-            ->latest();
+            ->filterCategory($filter);
 
-        $notifications = $query->paginate(20);
+        if (!empty($blockedIds)) {
+            $query->whereNotIn('actor_id', $blockedIds);
+        }
 
-        $unreadCount = Notification::where('user_id', $user->id)
-            ->unread()
-            ->count();
+        $notifications = $query->latest()->paginate(20);
+
+        $unreadCountQuery = Notification::where('user_id', $user->id)->unread();
+        if (!empty($blockedIds)) {
+            $unreadCountQuery->whereNotIn('actor_id', $blockedIds);
+        }
+        $unreadCount = $unreadCountQuery->count();
 
         $notifications->getCollection()->transform(function ($notification) {
             return $notification->format();
@@ -149,15 +155,24 @@ class NotificationController extends Controller
         }
 
         $lastId = (int) $request->query('after_id', 0);
+        $blockedIds = $user->allBlockedUserIds();
 
-        $unreadCount = Notification::where('user_id', $user->id)
-            ->unread()
-            ->count();
+        $unreadCountQuery = Notification::where('user_id', $user->id)->unread();
+        if (!empty($blockedIds)) {
+            $unreadCountQuery->whereNotIn('actor_id', $blockedIds);
+        }
+        $unreadCount = $unreadCountQuery->count();
 
         $recent = [];
         if ($lastId > 0) {
-            $recent = Notification::where('user_id', $user->id)
-                ->where('id', '>', $lastId)
+            $recentQuery = Notification::where('user_id', $user->id)
+                ->where('id', '>', $lastId);
+
+            if (!empty($blockedIds)) {
+                $recentQuery->whereNotIn('actor_id', $blockedIds);
+            }
+
+            $recent = $recentQuery
                 ->with(['actor' => function ($q) {
                     $q->select('id', 'name', 'username', 'avatar', 'verified');
                 }])

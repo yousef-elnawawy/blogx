@@ -28,9 +28,14 @@ class ProfileController extends Controller
 
         // Block Check
         if ($authUser && $authUser->id !== $user->id) {
-            $isBlocking = $authUser->isBlocking($user);
             $isBlockedBy = $authUser->isBlockedBy($user);
-            if ($isBlocking || $isBlockedBy) {
+            // If viewer is blocked by this user, the account does not exist to them (Ghost 404)
+            if ($isBlockedBy) {
+                return response()->json(['message' => 'User not found'], 404);
+            }
+
+            $isBlocking = $authUser->isBlocking($user);
+            if ($isBlocking) {
                 $avatarUrl = $user->avatar;
                 if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
                     $avatarUrl = config('app.url') . $avatarUrl;
@@ -54,8 +59,8 @@ class ProfileController extends Controller
                         'following_count' => 0,
                         'is_following'    => false,
                         'is_muted'        => $authUser->isMuting($user),
-                        'is_blocked'      => $isBlocking,
-                        'is_blocked_by'   => $isBlockedBy,
+                        'is_blocked'      => true,
+                        'is_blocked_by'   => false,
                     ],
                     'posts' => [
                         'data'         => [],
@@ -181,10 +186,17 @@ class ProfileController extends Controller
         $user = User::where('username', $cleanUsername)->firstOrFail();
 
         if ($authUser && $authUser->id !== $user->id && $authUser->hasBlockedOrIsBlockedBy($user)) {
-            return response()->json(['users' => []]);
+            return response()->json(['message' => 'User not found'], 404);
         }
 
-        $followers = $user->followers()->get()->map(function ($fUser) use ($authUser) {
+        $blockedIds = $authUser ? $authUser->allBlockedUserIds() : [];
+
+        $query = $user->followers();
+        if (!empty($blockedIds)) {
+            $query->whereNotIn('users.id', $blockedIds);
+        }
+
+        $followers = $query->get()->map(function ($fUser) use ($authUser) {
             $avatarUrl = $fUser->avatar;
             if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
                 $avatarUrl = config('app.url') . $avatarUrl;
@@ -213,10 +225,17 @@ class ProfileController extends Controller
         $user = User::where('username', $cleanUsername)->firstOrFail();
 
         if ($authUser && $authUser->id !== $user->id && $authUser->hasBlockedOrIsBlockedBy($user)) {
-            return response()->json(['users' => []]);
+            return response()->json(['message' => 'User not found'], 404);
         }
 
-        $following = $user->following()->get()->map(function ($fUser) use ($authUser) {
+        $blockedIds = $authUser ? $authUser->allBlockedUserIds() : [];
+
+        $query = $user->following();
+        if (!empty($blockedIds)) {
+            $query->whereNotIn('users.id', $blockedIds);
+        }
+
+        $following = $query->get()->map(function ($fUser) use ($authUser) {
             $avatarUrl = $fUser->avatar;
             if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
                 $avatarUrl = config('app.url') . $avatarUrl;
@@ -245,7 +264,13 @@ class ProfileController extends Controller
             return response()->json(['users' => []]);
         }
 
-        $following = $user->following()->get()->map(function ($fUser) {
+        $blockedIds = $user->allBlockedUserIds();
+        $query = $user->following();
+        if (!empty($blockedIds)) {
+            $query->whereNotIn('users.id', $blockedIds);
+        }
+
+        $following = $query->get()->map(function ($fUser) {
             $avatarUrl = $fUser->avatar;
             if ($avatarUrl && !str_starts_with($avatarUrl, 'http')) {
                 $avatarUrl = config('app.url') . $avatarUrl;
@@ -280,6 +305,10 @@ class ProfileController extends Controller
             return response()->json(['message' => 'You cannot follow yourself'], 400);
         }
 
+        if ($authUser->hasBlockedOrIsBlockedBy($targetUser)) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
         $isFollowing = $authUser->isFollowing($targetUser);
 
         if ($isFollowing) {
@@ -310,7 +339,9 @@ class ProfileController extends Controller
 
         if ($authUser) {
             $followingIds = $authUser->following()->pluck('users.id')->push($authUser->id);
-            $query->whereNotIn('id', $followingIds);
+            $blockedIds = collect($authUser->allBlockedUserIds());
+            $excludeIds = $followingIds->merge($blockedIds)->unique();
+            $query->whereNotIn('id', $excludeIds);
         }
 
         $users = $query->inRandomOrder()->take($limit)->get()->map(function ($user) use ($authUser) {
@@ -352,7 +383,7 @@ class ProfileController extends Controller
         $user = User::where('username', $cleanUsername)->firstOrFail();
 
         if ($authUser && $authUser->id !== $user->id && $authUser->hasBlockedOrIsBlockedBy($user)) {
-            return response()->json(['media' => []]);
+            return response()->json(['message' => 'User not found'], 404);
         }
 
         // 1. Post images
@@ -412,44 +443,54 @@ class ProfileController extends Controller
         $user = User::where('username', $cleanUsername)->firstOrFail();
 
         if ($authUser && $authUser->id !== $user->id && $authUser->hasBlockedOrIsBlockedBy($user)) {
-            return response()->json([
-                'posts'    => [],
-                'blogs'    => [],
-                'articles' => [],
-            ]);
+            return response()->json(['message' => 'User not found'], 404);
         }
+
+        $blockedIds = $authUser ? $authUser->allBlockedUserIds() : [];
 
         // 1. Liked posts
         $postController = new PostController();
-        $likedPosts = Post::whereHas('likes', function ($q) use ($user) {
+        $likedPostsQuery = Post::whereHas('likes', function ($q) use ($user) {
             $q->where('user_id', $user->id);
         })
-        ->published()
-        ->with(['user', 'images', 'mentions.user'])
-        ->withCount(['likes', 'comments'])
-        ->latest()
-        ->get()
-        ->map(function ($post) use ($authUser, $postController) {
-            $formatted = $postController->formatPost($post, $authUser);
-            $formatted['item_type'] = 'post';
-            return $formatted;
-        });
+        ->published();
+
+        if (!empty($blockedIds)) {
+            $likedPostsQuery->whereNotIn('user_id', $blockedIds);
+        }
+
+        $likedPosts = $likedPostsQuery
+            ->with(['user', 'images', 'mentions.user'])
+            ->withCount(['likes', 'comments'])
+            ->latest()
+            ->get()
+            ->map(function ($post) use ($authUser, $postController) {
+                $formatted = $postController->formatPost($post, $authUser);
+                $formatted['item_type'] = 'post';
+                return $formatted;
+            });
 
         // 2. Liked blogs
         $blogController = new BlogController();
-        $likedBlogs = \App\Models\Blog::whereHas('likes', function ($q) use ($user) {
+        $likedBlogsQuery = \App\Models\Blog::whereHas('likes', function ($q) use ($user) {
             $q->where('user_id', $user->id);
         })
-        ->published()
-        ->with('user')
-        ->withCount('likes')
-        ->latest('published_at')
-        ->get()
-        ->map(function ($blog) use ($authUser, $blogController) {
-            $formatted = $blogController->formatBlog($blog, $authUser);
-            $formatted['item_type'] = 'blog';
-            return $formatted;
-        });
+        ->published();
+
+        if (!empty($blockedIds)) {
+            $likedBlogsQuery->whereNotIn('user_id', $blockedIds);
+        }
+
+        $likedBlogs = $likedBlogsQuery
+            ->with('user')
+            ->withCount('likes')
+            ->latest('published_at')
+            ->get()
+            ->map(function ($blog) use ($authUser, $blogController) {
+                $formatted = $blogController->formatBlog($blog, $authUser);
+                $formatted['item_type'] = 'blog';
+                return $formatted;
+            });
 
         return response()->json([
             'posts'    => $likedPosts,

@@ -67,6 +67,8 @@ export default function PostImageGrid({
   if (count === 1) {
     return (
       <div
+        role="button"
+        data-interactive="true"
         onClick={handleTileClick(0)}
         className="relative w-full max-h-[500px] rounded-2xl overflow-hidden cursor-pointer group z-10 pointer-events-auto border border-border/70 bg-muted/20 flex items-center justify-center shadow-2xs hover:border-primary/40 transition-colors"
       >
@@ -83,7 +85,11 @@ export default function PostImageGrid({
 
   // Multi-Image: Instagram-Style Carousel (One Image at a Time)
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden z-10 pointer-events-auto border border-border/70 bg-muted/20 shadow-2xs group select-none">
+    <div
+      role="button"
+      data-interactive="true"
+      className="relative w-full rounded-2xl overflow-hidden z-10 pointer-events-auto border border-border/70 bg-muted/20 shadow-2xs group select-none"
+    >
       {/* Top Right Counter Badge (e.g. 1/4) */}
       <div className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-full bg-black/65 backdrop-blur-md text-white text-[11px] font-bold tracking-wider flex items-center gap-1 shadow-sm pointer-events-none">
         <Layers className="size-3" />
@@ -102,6 +108,8 @@ export default function PostImageGrid({
         {images.map((img, i) => (
           <div
             key={i}
+            role="button"
+            data-interactive="true"
             onClick={handleTileClick(i)}
             className="w-full h-full shrink-0 snap-center relative flex items-center justify-center cursor-pointer bg-background/50 overflow-hidden"
             style={{ minWidth: "100%" }}

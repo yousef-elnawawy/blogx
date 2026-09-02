@@ -281,14 +281,23 @@ class CommunityController extends Controller
      */
     public function members(Request $request, $id)
     {
+        $user = $request->user() ?? auth('sanctum')->user();
         $community = Community::find($id);
         if (!$community) {
             return response()->json(['message' => 'Community not found'], 404);
         }
 
-        $members = CommunityMember::where('community_id', $community->id)
-            ->where('status', 'approved')
-            ->with(['user:id,name,username,avatar,verified,bio'])
+        $query = CommunityMember::where('community_id', $community->id)
+            ->where('status', 'approved');
+
+        if ($user) {
+            $blockedIds = $user->allBlockedUserIds();
+            if (!empty($blockedIds)) {
+                $query->whereNotIn('user_id', $blockedIds);
+            }
+        }
+
+        $members = $query->with(['user:id,name,username,avatar,verified,bio'])
             ->orderByRaw("CASE WHEN role = 'admin' THEN 1 WHEN role = 'moderator' THEN 2 ELSE 3 END")
             ->paginate(20);
 
@@ -446,8 +455,17 @@ class CommunityController extends Controller
 
         $postController = new PostController();
 
-        $posts = Post::where('community_id', $community->id)
-            ->published()
+        $query = Post::where('community_id', $community->id)
+            ->published();
+
+        if ($user) {
+            $blockedIds = $user->allBlockedUserIds();
+            if (!empty($blockedIds)) {
+                $query->whereNotIn('user_id', $blockedIds);
+            }
+        }
+
+        $posts = $query
             ->with(['user', 'images', 'mentions.user', 'repostOf.user', 'repostOf.images', 'quoteOf.user', 'quoteOf.images', 'community'])
             ->withCount(['likes', 'comments'])
             ->latest()
@@ -469,6 +487,10 @@ class CommunityController extends Controller
         $targetUser = User::where('username', $username)->first();
 
         if (!$targetUser) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        if ($user && $user->id !== $targetUser->id && $user->hasBlockedOrIsBlockedBy($targetUser)) {
             return response()->json(['message' => 'User not found'], 404);
         }
 

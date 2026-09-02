@@ -80,6 +80,15 @@ export default function RightSidebar() {
   };
 
   const handleFollow = async (userId: number) => {
+    const isCurrentlyFollowing = Boolean(followingMap[userId]);
+    const nextState = !isCurrentlyFollowing;
+
+    // Instant optimistic update
+    setFollowingMap((prev) => ({
+      ...prev,
+      [userId]: nextState,
+    }));
+
     try {
       const res = await api.post(`/api/users/${userId}/follow`);
       setFollowingMap((prev) => ({
@@ -87,16 +96,38 @@ export default function RightSidebar() {
         [userId]: res.data.is_following,
       }));
     } catch {
-      /* silent */
+      // Revert on error
+      setFollowingMap((prev) => ({
+        ...prev,
+        [userId]: isCurrentlyFollowing,
+      }));
     }
   };
 
   const handleToggleJoinCommunity = async (comm: any, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    const isMember = comm.is_member || comm.member_status === "admin";
+
+    // Instant optimistic update
+    setCommunities((prev) =>
+      prev.map((c) =>
+        c.id === comm.id
+          ? {
+              ...c,
+              is_member: !isMember,
+              member_status: isMember ? "none" : "approved",
+              members_count: isMember
+                ? Math.max(0, (c.members_count || 1) - 1)
+                : (c.members_count || 0) + 1,
+            }
+          : c
+      )
+    );
+
     setJoiningCommId(comm.id);
     try {
-      if (comm.is_member || comm.member_status === "admin") {
+      if (isMember) {
         const res = await api.post(`/api/communities/${comm.id}/leave`);
         setCommunities((prev) =>
           prev.map((c) =>
@@ -123,6 +154,10 @@ export default function RightSidebar() {
         toast.success(res.data.message || `Joined ${comm.name}!`);
       }
     } catch (err: any) {
+      // Revert on failure
+      setCommunities((prev) =>
+        prev.map((c) => (c.id === comm.id ? comm : c))
+      );
       toast.error(err.response?.data?.message || "Failed to update membership");
     } finally {
       setJoiningCommId(null);

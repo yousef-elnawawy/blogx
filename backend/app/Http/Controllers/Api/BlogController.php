@@ -23,6 +23,13 @@ class BlogController extends Controller
         $authUser = $request->user() ?? auth('sanctum')->user();
         $query = Blog::published()->with('user')->withCount('likes');
 
+        if ($authUser) {
+            $blockedIds = $authUser->allBlockedUserIds();
+            if (!empty($blockedIds)) {
+                $query->whereNotIn('user_id', $blockedIds);
+            }
+        }
+
         if ($request->has('tag') && !empty($request->tag)) {
             $tag = $request->tag;
             $query->whereJsonContains('tags', $tag);
@@ -100,10 +107,17 @@ class BlogController extends Controller
     public function featured(Request $request)
     {
         $authUser = $request->user() ?? auth('sanctum')->user();
+        $blockedIds = $authUser ? $authUser->allBlockedUserIds() : [];
 
-        $blog = Blog::published()
+        $query = Blog::published()
             ->whereNotNull('cover_image')
-            ->where('cover_image', '!=', '')
+            ->where('cover_image', '!=', '');
+
+        if (!empty($blockedIds)) {
+            $query->whereNotIn('user_id', $blockedIds);
+        }
+
+        $blog = $query
             ->with('user')
             ->withCount('likes')
             ->orderByRaw('(views_count + (likes_count * 3)) DESC')
@@ -111,7 +125,11 @@ class BlogController extends Controller
             ->first();
 
         if (!$blog) {
-            $blog = Blog::published()
+            $fallbackQuery = Blog::published();
+            if (!empty($blockedIds)) {
+                $fallbackQuery->whereNotIn('user_id', $blockedIds);
+            }
+            $blog = $fallbackQuery
                 ->with('user')
                 ->withCount('likes')
                 ->latest('published_at')
@@ -153,6 +171,11 @@ class BlogController extends Controller
             ->first();
 
         if (!$blog) {
+            return response()->json(['message' => 'Blog post not found'], 404);
+        }
+
+        // Strict Ghost Block Check: if either author or viewer blocked each other, return 404
+        if ($authUser && $authUser->id !== $blog->user_id && $authUser->hasBlockedOrIsBlockedBy($blog->user_id)) {
             return response()->json(['message' => 'Blog post not found'], 404);
         }
 
@@ -458,7 +481,11 @@ class BlogController extends Controller
     public function toggleLike(Request $request, $id)
     {
         $user = $request->user();
-        $blog = Blog::where('id', $id)->firstOrFail();
+        $blog = Blog::where('id', $id)->first();
+
+        if (!$blog || $user->hasBlockedOrIsBlockedBy($blog->user_id)) {
+            return response()->json(['message' => 'Blog post not found'], 404);
+        }
 
         $existing = $blog->likes()->where('user_id', $user->id)->first();
         if ($existing) {
@@ -484,7 +511,11 @@ class BlogController extends Controller
     public function toggleBookmark(Request $request, $id)
     {
         $user = $request->user();
-        $blog = Blog::where('id', $id)->firstOrFail();
+        $blog = Blog::where('id', $id)->first();
+
+        if (!$blog || $user->hasBlockedOrIsBlockedBy($blog->user_id)) {
+            return response()->json(['message' => 'Blog post not found'], 404);
+        }
 
         $existing = Bookmark::where('user_id', $user->id)->where('blog_id', $blog->id)->first();
         if ($existing) {
@@ -505,12 +536,34 @@ class BlogController extends Controller
     }
 
     /**
+     * Upload an inline image for blog content (authenticated).
+     */
+    public function uploadImage(Request $request)
+    {
+        $request->validate([
+            'image' => ['required', 'image', 'mimes:jpeg,png,jpg,webp,gif', 'max:10240'],
+        ]);
+
+        $path = $request->file('image')->store('blogs/inline', 'public');
+        $url = config('app.url') . '/storage/' . $path;
+
+        return response()->json([
+            'url'     => $url,
+            'message' => 'Image uploaded successfully',
+        ]);
+    }
+
+    /**
      * Get user's published blogs.
      */
     public function userBlogs(Request $request, string $username)
     {
         $authUser = $request->user() ?? auth('sanctum')->user();
         $targetUser = User::where('username', $username)->firstOrFail();
+
+        if ($authUser && $authUser->id !== $targetUser->id && $authUser->hasBlockedOrIsBlockedBy($targetUser)) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
 
         $blogs = Blog::where('user_id', $targetUser->id)
             ->published()

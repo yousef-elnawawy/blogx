@@ -304,6 +304,14 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->belongsToMany(User::class, 'blocks', 'blocked_id', 'blocker_id')->withTimestamps();
     }
 
+    public function allBlockedUserIds(): array
+    {
+        return $this->blockedUsers()->pluck('users.id')
+            ->merge($this->blockedByUsers()->pluck('users.id'))
+            ->unique()
+            ->toArray();
+    }
+
     public function isBlocking(int|User $user): bool
     {
         $userId = $user instanceof User ? $user->id : $user;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -289,49 +290,92 @@ export default function LeftSidebar() {
     return item.href;
   };
 
-  const renderNavItem = (item: NavItem) => {
+  const renderNavItem = (item: NavItem, index: number) => {
     const active = isActive(item.href);
     const Icon = item.icon;
     const isNotifications = item.href === "/notifications";
     const isMessages = item.href === "/messages";
 
     return (
-      <li key={item.href}>
+      <motion.li
+        key={item.href}
+        initial={{ opacity: 0, x: -16 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: index * 0.04, duration: 0.28, ease: [0.25, 0.46, 0.45, 0.94] }}
+      >
         <Link
           href={getNavHref(item)}
-          className={`group flex items-center gap-3 rounded-md px-3 py-2 text-[13.5px] transition-all duration-150 ${active
-              ? "bg-primary/10 text-primary font-bold shadow-2xs"
+          className={`group relative flex items-center gap-3 rounded-md px-3 py-2 text-[13.5px] transition-colors duration-150 ${
+            active
+              ? "text-primary font-bold"
               : "text-foreground/80 hover:text-foreground hover:bg-muted/60 font-medium"
-            }`}
+          }`}
         >
-          <div className="relative shrink-0">
-            <Icon
-              className={`size-[19px] transition-transform duration-150 group-hover:scale-105 ${active ? "text-primary stroke-[2.5]" : "text-muted-foreground group-hover:text-foreground"
-                }`}
-              strokeWidth={active ? 2.5 : 2}
+          {/* Active background pill with layout animation */}
+          {active && (
+            <motion.span
+              layoutId="sidebar-active-pill"
+              className="absolute inset-0 rounded-md bg-primary/10 shadow-2xs"
+              transition={{ type: "spring", stiffness: 400, damping: 32 }}
             />
+          )}
+
+          <div className="relative z-10 shrink-0">
+            <motion.div
+              whileHover={{ scale: 1.12 }}
+              whileTap={{ scale: 0.92 }}
+              transition={{ type: "spring", stiffness: 500, damping: 28 }}
+            >
+              <Icon
+                className={`size-[19px] ${
+                  active ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+                }`}
+                strokeWidth={active ? 2.5 : 2}
+              />
+            </motion.div>
             {isNotifications && unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 size-2 rounded-full bg-red-500 ring-2 ring-background" />
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                className="absolute -top-1 -right-1 size-2 rounded-full bg-red-500 ring-2 ring-background"
+              />
             )}
             {isMessages && unreadMessagesCount > 0 && (
-              <span className="absolute -top-1 -right-1 size-2 rounded-full bg-primary ring-2 ring-background" />
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                className="absolute -top-1 -right-1 size-2 rounded-full bg-primary ring-2 ring-background"
+              />
             )}
           </div>
-          <span className="truncate">{item.label}</span>
+
+          <span className="relative z-10 truncate">{item.label}</span>
 
           {isNotifications && unreadCount > 0 && (
-            <span className="ml-auto text-[10px] font-black px-1.5 py-0.2 rounded-full bg-red-500 text-white shadow-2xs">
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="relative z-10 ml-auto text-[10px] font-black px-1.5 py-0.2 rounded-full bg-red-500 text-white shadow-2xs"
+            >
               {unreadCount > 99 ? "99+" : unreadCount}
-            </span>
+            </motion.span>
           )}
 
           {isMessages && unreadMessagesCount > 0 && (
-            <span className="ml-auto text-[10px] font-black px-1.5 py-0.2 rounded-full bg-primary text-primary-foreground shadow-2xs">
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+              className="relative z-10 ml-auto text-[10px] font-black px-1.5 py-0.2 rounded-full bg-primary text-primary-foreground shadow-2xs"
+            >
               {unreadMessagesCount > 99 ? "99+" : unreadMessagesCount}
-            </span>
+            </motion.span>
           )}
         </Link>
-      </li>
+      </motion.li>
     );
   };
 
@@ -351,31 +395,46 @@ export default function LeftSidebar() {
       <nav className="flex-1 px-2 py-2">
         <ul className="space-y-0.5">
           {/* Main Group */}
-          {mainNavItems.map(renderNavItem)}
+          {mainNavItems.map((item, i) => renderNavItem(item, i))}
 
           {/* Divider */}
-          <li className="py-1">
+          <motion.li
+            className="py-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: mainNavItems.length * 0.04, duration: 0.3 }}
+          >
             <div className="border-t border-border/40 mx-2" />
-          </li>
+          </motion.li>
 
           {/* Activity Group */}
-          {activityNavItems.map(renderNavItem)}
+          {activityNavItems.map((item, i) => renderNavItem(item, mainNavItems.length + 1 + i))}
 
           {/* Divider */}
-          <li className="py-1">
+          <motion.li
+            className="py-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: (mainNavItems.length + activityNavItems.length) * 0.04, duration: 0.3 }}
+          >
             <div className="border-t border-border/40 mx-2" />
-          </li>
+          </motion.li>
 
           {/* Saved Group */}
-          {savedNavItems.map(renderNavItem)}
+          {savedNavItems.map((item, i) => renderNavItem(item, mainNavItems.length + activityNavItems.length + 1 + i))}
 
           {/* Divider */}
-          <li className="py-1">
+          <motion.li
+            className="py-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: (mainNavItems.length + activityNavItems.length + savedNavItems.length) * 0.04, duration: 0.3 }}
+          >
             <div className="border-t border-border/40 mx-2" />
-          </li>
+          </motion.li>
 
           {/* Account Group */}
-          {accountNavItems.map(renderNavItem)}
+          {accountNavItems.map((item, i) => renderNavItem(item, mainNavItems.length + activityNavItems.length + savedNavItems.length + 1 + i))}
         </ul>
 
         {/* Action Buttons */}

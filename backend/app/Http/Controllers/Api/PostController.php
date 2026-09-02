@@ -117,19 +117,24 @@ class PostController extends Controller
             'quoteOf.images',
             'community',
             'comments' => function ($query) use ($sort, $user) {
+                $blockedUserIds = $user ? $user->allBlockedUserIds() : [];
+
                 $query->whereNull('parent_id')
-                    ->with(['user', 'replies.user', 'replies.likes', 'likes'])
+                    ->with([
+                        'user',
+                        'replies' => function ($rq) use ($blockedUserIds) {
+                            $rq->with(['user', 'likes']);
+                            if (!empty($blockedUserIds)) {
+                                $rq->whereNotIn('user_id', $blockedUserIds);
+                            }
+                        },
+                        'likes',
+                    ])
                     ->withCount(['likes', 'replies'])
                     ->orderByDesc('is_pinned');
 
-                if ($user) {
-                    $blockedUserIds = $user->blockedUsers()->pluck('users.id')
-                        ->merge($user->blockedByUsers()->pluck('users.id'))
-                        ->unique()
-                        ->toArray();
-                    if (!empty($blockedUserIds)) {
-                        $query->whereNotIn('user_id', $blockedUserIds);
-                    }
+                if (!empty($blockedUserIds)) {
+                    $query->whereNotIn('user_id', $blockedUserIds);
                 }
 
                 if ($sort === 'newest') {
@@ -172,7 +177,7 @@ class PostController extends Controller
         $user = $request->user();
         $post = Post::find($id);
 
-        if (!$post) {
+        if (!$post || $user->hasBlockedOrIsBlockedBy($post->user_id)) {
             return response()->json(['message' => 'Post not found'], 404);
         }
 
@@ -205,7 +210,7 @@ class PostController extends Controller
     {
         $post = Post::find($id);
 
-        if (!$post) {
+        if (!$post || $request->user()->hasBlockedOrIsBlockedBy($post->user_id)) {
             return response()->json(['message' => 'Post not found'], 404);
         }
 
@@ -263,13 +268,13 @@ class PostController extends Controller
     {
         $post = Post::find($id);
 
-        if (!$post) {
+        if (!$post || $request->user()->hasBlockedOrIsBlockedBy($post->user_id)) {
             return response()->json(['message' => 'Post not found'], 404);
         }
 
         $comment = $post->comments()->find($commentId);
 
-        if (!$comment) {
+        if (!$comment || $request->user()->hasBlockedOrIsBlockedBy($comment->user_id)) {
             return response()->json(['message' => 'Comment not found'], 404);
         }
 
@@ -297,13 +302,11 @@ class PostController extends Controller
     public function updateComment(Request $request, $id, $commentId)
     {
         $post = Post::find($id);
-        if (!$post) return response()->json(['message' => 'Post not found'], 404);
+        if (!$post || $request->user()->hasBlockedOrIsBlockedBy($post->user_id)) return response()->json(['message' => 'Post not found'], 404);
 
-        $comment = $post->comments()->find($commentId);
-        if (!$comment) return response()->json(['message' => 'Comment not found'], 404);
-
-        if ($comment->user_id !== $request->user()->id) {
-            return response()->json(['message' => 'Unauthorized to edit this comment'], 403);
+        $comment = $post->comments()->where('user_id', $request->user()->id)->find($commentId);
+        if (!$comment) {
+            return response()->json(['message' => 'Comment not found or unauthorized'], 404);
         }
 
         $validated = $request->validate([
@@ -315,22 +318,27 @@ class PostController extends Controller
             'is_edited' => true,
         ]);
 
+        $comment->load(['user', 'replies.user']);
+        $comment->loadCount('likes');
+
         return response()->json([
             'message' => 'Comment updated successfully',
-            'comment' => $this->formatComment($comment->fresh(['user', 'replies.user']), $request->user()),
+            'comment' => $this->formatComment($comment, $request->user()),
         ]);
     }
 
     /**
-     * Delete a comment (authenticated, comment owner or post owner).
+     * Delete a comment (authenticated, comment owner or post author).
      */
     public function destroyComment(Request $request, $id, $commentId)
     {
         $post = Post::find($id);
-        if (!$post) return response()->json(['message' => 'Post not found'], 404);
+        if (!$post || $request->user()->hasBlockedOrIsBlockedBy($post->user_id)) return response()->json(['message' => 'Post not found'], 404);
 
         $comment = $post->comments()->find($commentId);
-        if (!$comment) return response()->json(['message' => 'Comment not found'], 404);
+        if (!$comment) {
+            return response()->json(['message' => 'Comment not found'], 404);
+        }
 
         $user = $request->user();
         if ($comment->user_id !== $user->id && $post->user_id !== $user->id) {
@@ -346,12 +354,12 @@ class PostController extends Controller
     }
 
     /**
-     * Toggle pin on a comment (authenticated, post owner only).
+     * Toggle pin on a top-level comment (authenticated, post owner only).
      */
     public function togglePinComment(Request $request, $id, $commentId)
     {
         $post = Post::find($id);
-        if (!$post) return response()->json(['message' => 'Post not found'], 404);
+        if (!$post || $request->user()->hasBlockedOrIsBlockedBy($post->user_id)) return response()->json(['message' => 'Post not found'], 404);
 
         if ($post->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Only post author can pin comments'], 403);
@@ -381,7 +389,7 @@ class PostController extends Controller
     public function toggleHeartComment(Request $request, $id, $commentId)
     {
         $post = Post::find($id);
-        if (!$post) return response()->json(['message' => 'Post not found'], 404);
+        if (!$post || $request->user()->hasBlockedOrIsBlockedBy($post->user_id)) return response()->json(['message' => 'Post not found'], 404);
 
         if ($post->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Only post author can heart comments'], 403);
@@ -407,7 +415,7 @@ class PostController extends Controller
         $user = $request->user();
         $post = Post::find($id);
 
-        if (!$post) {
+        if (!$post || $user->hasBlockedOrIsBlockedBy($post->user_id)) {
             return response()->json(['message' => 'Post not found'], 404);
         }
 
@@ -447,10 +455,17 @@ class PostController extends Controller
             }
         }
 
+        $blockedIds = $user->allBlockedUserIds();
+
         $postIds = (clone $bookmarksQuery)->whereNotNull('post_id')->pluck('post_id');
         $blogIds = (clone $bookmarksQuery)->whereNotNull('blog_id')->pluck('blog_id');
 
-        $posts = Post::whereIn('id', $postIds)
+        $postsQuery = Post::whereIn('id', $postIds);
+        if (!empty($blockedIds)) {
+            $postsQuery->whereNotIn('user_id', $blockedIds);
+        }
+
+        $posts = $postsQuery
             ->with(['user', 'images', 'mentions.user'])
             ->withCount(['likes', 'comments'])
             ->latest()
@@ -458,8 +473,12 @@ class PostController extends Controller
             ->map(fn($p) => $this->formatPost($p, $user));
 
         $blogController = new BlogController();
-        $blogs = \App\Models\Blog::whereIn('id', $blogIds)
-            ->published()
+        $blogsQuery = \App\Models\Blog::whereIn('id', $blogIds)->published();
+        if (!empty($blockedIds)) {
+            $blogsQuery->whereNotIn('user_id', $blockedIds);
+        }
+
+        $blogs = $blogsQuery
             ->with('user')
             ->withCount('likes')
             ->latest('published_at')
@@ -481,13 +500,15 @@ class PostController extends Controller
     {
         $user = $request->user();
 
-        $posts = Post::whereHas('likes', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
+        $query = Post::whereHas('likes', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
         })
         ->with(['user', 'images', 'mentions.user'])
-        ->withCount(['likes', 'comments'])
-        ->latest()
-        ->paginate(15);
+        ->withCount(['likes', 'comments']);
+
+        $this->applyGhostAndMuteFilter($query, $user);
+
+        $posts = $query->latest()->paginate(15);
 
         $posts->getCollection()->transform(function ($post) use ($user) {
             return $this->formatPost($post, $user);
@@ -504,12 +525,14 @@ class PostController extends Controller
         $user = $request->user();
         $followingIds = $user->following()->pluck('users.id');
 
-        $posts = Post::whereIn('user_id', $followingIds)
+        $query = Post::whereIn('user_id', $followingIds)
             ->published()
             ->with(['user', 'images', 'mentions.user'])
-            ->withCount(['likes', 'comments'])
-            ->latest()
-            ->paginate(15);
+            ->withCount(['likes', 'comments']);
+
+        $this->applyGhostAndMuteFilter($query, $user);
+
+        $posts = $query->latest()->paginate(15);
 
         $posts->getCollection()->transform(function ($post) use ($user) {
             return $this->formatPost($post, $user);
@@ -525,13 +548,15 @@ class PostController extends Controller
     {
         $user = $request->user();
 
-        $posts = Post::whereHas('mentions', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
+        $query = Post::whereHas('mentions', function ($q) use ($user) {
+            $q->where('user_id', $user->id);
         })
         ->with(['user', 'images', 'mentions.user'])
-        ->withCount(['likes', 'comments'])
-        ->latest()
-        ->paginate(15);
+        ->withCount(['likes', 'comments']);
+
+        $this->applyGhostAndMuteFilter($query, $user);
+
+        $posts = $query->latest()->paginate(15);
 
         $posts->getCollection()->transform(function ($post) use ($user) {
             return $this->formatPost($post, $user);
@@ -685,7 +710,7 @@ class PostController extends Controller
         $user = $request->user();
         $targetPost = Post::find($id);
 
-        if (!$targetPost) {
+        if (!$targetPost || $user->hasBlockedOrIsBlockedBy($targetPost->user_id)) {
             return response()->json(['message' => 'Post not found'], 404);
         }
 
@@ -737,7 +762,7 @@ class PostController extends Controller
         $user = $request->user();
         $targetPost = Post::find($id);
 
-        if (!$targetPost) {
+        if (!$targetPost || $user->hasBlockedOrIsBlockedBy($targetPost->user_id)) {
             return response()->json(['message' => 'Post not found'], 404);
         }
 
@@ -1307,13 +1332,17 @@ class PostController extends Controller
         // Repost of (nested)
         $repostOf = null;
         if ($includeNested && $post->repost_of_id && $post->repostOf) {
-            $repostOf = $this->formatPost($post->repostOf, $user, false);
+            if (!$user || !$user->hasBlockedOrIsBlockedBy($post->repostOf->user_id)) {
+                $repostOf = $this->formatPost($post->repostOf, $user, false);
+            }
         }
 
         // Quote of (nested)
         $quoteOf = null;
         if ($includeNested && $post->quote_of_id && $post->quoteOf) {
-            $quoteOf = $this->formatPost($post->quoteOf, $user, false);
+            if (!$user || !$user->hasBlockedOrIsBlockedBy($post->quoteOf->user_id)) {
+                $quoteOf = $this->formatPost($post->quoteOf, $user, false);
+            }
         }
 
         // Community

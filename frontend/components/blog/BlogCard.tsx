@@ -8,6 +8,7 @@ import VerifiedBadge from "@/components/ui/VerifiedBadge";
 import UserBadges from "@/components/ui/UserBadges";
 import ShareDialog from "@/components/post/ShareDialog";
 import SaveToCollectionDialog from "@/components/bookmarks/SaveToCollectionDialog";
+import LikeHeartButton from "@/components/ui/LikeHeartButton";
 import {
   Clock,
   Heart,
@@ -124,9 +125,10 @@ export default function BlogCard({
       return;
     }
     if (bookmarking) return;
-    setBookmarking(true);
 
     const prevSaved = isBookmarked;
+    setIsBookmarked(!prevSaved);
+    setBookmarking(true);
 
     try {
       const res = await api.post(`/api/blogs/${blog.id}/bookmark`);
@@ -231,17 +233,13 @@ export default function BlogCard({
               )}
 
               {!isDraft && (
-                <button
-                  type="button"
+                <LikeHeartButton
+                  isLiked={isLiked}
+                  likesCount={likesCount}
                   onClick={handleLike}
-                  className={`inline-flex items-center gap-1 cursor-pointer transition-colors ${
-                    isLiked ? "text-rose-500 font-bold" : "hover:text-rose-500"
-                  }`}
-                  aria-label="Like"
-                >
-                  <Heart className={`size-3.5 ${isLiked ? "fill-current" : ""}`} />
-                  <span>{formatCount(likesCount)}</span>
-                </button>
+                  size="sm"
+                  className="py-0.5 px-2 h-7"
+                />
               )}
             </div>
 

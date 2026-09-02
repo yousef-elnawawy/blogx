@@ -25,8 +25,9 @@ class NoteController extends Controller
             ->latest('updated_at');
 
         if ($currentUser) {
+            $blockedIds = $currentUser->allBlockedUserIds();
             $followingIds = $currentUser->following()->pluck('following_id')->toArray();
-            $allowedUserIds = array_merge([$currentUser->id], $followingIds);
+            $allowedUserIds = array_diff(array_merge([$currentUser->id], $followingIds), $blockedIds);
             $query->whereIn('user_id', $allowedUserIds);
         }
 

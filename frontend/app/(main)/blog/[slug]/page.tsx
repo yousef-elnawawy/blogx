@@ -399,6 +399,7 @@ export default function BlogDetailPage() {
     if (!blog || isBookmarking) return;
 
     const prevBookmarked = bookmarked;
+    setBookmarked(!prevBookmarked);
     setIsBookmarking(true);
 
     try {

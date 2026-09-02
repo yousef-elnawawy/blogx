@@ -41,6 +41,8 @@ import CodeSnippetBlock from "@/components/post/CodeSnippetBlock";
 import CustomVideoPlayer from "@/components/video/CustomVideoPlayer";
 import SaveToCollectionDialog from "@/components/bookmarks/SaveToCollectionDialog";
 import RichPostContent from "@/components/post/RichPostContent";
+import LikeHeartButton from "@/components/ui/LikeHeartButton";
+import { motion } from "motion/react";
 import api from "@/lib/api";
 
 export interface PostCardProps {
@@ -483,6 +485,8 @@ export default function PostCard({
     if (isBookmarking) return;
 
     const previousBookmarked = bookmarked;
+    const nextBookmarked = !previousBookmarked;
+    setBookmarked(nextBookmarked);
     setIsBookmarking(true);
 
     api
@@ -827,27 +831,19 @@ export default function PostCard({
                   )}
 
                   {/* Like */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <LikeHeartButton
+                    isLiked={liked}
+                    likesCount={likeCount}
                     onClick={handleLike}
-                    className={cn(
-                      "h-8 px-2 gap-1.5 text-xs font-medium rounded-md transition-colors",
-                      liked
-                        ? "text-brand-like hover:text-brand-like hover:bg-brand-like-subtle"
-                        : "text-[#78716C] hover:text-brand-like hover:bg-brand-like-subtle"
-                    )}
-                  >
-                    <Heart className={cn("size-[16px]", liked && "fill-current")} />
-                    {likeCount > 0 && <span>{formatCount(likeCount)}</span>}
-                  </Button>
+                    size="sm"
+                  />
 
                   {/* Views */}
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                    className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-primary hover:bg-primary/10 rounded-md transition-colors"
+                    className="h-8 px-2 gap-1.5 text-xs font-medium text-[#78716C] hover:text-primary hover:bg-primary/10 rounded-full transition-colors"
                   >
                     <BarChart3 className="size-[16px]" />
                     <span>{formatCount(viewCount)}</span>
@@ -855,35 +851,39 @@ export default function PostCard({
                 </div>
 
                 {/* Right actions */}
-                <div className="flex items-center gap-0">
+                <div className="flex items-center gap-1">
                   {/* Bookmark */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.15 }}
+                    whileTap={{ scale: 0.85 }}
                     onClick={handleBookmark}
                     className={cn(
-                      "h-8 px-2 rounded-md transition-colors",
+                      "size-8 flex items-center justify-center rounded-full transition-colors duration-200 cursor-pointer outline-none",
                       bookmarked
-                        ? "text-brand-bookmark hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
-                        : "text-[#78716C] hover:text-brand-bookmark hover:bg-brand-bookmark-subtle"
+                        ? "text-blue-600 dark:text-blue-400 bg-blue-500/10 hover:bg-blue-500/20"
+                        : "text-muted-foreground hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/10"
                     )}
+                    aria-label={bookmarked ? "Remove Bookmark" : "Bookmark"}
                   >
-                    <Bookmark className={cn("size-[16px]", bookmarked && "fill-current")} />
-                  </Button>
+                    <Bookmark className={cn("size-4", bookmarked && "fill-current")} />
+                  </motion.button>
 
                   {/* Share */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <motion.button
+                    type="button"
+                    whileHover={{ scale: 1.15 }}
+                    whileTap={{ scale: 0.85 }}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       setShareDialogOpen(true);
                     }}
-                    className="h-8 px-2 text-[#78716C] hover:text-cyan-500 hover:bg-cyan-500/10 rounded-md transition-colors"
+                    className="size-8 flex items-center justify-center rounded-full text-muted-foreground hover:text-cyan-500 hover:bg-cyan-500/10 transition-colors duration-200 cursor-pointer outline-none"
+                    aria-label="Share"
                   >
-                    <Share2 className="size-[16px]" />
-                  </Button>
+                    <Share2 className="size-4" />
+                  </motion.button>
                 </div>
               </div>
             </div>
@@ -1086,6 +1086,14 @@ export default function PostCard({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Lightbox Fullscreen Modal */}
+      <ImageLightbox
+        images={effectivePost.images || images || []}
+        initialIndex={lightboxIndex}
+        open={lightboxOpen}
+        onClose={() => setLightboxOpen(false)}
+      />
     </>
   );
 }

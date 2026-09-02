@@ -151,6 +151,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Blogs & Drafts
     Route::post('/blogs', [BlogController::class, 'store']);
+    Route::post('/blogs/upload-image', [BlogController::class, 'uploadImage']);
     Route::post('/blogs/{id}', [BlogController::class, 'update']);
     Route::delete('/blogs/{id}', [BlogController::class, 'destroy']);
     Route::post('/blogs/{id}/like', [BlogController::class, 'toggleLike']);
