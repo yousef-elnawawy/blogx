@@ -307,6 +307,7 @@ export default function ConversationDetailPage() {
   const emojiPickerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLInputElement>(null);
   const isInitialLoadedRef = useRef(false);
+  const scrollThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isScrollReady, setIsScrollReady] = useState(false);
 
   const otherUser = conversation?.user;
@@ -335,19 +336,22 @@ export default function ConversationDetailPage() {
   // Fetch Conversation Data
   const loadConversation = useCallback(async () => {
     if (!convId) return;
+    // Reset BEFORE fetch so the layout effect can re-trigger on new data
+    isInitialLoadedRef.current = false;
+    setIsScrollReady(false);
+    setMessages([]);
+    setLoading(true);
     try {
-      setLoading(true);
-      isInitialLoadedRef.current = false;
-      setIsScrollReady(false);
       const data = await messagesService.getConversation(convId, { limit: 30 });
+      // All updates in one block so React 18 batches them into a single render
       setConversation(data.conversation);
       setMessages(data.messages || []);
       setHasMore(Boolean(data.has_more));
       setIsFollowing(data.is_following);
+      setLoading(false);
     } catch (err: any) {
       console.error("Failed to load conversation:", err);
       toast.error(err.response?.data?.message || "Failed to load conversation.");
-    } finally {
       setLoading(false);
     }
   }, [convId]);
@@ -357,37 +361,85 @@ export default function ConversationDetailPage() {
     oldScrollHeight: 0,
     oldScrollTop: 0,
   });
+  const oldestMsgIdRef = useRef<number | undefined>(undefined);
+  const hasMoreRef = useRef(hasMore);
+  const loadingMoreRef = useRef(loadingMore);
+  // Track if user was near the bottom before any DOM resize
+  const isNearBottomRef = useRef(true);
+  // Track if user has initiated a manual scroll to prevent auto-pagination on initial load
+  const hasUserScrolledRef = useRef(false);
 
-  // ── Master layout effect: runs synchronously before every paint ──
-  // Handles BOTH initial scroll-to-bottom AND pagination scroll-restoration.
-  // This prevents any flash of content at the wrong scroll position.
+  // Keep refs in sync
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+  useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
+  useEffect(() => {
+    if (messages.length > 0) {
+      oldestMsgIdRef.current = messages[0]?.id;
+    }
+  }, [messages]);
+
+  // ── Synchronous layout effect before paint ──
   useLayoutEffect(() => {
     const container = messagesContainerRef.current;
     if (!container || messages.length === 0) return;
 
     if (isPaginatingRef.current) {
-      // Restore scroll after prepending older messages
+      // Restore scroll precisely after prepending older messages
       const { oldScrollHeight, oldScrollTop } = scrollOffsetRef.current;
       container.scrollTop = container.scrollHeight - oldScrollHeight + oldScrollTop;
       isPaginatingRef.current = false;
     } else if (!isInitialLoadedRef.current && !loading) {
-      // Initial load: jump to bottom before paint so user never sees top
+      // Initial load: jump straight to bottom
       container.scrollTop = container.scrollHeight;
       isInitialLoadedRef.current = true;
+      isNearBottomRef.current = true;
       setIsScrollReady(true);
     }
-  }, [messages, loading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, messages.length]);
 
-  // Load older messages on scroll up
-  const loadOlderMessages = useCallback(async () => {
-    if (!hasMore || loadingMore || messages.length === 0 || !convId || !isInitialLoadedRef.current) return;
+  // ── ResizeObserver to keep chat glued to bottom when images, avatars, or embeds expand ──
+  useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container) return;
 
-    const oldestMsgId = messages[0]?.id;
+    const ro = new ResizeObserver(() => {
+      // If we are prepending messages (paginating), don't auto-scroll to bottom
+      if (isPaginatingRef.current) return;
+
+      // If user is at or near bottom (or still in initial load phase), keep pinned to bottom
+      if (isNearBottomRef.current || !isInitialLoadedRef.current) {
+        container.scrollTop = container.scrollHeight;
+      }
+    });
+
+    // Observe container and children
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, []);
+
+  // Load older messages on scroll up — safe and stable
+  const loadOlderMessages = useCallback(async () => {
+    if (
+      !hasMoreRef.current ||
+      loadingMoreRef.current ||
+      !convId ||
+      !isInitialLoadedRef.current ||
+      !hasUserScrolledRef.current
+    ) {
+      return;
+    }
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    // Only load if there's actually enough content to scroll
+    if (container.scrollHeight <= container.clientHeight + 100) return;
+
+    const oldestMsgId = oldestMsgIdRef.current;
 
     try {
       setLoadingMore(true);
+      loadingMoreRef.current = true;
       const data = await messagesService.getConversation(convId, {
         before_id: oldestMsgId,
         limit: 25,
@@ -406,37 +458,59 @@ export default function ConversationDetailPage() {
           return [...filteredOld, ...prev];
         });
         setHasMore(Boolean(data.has_more));
+        hasMoreRef.current = Boolean(data.has_more);
       } else {
         setHasMore(false);
+        hasMoreRef.current = false;
       }
     } catch (err) {
       console.error("Failed to load older messages:", err);
     } finally {
       setLoadingMore(false);
+      loadingMoreRef.current = false;
     }
-  }, [hasMore, loadingMore, messages, convId]);
+  }, [convId]);
 
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     const container = messagesContainerRef.current;
     if (!container || !isInitialLoadedRef.current) return;
 
-    if (container.scrollTop <= 60 && hasMore && !loadingMore) {
-      loadOlderMessages();
-    }
+    hasUserScrolledRef.current = true;
 
     const distanceFromBottom =
       container.scrollHeight - container.scrollTop - container.clientHeight;
+
+    // If within 100px from bottom, consider user "near bottom"
+    isNearBottomRef.current = distanceFromBottom <= 100;
+
+    // Trigger pagination when user scrolls near top
+    if (
+      container.scrollTop <= 60 &&
+      hasMoreRef.current &&
+      !loadingMoreRef.current &&
+      container.scrollHeight > container.clientHeight + 100
+    ) {
+      if (!scrollThrottleRef.current) {
+        scrollThrottleRef.current = setTimeout(() => {
+          scrollThrottleRef.current = null;
+          loadOlderMessages();
+        }, 300);
+      }
+    }
+
     if (distanceFromBottom > 220) {
       setShowScrollBottomButton(true);
     } else {
       setShowScrollBottomButton(false);
       setNewMessagesWhileScrolled(0);
     }
-  };
+  }, [loadOlderMessages]);
 
   useEffect(() => {
     if (currentUser && convId) {
       isInitialLoadedRef.current = false;
+      hasUserScrolledRef.current = false;
+      isNearBottomRef.current = true;
       loadConversation();
     }
   }, [currentUser, convId, loadConversation]);
@@ -572,6 +646,7 @@ export default function ConversationDetailPage() {
       convChannel.stopListening(".UserTyping");
       convChannel.stopListening(".MessageReactionUpdated");
       if (otherTypingTimeoutRef.current) clearTimeout(otherTypingTimeoutRef.current);
+      if (scrollThrottleRef.current) clearTimeout(scrollThrottleRef.current);
     };
   }, [currentUser, convId, scrollToBottom]);
 
@@ -904,7 +979,8 @@ export default function ConversationDetailPage() {
   const avatarSrc = getAvatarUrl(otherUser?.avatar);
 
   return (
-    <div className="flex flex-col h-screen max-h-[100dvh] bg-background relative overflow-hidden">
+    <div className="flex flex-col bg-background relative overflow-hidden border-x border-border/50"
+         style={{ height: "100dvh" }}>
       {/* ── Header ── */}
       <div className="flex items-center justify-between px-3 sm:px-5 py-3 border-b border-border/70 bg-card/80 backdrop-blur-md shrink-0 z-30 shadow-2xs">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -1123,7 +1199,7 @@ export default function ConversationDetailPage() {
         <div
           ref={messagesContainerRef}
           onScroll={handleScroll}
-          style={{ overflowAnchor: "none", visibility: isScrollReady ? "visible" : "hidden" }}
+          style={{ visibility: isScrollReady ? "visible" : "hidden" }}
           className="absolute inset-0 overflow-y-auto p-3 sm:p-5 space-y-4 select-text"
         >
           {/* Loading More Spinner (pagination) */}
@@ -1153,6 +1229,8 @@ export default function ConversationDetailPage() {
           messages.map((msg, index) => {
             const isMe = Number(msg.sender_id) === Number(currentUser?.id);
             const isHighlighted = highlightedMsgId === msg.id;
+            // Only animate the very last message (newly sent/received)
+            const isNewest = index === messages.length - 1;
 
             // Date separator check
             const currentDateKey = getMessageDateKey(msg.created_at);
@@ -1162,27 +1240,22 @@ export default function ConversationDetailPage() {
 
             return (
               <motion.div
-                key={`msg-${msg.id}-${index}`}
+                key={`msg-${msg.id}`}
                 id={`msg-${msg.id}`}
-                initial={{ opacity: 0, x: isMe ? 20 : -20, scale: 0.96 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                transition={{ type: "spring", stiffness: 380, damping: 28, mass: 0.8 }}
+                initial={isNewest ? { opacity: 0, x: isMe ? 16 : -16, scale: 0.97 } : false}
+                animate={isNewest ? { opacity: 1, x: 0, scale: 1 } : undefined}
+                transition={{ type: "spring", stiffness: 400, damping: 30, mass: 0.7 }}
                 className={`space-y-2 ${
                   isHighlighted ? "bg-primary/10 rounded-2xl p-2 ring-2 ring-primary/40" : ""
                 }`}
               >
                 {/* ── Date Divider ── */}
                 {showDateHeader && (
-                  <motion.div
-                    className="flex justify-center my-4"
-                    initial={{ opacity: 0, y: -6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.25 }}
-                  >
+                  <div className="flex justify-center my-4">
                     <span className="px-3 py-1 rounded-full bg-muted/80 backdrop-blur-sm border border-border/60 text-[11px] font-semibold text-muted-foreground shadow-2xs">
                       {formatMessageDateHeader(msg.created_at)}
                     </span>
-                  </motion.div>
+                  </div>
                 )}
 
                 {/* ── Message Bubble & Actions Wrapper ── */}
