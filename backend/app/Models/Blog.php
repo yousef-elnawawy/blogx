@@ -72,6 +72,11 @@ class Blog extends Model
         return $this->belongsTo(Series::class);
     }
 
+    public function annotations()
+    {
+        return $this->hasMany(BlogAnnotation::class);
+    }
+
     // Helpers
     public function isLikedBy(?User $user)
     {

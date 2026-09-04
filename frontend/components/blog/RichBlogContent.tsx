@@ -15,6 +15,7 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function parseTimeToSeconds(timeStr: string): number {
   const parts = timeStr.split(":").map(Number);
@@ -170,11 +171,167 @@ function formatInlineText(text: string): React.ReactNode {
   });
 }
 
-export function RichBlogContent({ content }: { content: string }) {
+export interface BlogAnnotationData {
+  id: number;
+  blog_id: number;
+  user_id: number;
+  highlighted_text: string;
+  note?: string | null;
+  color?: string;
+  user?: any;
+  is_mine?: boolean;
+}
+
+export interface RichBlogContentProps {
+  content: string;
+  annotations?: BlogAnnotationData[];
+  activeSentenceText?: string | null;
+  onAnnotationClick?: (annotation: BlogAnnotationData) => void;
+}
+
+function renderHighlightedText(
+  text: string,
+  annotations: BlogAnnotationData[] = [],
+  activeSentenceText?: string | null,
+  onAnnotationClick?: (annotation: BlogAnnotationData) => void
+): React.ReactNode {
+  if (!text) return null;
+
+  // If no annotations and no active sentence, return standard formatted inline text
+  const matchingAnnotations = (annotations || []).filter(
+    (a) => a.highlighted_text && text.includes(a.highlighted_text)
+  );
+
+  const hasActiveSentence = Boolean(activeSentenceText && text.includes(activeSentenceText));
+
+  if (matchingAnnotations.length === 0 && !hasActiveSentence) {
+    return formatInlineText(text);
+  }
+
+  // Sort annotations by length (descending) to avoid partial sub-matches
+  const sortedAnnotations = [...matchingAnnotations].sort(
+    (a, b) => b.highlighted_text.length - a.highlighted_text.length
+  );
+
+  let segments: Array<{ text: string; isSentence?: boolean; annotation?: BlogAnnotationData }> = [
+    { text },
+  ];
+
+  // 1. Mark active sentence segments
+  if (hasActiveSentence && activeSentenceText) {
+    const nextSegs: typeof segments = [];
+    for (const seg of segments) {
+      if (seg.text.includes(activeSentenceText)) {
+        const parts = seg.text.split(activeSentenceText);
+        for (let pIdx = 0; pIdx < parts.length; pIdx++) {
+          if (parts[pIdx]) nextSegs.push({ text: parts[pIdx] });
+          if (pIdx < parts.length - 1) {
+            nextSegs.push({ text: activeSentenceText, isSentence: true });
+          }
+        }
+      } else {
+        nextSegs.push(seg);
+      }
+    }
+    segments = nextSegs;
+  }
+
+  // 2. Mark annotation highlights
+  for (const annot of sortedAnnotations) {
+    const query = annot.highlighted_text;
+    const nextSegs: typeof segments = [];
+    for (const seg of segments) {
+      if (!seg.annotation && seg.text.includes(query)) {
+        const parts = seg.text.split(query);
+        for (let pIdx = 0; pIdx < parts.length; pIdx++) {
+          if (parts[pIdx]) nextSegs.push({ text: parts[pIdx], isSentence: seg.isSentence });
+          if (pIdx < parts.length - 1) {
+            nextSegs.push({ text: query, annotation: annot, isSentence: seg.isSentence });
+          }
+        }
+      } else {
+        nextSegs.push(seg);
+      }
+    }
+    segments = nextSegs;
+  }
+
+  return segments.map((seg, sIdx) => {
+    let node: React.ReactNode = formatInlineText(seg.text);
+
+    if (seg.annotation) {
+      const annot = seg.annotation;
+      node = (
+        <mark
+          key={`mark-${sIdx}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onAnnotationClick?.(annot);
+          }}
+          className={cn(
+            "rounded-xs px-1 py-0.5 cursor-pointer transition-all duration-200 border-b-2 font-normal",
+            annot.color === "emerald" &&
+              "bg-emerald-400/25 dark:bg-emerald-500/25 border-emerald-500 hover:bg-emerald-400/40 text-foreground",
+            annot.color === "sky" &&
+              "bg-sky-400/25 dark:bg-sky-500/25 border-sky-500 hover:bg-sky-400/40 text-foreground",
+            annot.color === "rose" &&
+              "bg-rose-400/25 dark:bg-rose-500/25 border-rose-500 hover:bg-rose-400/40 text-foreground",
+            annot.color === "purple" &&
+              "bg-purple-400/25 dark:bg-purple-500/25 border-purple-500 hover:bg-purple-400/40 text-foreground",
+            (!annot.color || annot.color === "amber") &&
+              "bg-amber-400/25 dark:bg-amber-500/25 border-amber-500 hover:bg-amber-400/40 text-foreground"
+          )}
+          title={annot.note ? `Note: "${annot.note}"` : "Reader Highlight (click to view)"}
+        >
+          {node}
+        </mark>
+      );
+    }
+
+    if (seg.isSentence) {
+      node = (
+        <span
+          key={`sent-${sIdx}`}
+          className="bg-primary/15 dark:bg-primary/25 rounded-md px-1 py-0.5 ring-1 ring-primary/40 transition-all duration-300"
+        >
+          {node}
+        </span>
+      );
+    }
+
+    return <React.Fragment key={sIdx}>{node}</React.Fragment>;
+  });
+}
+
+export function RichBlogContent({
+  content,
+  annotations = [],
+  activeSentenceText = null,
+  onAnnotationClick,
+}: RichBlogContentProps) {
   if (!content) return null;
 
   const lines = content.split("\n");
   const elements: React.ReactNode[] = [];
+  const seenSlugs: Record<string, number> = {};
+
+  const getHeadingSlug = (rawText: string): string => {
+    const cleanText = rawText
+      .replace(/\*\*|__|\*|_|`|\[(.*?)\]\(.*?\)/g, "$1")
+      .trim();
+    let slug = cleanText
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}]+/gu, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!slug) slug = "section";
+    if (seenSlugs[slug]) {
+      seenSlugs[slug]++;
+      slug = `${slug}-${seenSlugs[slug]}`;
+    } else {
+      seenSlugs[slug] = 1;
+    }
+    return `heading-${slug}`;
+  };
 
   let inCodeBlock = false;
   let codeLanguage = "text";
@@ -375,36 +532,51 @@ export function RichBlogContent({ content }: { content: string }) {
       continue;
     }
 
-    // 7. Headings with Fraunces font
+    // 7. Headings with Fraunces font & Anchor IDs
     if (line.startsWith("### ")) {
+      const headingRaw = line.replace(/^###\s+/, "");
+      const headingId = getHeadingSlug(headingRaw);
       elements.push(
         <h3
           key={index}
-          className="text-lg sm:text-xl font-bold text-foreground mt-8 mb-2 font-[family-name:var(--font-fraunces)]"
+          id={headingId}
+          className="text-lg sm:text-xl font-bold text-foreground mt-8 mb-2 font-[family-name:var(--font-fraunces)] scroll-mt-24 group"
         >
-          {formatInlineText(line.replace(/^###\s+/, ""))}
+          <a href={`#${headingId}`} className="hover:underline">
+            {formatInlineText(headingRaw)}
+          </a>
         </h3>
       );
       continue;
     }
     if (line.startsWith("## ")) {
+      const headingRaw = line.replace(/^##\s+/, "");
+      const headingId = getHeadingSlug(headingRaw);
       elements.push(
         <h2
           key={index}
-          className="text-xl sm:text-2xl font-bold text-foreground mt-10 mb-3 font-[family-name:var(--font-fraunces)]"
+          id={headingId}
+          className="text-xl sm:text-2xl font-bold text-foreground mt-10 mb-3 font-[family-name:var(--font-fraunces)] scroll-mt-24 group"
         >
-          {formatInlineText(line.replace(/^##\s+/, ""))}
+          <a href={`#${headingId}`} className="hover:underline">
+            {formatInlineText(headingRaw)}
+          </a>
         </h2>
       );
       continue;
     }
     if (line.startsWith("# ")) {
+      const headingRaw = line.replace(/^#\s+/, "");
+      const headingId = getHeadingSlug(headingRaw);
       elements.push(
         <h1
           key={index}
-          className="text-2xl sm:text-3xl font-extrabold text-foreground mt-12 mb-4 font-[family-name:var(--font-fraunces)]"
+          id={headingId}
+          className="text-2xl sm:text-3xl font-extrabold text-foreground mt-12 mb-4 font-[family-name:var(--font-fraunces)] scroll-mt-24 group"
         >
-          {formatInlineText(line.replace(/^#\s+/, ""))}
+          <a href={`#${headingId}`} className="hover:underline">
+            {formatInlineText(headingRaw)}
+          </a>
         </h1>
       );
       continue;
@@ -475,7 +647,12 @@ export function RichBlogContent({ content }: { content: string }) {
           key={index}
           className="ml-5 list-disc text-[15px] sm:text-base leading-relaxed text-foreground/90 my-1"
         >
-          {formatInlineText(line.replace(/^[-*]\s+/, ""))}
+          {renderHighlightedText(
+            line.replace(/^[-*]\s+/, ""),
+            annotations,
+            activeSentenceText,
+            onAnnotationClick
+          )}
         </li>
       );
       continue;
@@ -488,7 +665,12 @@ export function RichBlogContent({ content }: { content: string }) {
           key={index}
           className="ml-5 list-decimal text-[15px] sm:text-base leading-relaxed text-foreground/90 my-1"
         >
-          {formatInlineText(line.replace(/^\d+\.\s+/, ""))}
+          {renderHighlightedText(
+            line.replace(/^\d+\.\s+/, ""),
+            annotations,
+            activeSentenceText,
+            onAnnotationClick
+          )}
         </li>
       );
       continue;
@@ -500,10 +682,10 @@ export function RichBlogContent({ content }: { content: string }) {
       continue;
     }
 
-    // 14. Standard paragraph
+    // 14. Standard paragraph with Highlights & Active Sentence
     elements.push(
       <p key={index} className="text-[15px] sm:text-base leading-relaxed text-foreground/90 my-2.5">
-        {formatInlineText(line)}
+        {renderHighlightedText(line, annotations, activeSentenceText, onAnnotationClick)}
       </p>
     );
   }

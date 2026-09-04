@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,11 +19,13 @@ import {
   Pencil,
   Trash2,
   Loader2,
-  Lock,
   MoreHorizontal,
+  Headphones,
+  Highlighter,
+  Sparkles,
 } from "lucide-react";
 import { getAvatarUrl, getAvatarGradient, getInitials, cn } from "@/lib/utils";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
 import api from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -45,6 +47,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import RichBlogContent from "@/components/blog/RichBlogContent";
 import SeriesNavigationBanner from "@/components/blog/SeriesNavigationBanner";
+import BlogReadingProgressBar from "@/components/blog/BlogReadingProgressBar";
+import BlogTableOfContents from "@/components/blog/BlogTableOfContents";
+import BlogAudioPlayer from "@/components/blog/BlogAudioPlayer";
+import BlogTextSelectionToolbar from "@/components/blog/BlogTextSelectionToolbar";
+import BlogAnnotationsDrawer, { AnnotationItem } from "@/components/blog/BlogAnnotationsDrawer";
+import BlogQuotePostModal from "@/components/blog/BlogQuotePostModal";
 
 export interface BlogDetail {
   id: number;
@@ -59,6 +67,7 @@ export interface BlogDetail {
   views_count: number;
   likes_count: number;
   is_liked?: boolean;
+  is_bookmarked?: boolean;
   published_at: string | null;
   created_at: string | null;
   series?: any;
@@ -78,235 +87,13 @@ function formatCount(num: number): string {
   return String(num);
 }
 
-function formatInlineText(text: string) {
-  // Bold, italic, inline code, and links
-  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`|\[.*?\]\(.*?\))/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) {
-      return <strong key={i} className="font-bold text-foreground">{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith("*") && part.endsWith("*")) {
-      return <em key={i} className="italic">{part.slice(1, -1)}</em>;
-    }
-    if (part.startsWith("`") && part.endsWith("`")) {
-      return (
-        <code key={i} className="px-1.5 py-0.5 rounded-md bg-muted text-xs font-mono text-primary font-semibold">
-          {part.slice(1, -1)}
-        </code>
-      );
-    }
-    const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/);
-    if (linkMatch) {
-      return (
-        <a
-          key={i}
-          href={linkMatch[2]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary underline hover:text-primary/80 font-medium"
-        >
-          {linkMatch[1]}
-        </a>
-      );
-    }
-    return part;
-  });
-}
-
-function renderBlogContent(content: string) {
-  if (!content) return null;
-
-  const lines = content.split("\n");
-  const elements: React.ReactNode[] = [];
-  let inCodeBlock = false;
-  let codeBuffer: string[] = [];
-  let inTable = false;
-  let tableRows: string[][] = [];
-
-  const flushTable = (key: string | number) => {
-    if (tableRows.length === 0) return;
-    const headerRow = tableRows[0];
-    const bodyRows = tableRows.slice(1);
-
-    elements.push(
-      <div key={`table-${key}`} className="my-6 overflow-x-auto rounded-lg border border-border/70 shadow-2xs">
-        <table className="w-full text-left text-sm border-collapse">
-          <thead className="bg-muted/70 text-foreground font-bold border-b border-border/80">
-            <tr>
-              {headerRow.map((cell, cIdx) => (
-                <th key={cIdx} className="px-4 py-3 border-r last:border-r-0 border-border/50 text-xs sm:text-sm">
-                  {formatInlineText(cell.trim())}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/50 bg-card">
-            {bodyRows.map((row, rIdx) => (
-              <tr key={rIdx} className="hover:bg-muted/30 transition-colors">
-                {row.map((cell, cIdx) => (
-                  <td key={cIdx} className="px-4 py-3 border-r last:border-r-0 border-border/40 text-xs sm:text-sm text-foreground/90">
-                    {formatInlineText(cell.trim())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-    tableRows = [];
-    inTable = false;
-  };
-
-  for (let index = 0; index < lines.length; index++) {
-    const line = lines[index];
-
-    // Code block check
-    if (line.startsWith("```")) {
-      if (inCodeBlock) {
-        elements.push(
-          <div key={index} className="my-6 rounded-lg overflow-hidden border border-border/70 bg-zinc-950 dark:bg-zinc-900 text-zinc-100 p-4 font-mono text-xs sm:text-sm leading-relaxed overflow-x-auto shadow-sm">
-            <pre>{codeBuffer.join("\n")}</pre>
-          </div>
-        );
-        codeBuffer = [];
-        inCodeBlock = false;
-      } else {
-        inCodeBlock = true;
-      }
-      continue;
-    }
-
-    if (inCodeBlock) {
-      codeBuffer.push(line);
-      continue;
-    }
-
-    // Markdown Table check: | col 1 | col 2 |
-    if (line.trim().startsWith("|") && line.trim().endsWith("|")) {
-      // separator row check: | --- | --- |
-      if (line.includes("---")) {
-        // Just header separator, ignore
-        continue;
-      }
-      inTable = true;
-      const rawCols = line.trim().slice(1, -1).split("|");
-      tableRows.push(rawCols);
-      continue;
-    } else if (inTable) {
-      flushTable(index);
-    }
-
-    // Headers with Fraunces font
-    if (line.startsWith("### ")) {
-      elements.push(
-        <h3 key={index} className="text-lg sm:text-xl font-bold text-foreground mt-6 mb-2 font-[family-name:var(--font-fraunces)]">
-          {formatInlineText(line.replace(/^###\s+/, ""))}
-        </h3>
-      );
-      continue;
-    }
-    if (line.startsWith("## ")) {
-      elements.push(
-        <h2 key={index} className="text-xl sm:text-2xl font-bold text-foreground mt-8 mb-3 font-[family-name:var(--font-fraunces)]">
-          {formatInlineText(line.replace(/^##\s+/, ""))}
-        </h2>
-      );
-      continue;
-    }
-    if (line.startsWith("# ")) {
-      elements.push(
-        <h1 key={index} className="text-2xl sm:text-3xl font-extrabold text-foreground mt-10 mb-4 font-[family-name:var(--font-fraunces)]">
-          {formatInlineText(line.replace(/^#\s+/, ""))}
-        </h1>
-      );
-      continue;
-    }
-
-    // Blockquote / Callout
-    if (line.startsWith("> ")) {
-      elements.push(
-        <blockquote
-          key={index}
-          className="border-l-3 border-primary pl-4 py-2 my-4 italic text-foreground/85 bg-primary/5 rounded-r-md"
-        >
-          {formatInlineText(line.replace(/^>\s+/, ""))}
-        </blockquote>
-      );
-      continue;
-    }
-
-    // Divider
-    if (line.trim() === "---" || line.trim() === "***") {
-      elements.push(<hr key={index} className="my-8 border-border/60" />);
-      continue;
-    }
-
-    // Image markdown: ![alt](url)
-    const imgMatch = line.match(/^!\[(.*?)\]\((.*?)\)$/);
-    if (imgMatch) {
-      const alt = imgMatch[1];
-      const src = imgMatch[2];
-      elements.push(
-        <figure key={index} className="my-6">
-          <img
-            src={src}
-            alt={alt}
-            className="w-full max-h-[500px] object-cover rounded-lg border border-border/60"
-          />
-          {alt && alt !== "image" && (
-            <figcaption className="text-center text-xs text-muted-foreground mt-2">
-              {alt}
-            </figcaption>
-          )}
-        </figure>
-      );
-      continue;
-    }
-
-    // Lists
-    if (line.match(/^[-*]\s+/)) {
-      elements.push(
-        <li key={index} className="ml-5 list-disc text-[15px] sm:text-base leading-relaxed text-foreground/90 my-1">
-          {formatInlineText(line.replace(/^[-*]\s+/, ""))}
-        </li>
-      );
-      continue;
-    }
-
-    if (line.match(/^\d+\.\s+/)) {
-      elements.push(
-        <li key={index} className="ml-5 list-decimal text-[15px] sm:text-base leading-relaxed text-foreground/90 my-1">
-          {formatInlineText(line.replace(/^\d+\.\s+/, ""))}
-        </li>
-      );
-      continue;
-    }
-
-    // Empty line
-    if (!line.trim()) {
-      elements.push(<div key={index} className="h-3" />);
-      continue;
-    }
-
-    // Normal paragraph
-    elements.push(
-      <p key={index} className="text-[15px] sm:text-base leading-relaxed text-foreground/90 my-2">
-        {formatInlineText(line)}
-      </p>
-    );
-  }
-
-  if (inTable) flushTable(lines.length);
-
-  return elements;
-}
-
 export default function BlogDetailPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useAuth();
   const slug = params.slug as string;
+
+  const articleRef = useRef<HTMLElement>(null);
 
   const [blog, setBlog] = useState<BlogDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -320,6 +107,14 @@ export default function BlogDetailPage() {
   const [saveToCollectionOpen, setSaveToCollectionOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Interactive Reader Features State
+  const [annotations, setAnnotations] = useState<AnnotationItem[]>([]);
+  const [audioPlayerOpen, setAudioPlayerOpen] = useState(false);
+  const [activeSentenceText, setActiveSentenceText] = useState<string | null>(null);
+  const [annotationsDrawerOpen, setAnnotationsDrawerOpen] = useState(false);
+  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
+  const [quotedTextForModal, setQuotedTextForModal] = useState("");
 
   useEffect(() => {
     if (!slug) return;
@@ -348,6 +143,14 @@ export default function BlogDetailPage() {
         setLiked(Boolean(blg.is_liked));
         setLikeCount(blg.likes_count || 0);
         setBookmarked(Boolean(blg.is_bookmarked));
+
+        // Load annotations for this blog
+        api
+          .get(`/api/blogs/${encodeURIComponent(cleanSlug)}/annotations`)
+          .then((annotRes) => {
+            setAnnotations(annotRes.data.annotations || []);
+          })
+          .catch(() => {});
       })
       .catch((err) => {
         if (err.response?.status === 404) {
@@ -434,6 +237,38 @@ export default function BlogDetailPage() {
     }
   };
 
+  // Annotation handlers
+  const handleHighlightAdded = (newAnnotation: AnnotationItem) => {
+    setAnnotations((prev) => [
+      newAnnotation,
+      ...prev.filter((a) => a.id !== newAnnotation.id),
+    ]);
+  };
+
+  const handleAnnotationDeleted = (id: number) => {
+    setAnnotations((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const handleQuoteRequested = (text: string) => {
+    setQuotedTextForModal(text);
+    setQuoteModalOpen(true);
+  };
+
+  const handleJumpToText = (text: string) => {
+    if (!articleRef.current) return;
+    const marks = articleRef.current.querySelectorAll("mark");
+    for (let i = 0; i < marks.length; i++) {
+      if (marks[i].textContent?.includes(text.slice(0, 30))) {
+        marks[i].scrollIntoView({ behavior: "smooth", block: "center" });
+        marks[i].classList.add("ring-2", "ring-primary");
+        setTimeout(() => {
+          marks[i].classList.remove("ring-2", "ring-primary");
+        }, 2000);
+        return;
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
@@ -474,10 +309,13 @@ export default function BlogDetailPage() {
   })();
 
   return (
-    <div className="min-h-screen pb-24 animate-in fade-in duration-200">
+    <div className="min-h-screen pb-24 animate-in fade-in duration-200 relative">
+      {/* 1. Top Reading Progress Bar */}
+      <BlogReadingProgressBar targetRef={articleRef} showBadge={false} />
+
       {/* Top Sticky Header */}
-      <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border/60 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-border/60 px-4 py-3 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2.5 min-w-0">
           <button
             onClick={() => router.back()}
             className="p-1.5 -ml-1 rounded-md hover:bg-muted transition-colors text-foreground cursor-pointer shrink-0"
@@ -485,19 +323,57 @@ export default function BlogDetailPage() {
           >
             <ArrowLeft className="size-5" />
           </button>
-          <span className="text-sm font-bold text-foreground truncate max-w-[200px] sm:max-w-md">
+          <span className="text-sm font-bold text-foreground truncate max-w-[160px] sm:max-w-xs md:max-w-md">
             {blog.title}
           </span>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Audio Player Quick Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAudioPlayerOpen((prev) => !prev)}
+            className={cn(
+              "h-8 px-2 rounded-md gap-1.5 text-xs font-semibold cursor-pointer",
+              audioPlayerOpen && "text-primary bg-primary/10"
+            )}
+            title={audioPlayerOpen ? "Close audio reader" : "Listen to article"}
+          >
+            <Headphones className="size-4" />
+            <span className="hidden md:inline">Listen</span>
+          </Button>
+
+          {/* Table of Contents Floating Dropdown */}
+          <BlogTableOfContents
+            content={blog.content}
+            variant="floating-popover"
+          />
+
+          {/* Reader Notes & Highlights Drawer Toggle */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAnnotationsDrawerOpen(true)}
+            className={cn(
+              "h-8 px-2 rounded-md gap-1 text-xs font-semibold cursor-pointer",
+              annotations.length > 0 ? "text-amber-500" : "text-muted-foreground hover:text-foreground"
+            )}
+            title="View reader notes and highlights"
+          >
+            <Highlighter className="size-4" />
+            {annotations.length > 0 && (
+              <span className="text-[11px] font-mono">{annotations.length}</span>
+            )}
+          </Button>
+
           {/* Like button in header */}
           <Button
             variant="ghost"
             size="sm"
             onClick={handleLike}
             className={cn(
-              "h-8 px-2.5 rounded-md gap-1.5 text-xs font-semibold",
+              "h-8 px-2.5 rounded-md gap-1.5 text-xs font-semibold cursor-pointer",
               liked && "text-rose-500 hover:text-rose-600"
             )}
           >
@@ -511,8 +387,10 @@ export default function BlogDetailPage() {
             size="sm"
             onClick={handleBookmark}
             className={cn(
-              "size-8 p-0 rounded-md",
-              bookmarked ? "text-brand-bookmark bg-brand-bookmark-subtle" : "text-muted-foreground hover:text-foreground"
+              "size-8 p-0 rounded-md cursor-pointer",
+              bookmarked
+                ? "text-brand-bookmark bg-brand-bookmark-subtle"
+                : "text-muted-foreground hover:text-foreground"
             )}
             title={bookmarked ? "Remove from bookmarks" : "Save to bookmarks"}
           >
@@ -565,8 +443,16 @@ export default function BlogDetailPage() {
         </div>
       </div>
 
-      {/* Blog Content Container */}
-      <article className="px-4 py-6 sm:px-6 max-w-2xl mx-auto">
+      {/* Main Blog Content Container */}
+      <article ref={articleRef} className="px-4 py-6 sm:px-6 max-w-2xl mx-auto relative">
+        {/* Medium-style Floating Text Selection Toolbar */}
+        <BlogTextSelectionToolbar
+          blogId={blog.id}
+          containerRef={articleRef}
+          onHighlightAdded={handleHighlightAdded}
+          onQuoteRequested={handleQuoteRequested}
+        />
+
         {/* Tags */}
         {blog.tags && blog.tags.length > 0 && (
           <div className="flex items-center gap-2 mb-3 flex-wrap">
@@ -587,36 +473,75 @@ export default function BlogDetailPage() {
           {blog.title}
         </h1>
 
-        {/* Author Details Bar */}
-        <div className="flex items-center justify-between py-4 border-y border-border/60 my-5 gap-3">
-          <Link
-            href={`/@${blog.author.username}`}
-            className="flex items-center gap-3 group min-w-0"
-          >
-            <Avatar className="size-11 ring-2 ring-border/40">
-              <AvatarImage src={getAvatarUrl(blog.author.avatar)} alt={blog.author.name} />
-              <AvatarFallback>{getInitials(blog.author.name)}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-sm font-bold text-foreground group-hover:underline truncate">
-                  {blog.author.name}
-                </span>
-                {Boolean(blog.author.verified) && <VerifiedBadge size="sm" />}
-                <UserBadges equippedBadges={blog.author.equipped_badges} size="sm" />
+        {/* Author Details & Audio Listen Bar */}
+        <div className="py-4 border-y border-border/60 my-5 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <Link
+              href={`/@${blog.author.username}`}
+              className="flex items-center gap-3 group min-w-0"
+            >
+              <Avatar className="size-11 ring-2 ring-border/40">
+                <AvatarImage src={getAvatarUrl(blog.author.avatar)} alt={blog.author.name} />
+                <AvatarFallback>{getInitials(blog.author.name)}</AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-bold text-foreground group-hover:underline truncate">
+                    {blog.author.name}
+                  </span>
+                  {Boolean(blog.author.verified) && <VerifiedBadge size="sm" />}
+                  <UserBadges equippedBadges={blog.author.equipped_badges} size="sm" />
+                </div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                  <span>@{blog.author.username}</span>
+                  <span>·</span>
+                  <span>{publishDateFormatted}</span>
+                  <span>·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="size-3" />
+                    {blog.read_time} min read
+                  </span>
+                </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                <span>@{blog.author.username}</span>
-                <span>·</span>
-                <span>{publishDateFormatted}</span>
-                <span>·</span>
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="size-3" />
-                  {blog.read_time} min read
-                </span>
-              </div>
+            </Link>
+
+            {/* Audio Reader Trigger Button in Hero */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAudioPlayerOpen((prev) => !prev)}
+              className={cn(
+                "rounded-full gap-2 text-xs font-semibold h-8 px-3.5 cursor-pointer transition-all",
+                audioPlayerOpen
+                  ? "bg-primary/10 text-primary border-primary/40 shadow-xs"
+                  : "bg-card/70 hover:bg-muted/60 text-foreground"
+              )}
+            >
+              <Headphones className="size-3.5 text-primary" />
+              <span>Listen</span>
+              <span className="text-[10px] text-muted-foreground font-mono">
+                ~{blog.read_time} min
+              </span>
+            </Button>
+          </div>
+
+          {/* Audio Player Embedded / Expanded Box */}
+          {audioPlayerOpen && (
+            <div className="pt-2 animate-in fade-in slide-in-from-top-2 duration-200">
+              <BlogAudioPlayer
+                title={blog.title}
+                content={blog.content}
+                authorName={blog.author.name}
+                onActiveSentenceChange={(idx, text) => {
+                  setActiveSentenceText(text);
+                }}
+                onClose={() => {
+                  setAudioPlayerOpen(false);
+                  setActiveSentenceText(null);
+                }}
+              />
             </div>
-          </Link>
+          )}
         </div>
 
         {/* Cover Image */}
@@ -637,16 +562,30 @@ export default function BlogDetailPage() {
               href={`/series/${blog.series.slug}`}
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-muted/50 hover:bg-muted text-xs font-semibold text-foreground/80 hover:text-foreground border border-border/60 transition-colors"
             >
-              <span className="text-primary font-bold">Part {blog.series.current_part} of {blog.series.total_parts}</span>
+              <span className="text-primary font-bold">
+                Part {blog.series.current_part} of {blog.series.total_parts}
+              </span>
               <span className="text-muted-foreground">in</span>
-              <span className="font-bold underline underline-offset-2">{blog.series.title}</span>
+              <span className="font-bold underline underline-offset-2">
+                {blog.series.title}
+              </span>
             </Link>
           </div>
         )}
 
-        {/* Main Content Render with Syntax Highlighting, YouTube, Twitter & Tables */}
+        {/* 2. Interactive Table of Contents (Inline Card) */}
+        <BlogTableOfContents content={blog.content} variant="inline" />
+
+        {/* 3. Main Rich Content Render with Highlights, Active Spoken Sentence & Anchor Headings */}
         <div className="space-y-1 text-foreground/95 text-[15px] sm:text-base leading-relaxed tracking-normal">
-          <RichBlogContent content={blog.content} />
+          <RichBlogContent
+            content={blog.content}
+            annotations={annotations}
+            activeSentenceText={activeSentenceText}
+            onAnnotationClick={() => {
+              setAnnotationsDrawerOpen(true);
+            }}
+          />
         </div>
 
         {/* Series Navigation Banner (Bottom) */}
@@ -658,7 +597,7 @@ export default function BlogDetailPage() {
 
         {/* Footer actions bar */}
         <div className="flex items-center justify-between py-4 border-t border-border/60 mt-10 gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
@@ -670,7 +609,9 @@ export default function BlogDetailPage() {
             >
               <Heart className={cn("size-4", liked && "fill-current")} />
               <span>{liked ? "Liked" : "Like"}</span>
-              {likeCount > 0 && <span className="text-muted-foreground ml-1">({formatCount(likeCount)})</span>}
+              {likeCount > 0 && (
+                <span className="text-muted-foreground ml-1">({formatCount(likeCount)})</span>
+              )}
             </Button>
 
             <Button
@@ -684,6 +625,23 @@ export default function BlogDetailPage() {
             >
               <Bookmark className={cn("size-4", bookmarked && "fill-current")} />
               <span>{bookmarked ? "Saved" : "Save"}</span>
+            </Button>
+
+            {/* Notes & Highlights Footer Trigger */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setAnnotationsDrawerOpen(true)}
+              className={cn(
+                "rounded-full gap-1.5 text-xs font-semibold h-9 px-4 cursor-pointer",
+                annotations.length > 0 && "text-amber-500 border-amber-500/40 bg-amber-500/5"
+              )}
+            >
+              <Highlighter className="size-4" />
+              <span>Notes</span>
+              {annotations.length > 0 && (
+                <span className="text-muted-foreground font-mono">({annotations.length})</span>
+              )}
             </Button>
           </div>
 
@@ -703,7 +661,11 @@ export default function BlogDetailPage() {
           <Link href={`/@${blog.author.username}`}>
             <Avatar className="size-12 ring-2 ring-primary/20">
               <AvatarImage src={getAvatarUrl(blog.author.avatar)} alt={blog.author.name} />
-              <AvatarFallback className={`font-bold ${getAvatarGradient(blog.author.username || blog.author.name)}`}>
+              <AvatarFallback
+                className={`font-bold ${getAvatarGradient(
+                  blog.author.username || blog.author.name
+                )}`}
+              >
                 {getInitials(blog.author.name)}
               </AvatarFallback>
             </Avatar>
@@ -733,7 +695,37 @@ export default function BlogDetailPage() {
         </div>
       </article>
 
-      {/* Share Dialog (Same as Post Share) */}
+      {/* Reader Annotations & Highlights Drawer */}
+      {blog && (
+        <BlogAnnotationsDrawer
+          open={annotationsDrawerOpen}
+          onOpenChange={setAnnotationsDrawerOpen}
+          blogId={blog.id}
+          annotations={annotations}
+          onAnnotationDeleted={handleAnnotationDeleted}
+          onJumpToText={handleJumpToText}
+        />
+      )}
+
+      {/* Quote Post Modal */}
+      {blog && (
+        <BlogQuotePostModal
+          open={quoteModalOpen}
+          onOpenChange={setQuoteModalOpen}
+          blog={{
+            id: blog.id,
+            title: blog.title,
+            slug: blog.slug,
+            author: {
+              name: blog.author.name,
+              username: blog.author.username,
+            },
+          }}
+          quotedText={quotedTextForModal}
+        />
+      )}
+
+      {/* Share Dialog */}
       {blog && (
         <>
           <ShareDialog
@@ -764,15 +756,13 @@ export default function BlogDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete blog post?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete your blog post &quot;{blog.title}&quot;.
+              This action cannot be undone. This will permanently delete your blog post &quot;
+              {blog.title}&quot;.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleting}
-            >
+            <AlertDialogAction onClick={handleDelete} disabled={deleting}>
               {deleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>

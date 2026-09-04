@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\BlockController;
 use App\Http\Controllers\Api\BlogController;
+use App\Http\Controllers\Api\BlogAnnotationController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BadgeController;
 use App\Http\Controllers\Api\CommunityController;
@@ -156,6 +157,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/blogs/{id}', [BlogController::class, 'destroy']);
     Route::post('/blogs/{id}/like', [BlogController::class, 'toggleLike']);
     Route::post('/blogs/{id}/bookmark', [BlogController::class, 'toggleBookmark']);
+    Route::post('/blogs/{id}/annotations', [BlogAnnotationController::class, 'store']);
+    Route::delete('/blogs/{id}/annotations/{annotationId}', [BlogAnnotationController::class, 'destroy']);
     Route::get('/drafts', [BlogController::class, 'myDrafts']);
 
     // Series (Auth)
@@ -225,6 +228,7 @@ Route::get('/blogs', [BlogController::class, 'index']);
 Route::get('/blogs/topics', [BlogController::class, 'topics']);
 Route::get('/blogs/featured', [BlogController::class, 'featured']);
 Route::get('/blogs/{slugOrId}', [BlogController::class, 'show']);
+Route::get('/blogs/{slugOrId}/annotations', [BlogAnnotationController::class, 'index']);
 
 // Search, Hashtags & Mention suggestions (public)
 Route::get('/search', [SearchController::class, 'search']);
