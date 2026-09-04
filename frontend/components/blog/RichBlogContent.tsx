@@ -186,6 +186,7 @@ export interface RichBlogContentProps {
   content: string;
   annotations?: BlogAnnotationData[];
   activeSentenceText?: string | null;
+  highlightQuery?: string | null;
   onAnnotationClick?: (annotation: BlogAnnotationData) => void;
 }
 
@@ -193,18 +194,37 @@ function renderHighlightedText(
   text: string,
   annotations: BlogAnnotationData[] = [],
   activeSentenceText?: string | null,
+  highlightQuery?: string | null,
   onAnnotationClick?: (annotation: BlogAnnotationData) => void
 ): React.ReactNode {
   if (!text) return null;
 
-  // If no annotations and no active sentence, return standard formatted inline text
+  const cleanHighlight = (highlightQuery || "").trim();
+
+  // If no annotations and no active sentence and no highlight query, return standard formatted inline text
   const matchingAnnotations = (annotations || []).filter(
     (a) => a.highlighted_text && text.includes(a.highlighted_text)
   );
 
   const hasActiveSentence = Boolean(activeSentenceText && text.includes(activeSentenceText));
 
-  if (matchingAnnotations.length === 0 && !hasActiveSentence) {
+  // Check if highlight query matches this text
+  let hasHighlightMatch = false;
+  let matchQuery = cleanHighlight;
+  if (cleanHighlight) {
+    if (text.toLowerCase().includes(cleanHighlight.toLowerCase())) {
+      hasHighlightMatch = true;
+    } else if (cleanHighlight.length > 30) {
+      // If multi-word or long excerpt, try the first 35 chars
+      const chunk = cleanHighlight.slice(0, 35).trim();
+      if (text.toLowerCase().includes(chunk.toLowerCase())) {
+        hasHighlightMatch = true;
+        matchQuery = chunk;
+      }
+    }
+  }
+
+  if (matchingAnnotations.length === 0 && !hasActiveSentence && !hasHighlightMatch) {
     return formatInlineText(text);
   }
 
@@ -213,20 +233,44 @@ function renderHighlightedText(
     (a, b) => b.highlighted_text.length - a.highlighted_text.length
   );
 
-  let segments: Array<{ text: string; isSentence?: boolean; annotation?: BlogAnnotationData }> = [
-    { text },
-  ];
+  let segments: Array<{
+    text: string;
+    isSentence?: boolean;
+    annotation?: BlogAnnotationData;
+    isUrlHighlight?: boolean;
+  }> = [{ text }];
 
-  // 1. Mark active sentence segments
+  // 1. Mark URL Highlight Target
+  if (hasHighlightMatch && matchQuery) {
+    const nextSegs: typeof segments = [];
+    for (const seg of segments) {
+      const lowerText = seg.text.toLowerCase();
+      const lowerQ = matchQuery.toLowerCase();
+      const mIdx = lowerText.indexOf(lowerQ);
+      if (mIdx !== -1) {
+        const before = seg.text.slice(0, mIdx);
+        const match = seg.text.slice(mIdx, mIdx + matchQuery.length);
+        const after = seg.text.slice(mIdx + matchQuery.length);
+        if (before) nextSegs.push({ text: before });
+        nextSegs.push({ text: match, isUrlHighlight: true });
+        if (after) nextSegs.push({ text: after });
+      } else {
+        nextSegs.push(seg);
+      }
+    }
+    segments = nextSegs;
+  }
+
+  // 2. Mark active sentence segments
   if (hasActiveSentence && activeSentenceText) {
     const nextSegs: typeof segments = [];
     for (const seg of segments) {
-      if (seg.text.includes(activeSentenceText)) {
+      if (!seg.isUrlHighlight && seg.text.includes(activeSentenceText)) {
         const parts = seg.text.split(activeSentenceText);
         for (let pIdx = 0; pIdx < parts.length; pIdx++) {
-          if (parts[pIdx]) nextSegs.push({ text: parts[pIdx] });
+          if (parts[pIdx]) nextSegs.push({ text: parts[pIdx], isUrlHighlight: seg.isUrlHighlight });
           if (pIdx < parts.length - 1) {
-            nextSegs.push({ text: activeSentenceText, isSentence: true });
+            nextSegs.push({ text: activeSentenceText, isSentence: true, isUrlHighlight: seg.isUrlHighlight });
           }
         }
       } else {
@@ -236,17 +280,17 @@ function renderHighlightedText(
     segments = nextSegs;
   }
 
-  // 2. Mark annotation highlights
+  // 3. Mark annotation highlights
   for (const annot of sortedAnnotations) {
     const query = annot.highlighted_text;
     const nextSegs: typeof segments = [];
     for (const seg of segments) {
-      if (!seg.annotation && seg.text.includes(query)) {
+      if (!seg.annotation && !seg.isUrlHighlight && seg.text.includes(query)) {
         const parts = seg.text.split(query);
         for (let pIdx = 0; pIdx < parts.length; pIdx++) {
-          if (parts[pIdx]) nextSegs.push({ text: parts[pIdx], isSentence: seg.isSentence });
+          if (parts[pIdx]) nextSegs.push({ text: parts[pIdx], isSentence: seg.isSentence, isUrlHighlight: seg.isUrlHighlight });
           if (pIdx < parts.length - 1) {
-            nextSegs.push({ text: query, annotation: annot, isSentence: seg.isSentence });
+            nextSegs.push({ text: query, annotation: annot, isSentence: seg.isSentence, isUrlHighlight: seg.isUrlHighlight });
           }
         }
       } else {
@@ -258,6 +302,19 @@ function renderHighlightedText(
 
   return segments.map((seg, sIdx) => {
     let node: React.ReactNode = formatInlineText(seg.text);
+
+    if (seg.isUrlHighlight) {
+      node = (
+        <mark
+          key={`url-hl-${sIdx}`}
+          id="url-highlight-target"
+          className="url-highlight-target bg-amber-400/35 dark:bg-amber-500/35 border-b-2 border-amber-500 ring-2 ring-amber-400/60 rounded-xs px-1 py-0.5 font-normal transition-all duration-300"
+          title="Quoted Passage in Story"
+        >
+          {node}
+        </mark>
+      );
+    }
 
     if (seg.annotation) {
       const annot = seg.annotation;
@@ -307,6 +364,7 @@ export function RichBlogContent({
   content,
   annotations = [],
   activeSentenceText = null,
+  highlightQuery = null,
   onAnnotationClick,
 }: RichBlogContentProps) {
   if (!content) return null;
@@ -590,7 +648,13 @@ export function RichBlogContent({
           key={index}
           className="border-l-3 border-primary pl-4 py-2.5 my-5 italic text-foreground/90 bg-primary/5 rounded-r-xl"
         >
-          {formatInlineText(quoteContent)}
+          {renderHighlightedText(
+            quoteContent,
+            annotations,
+            activeSentenceText,
+            highlightQuery,
+            onAnnotationClick
+          )}
         </blockquote>
       );
       continue;
@@ -651,6 +715,7 @@ export function RichBlogContent({
             line.replace(/^[-*]\s+/, ""),
             annotations,
             activeSentenceText,
+            highlightQuery,
             onAnnotationClick
           )}
         </li>
@@ -669,6 +734,7 @@ export function RichBlogContent({
             line.replace(/^\d+\.\s+/, ""),
             annotations,
             activeSentenceText,
+            highlightQuery,
             onAnnotationClick
           )}
         </li>
@@ -685,7 +751,13 @@ export function RichBlogContent({
     // 14. Standard paragraph with Highlights & Active Sentence
     elements.push(
       <p key={index} className="text-[15px] sm:text-base leading-relaxed text-foreground/90 my-2.5">
-        {renderHighlightedText(line, annotations, activeSentenceText, onAnnotationClick)}
+        {renderHighlightedText(
+          line,
+          annotations,
+          activeSentenceText,
+          highlightQuery,
+          onAnnotationClick
+        )}
       </p>
     );
   }

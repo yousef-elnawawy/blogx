@@ -51,16 +51,14 @@ export default function BlogQuotePostModal({
     setSubmitting(true);
 
     try {
-      // Build social post content with blockquote and article attribution
-      const formattedPostContent = [
-        `> "${quotedText.trim()}"`,
-        "",
-        userComment.trim(),
-        "",
-        `📖 [${blog.title}](/blog/${blog.slug}) by @${blog.author.username}`,
-      ]
-        .filter((part) => part !== null && part !== undefined)
-        .join("\n");
+      // Build social post content with interactive Blog Quote Card
+      const parts = [];
+      if (userComment.trim()) {
+        parts.push(userComment.trim());
+      }
+      parts.push(`::blog-quote[${blog.slug}?quote=${encodeURIComponent(quotedText.trim())}]`);
+
+      const formattedPostContent = parts.join("\n\n");
 
       await api.post("/api/posts", {
         content: formattedPostContent,

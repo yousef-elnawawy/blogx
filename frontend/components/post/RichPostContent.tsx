@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import CodeSnippetBlock from "./CodeSnippetBlock";
+import BlogQuoteEmbedCard from "./BlogQuoteEmbedCard";
 import { Info, Sparkles, AlertTriangle, AlertCircle, Quote as QuoteIcon, CheckSquare, Square } from "lucide-react";
 
 interface RichPostContentProps {
@@ -256,9 +257,42 @@ export default function RichPostContent({
 
         while (i < lines.length) {
           const line = lines[i];
+          const trimmedLine = line.trim();
+
+          // Blog Quote Card (e.g. ::blog-quote[slug?quote=encodedQuote])
+          const blogQuoteMatch = trimmedLine.match(/^::blog-quote\[([^?\]]+)(?:\?quote=([^\]]+))?\]$/i);
+          if (blogQuoteMatch) {
+            const blogSlug = blogQuoteMatch[1];
+            const rawQuote = blogQuoteMatch[2] ? decodeURIComponent(blogQuoteMatch[2]) : "";
+            renderedElements.push(
+              <BlogQuoteEmbedCard
+                key={`blog-quote-${sIdx}-${i}`}
+                slug={blogSlug}
+                quote={rawQuote}
+              />
+            );
+            i++;
+            continue;
+          }
+
+          // Standalone Blog Highlight URL (e.g. /blog/slug?highlight=... or https://.../blog/slug?highlight=...)
+          const blogHighlightUrlMatch = trimmedLine.match(/^(?:https?:\/\/[^\s]+)?\/blog(?:s)?\/([a-zA-Z0-9_-]+)\?(?:highlight|quote)=([^\s]+)$/i);
+          if (blogHighlightUrlMatch) {
+            const blogSlug = blogHighlightUrlMatch[1];
+            const rawQuote = decodeURIComponent(blogHighlightUrlMatch[2]);
+            renderedElements.push(
+              <BlogQuoteEmbedCard
+                key={`blog-quote-url-${sIdx}-${i}`}
+                slug={blogSlug}
+                quote={rawQuote}
+              />
+            );
+            i++;
+            continue;
+          }
 
           // Markdown Table detection (starts with | and has at least one more |)
-          if (line.trim().startsWith("|") && line.trim().endsWith("|") && i + 1 < lines.length && lines[i + 1].includes("---")) {
+          if (trimmedLine.startsWith("|") && trimmedLine.endsWith("|") && i + 1 < lines.length && lines[i + 1].includes("---")) {
             let tableLines = [];
             while (i < lines.length && lines[i].trim().startsWith("|") && lines[i].trim().endsWith("|")) {
               tableLines.push(lines[i]);

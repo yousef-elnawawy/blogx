@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState, useRef, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -87,11 +87,13 @@ function formatCount(num: number): string {
   return String(num);
 }
 
-export default function BlogDetailPage() {
+function BlogDetailContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const slug = params.slug as string;
+  const highlightQuery = searchParams.get("highlight") || searchParams.get("quote");
 
   const articleRef = useRef<HTMLElement>(null);
 
@@ -159,6 +161,79 @@ export default function BlogDetailPage() {
       })
       .finally(() => setLoading(false));
   }, [slug]);
+
+  // Auto-scroll and highlight target passage if query parameter (?highlight=... or ?quote=...) is provided
+  useEffect(() => {
+    if (!blog || !highlightQuery) return;
+
+    let targetText = "";
+    try {
+      targetText = decodeURIComponent(highlightQuery).trim();
+    } catch {
+      targetText = highlightQuery.trim();
+    }
+
+    if (!targetText) return;
+
+    const timer = setTimeout(() => {
+      // 1. Try finding by #url-highlight-target element rendered by RichBlogContent
+      let targetEl: HTMLElement | null = document.getElementById("url-highlight-target");
+
+      // 2. Fallback: Search text nodes in articleRef
+      if (!targetEl && articleRef.current) {
+        const walker = document.createTreeWalker(
+          articleRef.current,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+        let currentNode: Node | null;
+        const lowerTarget = targetText.toLowerCase().slice(0, 35);
+        while ((currentNode = walker.nextNode())) {
+          if (
+            currentNode.textContent &&
+            currentNode.textContent.toLowerCase().includes(lowerTarget)
+          ) {
+            targetEl = currentNode.parentElement;
+            break;
+          }
+        }
+      }
+
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+
+        // Highlight with glowing pulse animation
+        targetEl.classList.add(
+          "ring-4",
+          "ring-amber-400",
+          "bg-amber-400/30",
+          "rounded-md",
+          "transition-all",
+          "duration-500",
+          "shadow-lg",
+          "shadow-amber-500/25"
+        );
+
+        toast.info("Jumped to quoted passage in story", {
+          icon: "✨",
+          duration: 4000,
+        });
+
+        const resetTimer = setTimeout(() => {
+          targetEl?.classList.remove(
+            "ring-4",
+            "ring-amber-400",
+            "shadow-lg",
+            "shadow-amber-500/25"
+          );
+        }, 3500);
+
+        return () => clearTimeout(resetTimer);
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [blog, highlightQuery]);
 
   const isOwner = Boolean(
     user && blog?.author?.username && user.username === blog.author.username
@@ -582,6 +657,7 @@ export default function BlogDetailPage() {
             content={blog.content}
             annotations={annotations}
             activeSentenceText={activeSentenceText}
+            highlightQuery={highlightQuery}
             onAnnotationClick={() => {
               setAnnotationsDrawerOpen(true);
             }}
@@ -769,5 +845,20 @@ export default function BlogDetailPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+export default function BlogDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+          <Loader2 className="size-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading story...</p>
+        </div>
+      }
+    >
+      <BlogDetailContent />
+    </Suspense>
   );
 }
